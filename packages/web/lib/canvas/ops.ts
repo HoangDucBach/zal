@@ -17,8 +17,24 @@ export const opLabel = (call: GatedCall): string => {
       return `Pay invoice #${call.invoiceId}`;
     case "withdraw":
       return `Withdraw ${formatUsdc(call.amount)} to ${shortAddress(call.to)}`;
+    case "createSchedule":
+      return call.kind === "payInvoice"
+        ? `Schedule invoice #${call.invoiceId} payment`
+        : `Schedule ${call.runs} × ${formatUsdc(call.amount)} to ${call.recipient === undefined ? "?" : shortAddress(call.recipient)}`;
   }
 };
+
+/** The invoice an op pays, escrows or approves; `undefined` for a withdrawal or a scheduled transfer. */
+export function invoiceOf(call: GatedCall): bigint | undefined {
+  switch (call.fn) {
+    case "withdraw":
+      return undefined;
+    case "createSchedule":
+      return call.invoiceId;
+    default:
+      return call.invoiceId;
+  }
+}
 
 const sameCall = (a: GatedCall, b: GatedCall): boolean =>
   a.fn === b.fn &&

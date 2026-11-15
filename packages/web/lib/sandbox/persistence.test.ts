@@ -16,7 +16,6 @@ describe("sandbox persistence", () => {
         },
         { kind: "mine", timestamp: 11 },
       ],
-      scheduled: ["3"],
     } as const;
 
     expect(decodeSandbox(encodeSandbox(saved))).toEqual(saved);

@@ -35,15 +35,12 @@ const envelopeSchema = z.object({
   codeHash: z.string(),
   offsetSeconds: z.number().int(),
   journal: z.array(entrySchema),
-  /** Invoice ids the keeper settles at their due date. Off-chain, like any keeper's job list. */
-  scheduled: z.array(z.string().regex(/^\d+$/)).default([]),
 });
 
 export interface PersistedSandbox {
   readonly codeHash: string;
   readonly offsetSeconds: number;
   readonly journal: readonly JournalEntry[];
-  readonly scheduled?: readonly string[];
 }
 
 export function encodeSandbox(persisted: PersistedSandbox): string {
@@ -56,9 +53,9 @@ export function decodeSandbox(text: string): PersistedSandbox | undefined {
     const parsed = envelopeSchema.safeParse(JSON.parse(text));
 
     if (!parsed.success) return undefined;
-    const { codeHash, offsetSeconds, journal, scheduled } = parsed.data;
+    const { codeHash, offsetSeconds, journal } = parsed.data;
 
-    return { codeHash, offsetSeconds, journal, scheduled };
+    return { codeHash, offsetSeconds, journal };
   } catch {
     return undefined;
   }

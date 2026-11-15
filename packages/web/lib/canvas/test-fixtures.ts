@@ -23,6 +23,7 @@ export const account = (over: Partial<AccountState> = {}): AccountState => ({
   budgets: [],
   budgetOfInvoice: {},
   ops: [],
+  schedules: [],
   vaultShares: 0n,
   vaultAssets: 0n,
   ...over,

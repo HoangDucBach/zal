@@ -174,10 +174,7 @@ test("Confirm on 'Pay invoice #N' pays the chain's invoice, and the panel shows 
   ).toEqual(["invoice face value"]);
 
   // The real Inspector for that invoice node, with every query already loaded.
-  const graph = buildCanvasGraph(state, {
-    vault: network.addresses.vault,
-    scheduled: [],
-  });
+  const graph = buildCanvasGraph(state, { vault: network.addresses.vault });
   const node = graph.nodes.find(
     (n: any) => n.data.kind === "invoice" && n.data.invoice.id === invoiceId,
   )!;

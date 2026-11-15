@@ -25,7 +25,6 @@ export type SandboxSession =
       readonly now: number;
       readonly botsBusy: boolean;
       readonly user: Address;
-      readonly scheduled: readonly bigint[];
     };
 
 const OFF: SandboxSession = { phase: "off" };
@@ -42,9 +41,9 @@ function emit(next: SandboxSession): void {
 }
 
 function fromRuntime(runtime: SandboxRuntime): SandboxSession {
-  const { now, botsBusy, scheduled } = runtime.getStatus();
+  const { now, botsBusy } = runtime.getStatus();
 
-  return { phase: "ready", now, botsBusy, scheduled, user: runtime.user };
+  return { phase: "ready", now, botsBusy, user: runtime.user };
 }
 
 function sync(): void {
@@ -133,12 +132,6 @@ export async function advanceSandboxTo(timestamp: number): Promise<void> {
 
 export async function askSandboxToPay(invoiceId: bigint): Promise<void> {
   await (await loadRuntime()).askToPay(invoiceId);
-}
-
-export async function scheduleSandboxSettlement(
-  invoiceId: bigint,
-): Promise<void> {
-  (await loadRuntime()).schedule(invoiceId);
 }
 
 export async function cosignSandbox(opId: bigint): Promise<void> {

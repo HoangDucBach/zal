@@ -5,10 +5,12 @@
 
 import type { CanvasNodeData, CanvasNodeKind } from "./graph";
 import type { CanvasState, Invoice } from "./types";
+import type { Address } from "viem";
 
 import { advanceEligibility } from "./advance";
-import { isEscrowBacked, nodeId, nodeTitle, roleIn } from "./graph";
+import { nodeId, nodeTitle, roleIn } from "./graph";
 import { allows, roleForAction, roleReason } from "./roles";
+import { isInvoiceScheduled } from "./schedules";
 
 export const PALETTE_GROUPS = [
   "Root",
@@ -36,7 +38,10 @@ export type CanvasAction =
       readonly budgetId: bigint;
     }
   | { readonly kind: "setPolicy" }
-  | { readonly kind: "schedule"; readonly invoiceId: bigint }
+  /** Pay one approved invoice at a set time (ADR 0015). */
+  | { readonly kind: "schedulePayment"; readonly invoiceId: bigint }
+  /** Pay a fixed amount once or every interval; `recipient` is prefilled from a counterparty. */
+  | { readonly kind: "scheduleTransfer"; readonly recipient?: Address }
   /** `vaultLeg`: the Split form opens with a leg to the Vault added. */
   | { readonly kind: "setRoute"; readonly vaultLeg?: boolean }
   | { readonly kind: "escrow"; readonly invoiceId: bigint }
@@ -77,13 +82,6 @@ export const CATALOGUE = [
 
 export type PaletteComponent = (typeof CATALOGUE)[number]["component"];
 
-export interface PaletteContext {
-  /** A keeper runs on this network and settles scheduled invoices (the sandbox). */
-  readonly keeper: boolean;
-  /** Invoices already handed to the keeper. */
-  readonly scheduled: readonly bigint[];
-}
-
 export interface PaletteEntry {
   readonly component: PaletteComponent;
   readonly group: PaletteGroup;
@@ -122,7 +120,6 @@ function evaluateInvoiceComponent(
   component: "schedule" | "escrow" | "pool",
   state: CanvasState,
   target: Target,
-  context: PaletteContext,
 ): Availability {
   const selected = invoiceTarget(target);
   const noun = {
@@ -166,17 +163,10 @@ function evaluateInvoiceComponent(
       ? blocked("Already escrowed")
       : ready({ kind: "escrow", invoiceId: invoice.id });
 
-  if (!isEscrowBacked(invoice))
-    return blocked("Escrow first · Schedule pays from escrow");
-  if (context.scheduled.includes(invoice.id))
-    return blocked("Already scheduled for the due date");
-  if (!context.keeper)
-    return {
-      status: "unsupported",
-      reason: "No keeper on this network · anyone may settle escrow once due",
-    };
+  if (isInvoiceScheduled(state.account, invoice.id))
+    return blocked("Already scheduled");
 
-  return ready({ kind: "schedule", invoiceId: invoice.id });
+  return ready({ kind: "schedulePayment", invoiceId: invoice.id });
 }
 
 /** Rules that hold whatever the component connects to, or `undefined` when the component may be placed at all. */
@@ -214,10 +204,9 @@ export function evaluate(
   component: PaletteComponent,
   state: CanvasState,
   target: Target,
-  context: PaletteContext,
 ): Availability {
   const availability =
-    precondition(component, state) ?? attach(component, state, target, context);
+    precondition(component, state) ?? attach(component, state, target);
 
   if (availability.status !== "ready") return availability;
   const needed = roleForAction(availability.action);
@@ -232,7 +221,6 @@ function attach(
   component: PaletteComponent,
   state: CanvasState,
   target: Target,
-  context: PaletteContext,
 ): Availability {
   const { account } = state;
 
@@ -313,9 +301,26 @@ function attach(
       });
     }
     case "schedule":
+      if (target?.kind === "invoice")
+        return evaluateInvoiceComponent(component, state, target);
+      if (onCanvas(target)) return ready({ kind: "scheduleTransfer" });
+      if (target?.kind !== "counterparty")
+        return blocked(
+          "Schedule attaches to the Account, a counterparty or an invoice",
+        );
+      if (
+        target.relationship.status === "rejected" ||
+        target.relationship.status === "cancelled"
+      )
+        return blocked(`Relationship ${target.relationship.status}`);
+
+      return ready({
+        kind: "scheduleTransfer",
+        recipient: target.counterparty,
+      });
     case "escrow":
     case "pool":
-      return evaluateInvoiceComponent(component, state, target, context);
+      return evaluateInvoiceComponent(component, state, target);
   }
 }
 
@@ -363,7 +368,6 @@ export function canConnect(
   source: ConnectEnd,
   target: ConnectEnd,
   state: CanvasState,
-  context: PaletteContext,
 ): Connection {
   if (source.kind === "draft" && target.kind === "draft")
     return {
@@ -389,7 +393,7 @@ export function canConnect(
   let reason: string | undefined;
 
   for (const { component, anchor, via } of pairs) {
-    const availability = evaluate(component, state, anchor, context);
+    const availability = evaluate(component, state, anchor);
 
     if (availability.status === "ready") {
       const { action } = availability;
@@ -432,8 +436,10 @@ export function describeAction(action: CanvasAction): string {
       return `Approve invoice #${action.invoiceId} against budget #${action.budgetId}`;
     case "setPolicy":
       return "Set approval policy";
-    case "schedule":
-      return `Settle #${action.invoiceId} from escrow at due date`;
+    case "schedulePayment":
+      return `Pay invoice #${action.invoiceId} at a set time`;
+    case "scheduleTransfer":
+      return "Scheduled transfer · once or recurring";
     case "setRoute":
       return action.vaultLeg === true
         ? "Add a Split leg → Vault"
@@ -457,8 +463,6 @@ export function landsAs(action: CanvasAction): string | undefined {
   switch (action.kind) {
     case "escrow":
       return nodeId.escrow(action.invoiceId);
-    case "schedule":
-      return nodeId.schedule(action.invoiceId);
     case "vaultDeposit":
       return nodeId.vault;
     case "setRoute":
@@ -481,7 +485,7 @@ export const COMPONENT_HINTS: Record<PaletteComponent, string> = {
   invoice: "Invoice NFT · on a counterparty you sell to",
   budget: "Spend cap per 30 days",
   approval: "m of n signatures above a limit",
-  schedule: "Pays an escrowed invoice at its due date",
+  schedule: "On-chain · pay at a time, or every ≥ 1 min",
   stream: "Continuous payout · not in v1",
   split: "Incoming money → hold · transfer · Vault",
   escrow: "Locks face value for an approved invoice you pay",
@@ -498,7 +502,7 @@ export const DRAFT_TARGETS: Record<PaletteComponent, string> = {
   invoice: "a counterparty you sell to",
   budget: "your Account, or an issued invoice you pay",
   approval: "your Account",
-  schedule: "an escrowed invoice you pay",
+  schedule: "your Account, a counterparty, or an approved invoice you pay",
   stream: "nothing · not in v1",
   split: "your Account",
   escrow: "an approved invoice you pay",
@@ -507,13 +511,9 @@ export const DRAFT_TARGETS: Record<PaletteComponent, string> = {
   liquidity: "your Account or the funding pool",
 };
 
-export function palette(
-  state: CanvasState,
-  target: Target,
-  context: PaletteContext,
-): PaletteEntry[] {
+export function palette(state: CanvasState, target: Target): PaletteEntry[] {
   return CATALOGUE.map(({ component, group, title }) => {
-    const availability = evaluate(component, state, target, context);
+    const availability = evaluate(component, state, target);
 
     // With nothing selected, a component that needs a node becomes a draft to place and connect.
     return {

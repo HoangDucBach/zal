@@ -17,7 +17,8 @@ import { Note, Row, attempt, feedback } from "./form-parts";
 import { Amount } from "@/components/ui/amount";
 import { useConfirmOp, useRevokeOp } from "@/hooks/contracts/canvas-account";
 import { opLabel } from "@/lib/canvas/ops";
-import { shortAddress } from "@/lib/format";
+import { cadenceText } from "@/lib/canvas/schedules";
+import { formatDateTime, shortAddress } from "@/lib/format";
 import { cosignSandbox } from "@/lib/sandbox/session";
 
 /** `ownerOf`, the address a payment of this invoice goes to (INV-06). */
@@ -71,9 +72,21 @@ export function SignableOp({
         value={`${op.confirmations} of ${op.required}`}
       />
       <Row
-        label="Amount"
+        label={op.call.fn === "createSchedule" ? "Commits" : "Amount"}
         value={<Amount unit="zUSDC (testnet)" value={op.amount} />}
       />
+      {op.call.fn === "createSchedule" ? (
+        <>
+          {op.call.recipient === undefined ? null : (
+            <Row label="To" value={shortAddress(op.call.recipient)} />
+          )}
+          <Row label="First run" value={formatDateTime(op.call.start)} />
+          <Row
+            label="Runs"
+            value={`${op.call.runs} · ${cadenceText(op.call.interval)}`}
+          />
+        </>
+      ) : null}
       {op.call.fn === "withdraw" ? (
         <Row label="To" value={shortAddress(op.call.to)} />
       ) : invoice === undefined ? null : (

@@ -7,7 +7,7 @@ import { isAddressEqual } from "viem";
 
 import { nodeId } from "./graph";
 
-import { formatUsdc } from "@/lib/format";
+import { formatUsdc, shortAddress } from "@/lib/format";
 
 export const NOTIFICATION_KINDS = [
   "proposalReceived",
@@ -15,7 +15,7 @@ export const NOTIFICATION_KINDS = [
   "signatureNeeded",
   "paymentReceived",
   "advancePaid",
-  "keeperSettled",
+  "scheduleRan",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -31,17 +31,11 @@ export interface CanvasNotification {
   readonly blockNumber: bigint;
 }
 
-export interface NotificationContext {
-  /** Invoices the keeper settles at their due date (sandbox). */
-  readonly scheduled: readonly bigint[];
-}
-
 const usdc = (amount: bigint) => `${formatUsdc(amount)} zUSDC`;
 
 function toNotification(
   item: ActivityItem,
   state: CanvasState,
-  { scheduled }: NotificationContext,
 ): CanvasNotification | undefined {
   const me = state.account.address;
   const { event } = item;
@@ -108,16 +102,29 @@ function toNotification(
           detail: `${usdc(inv.faceValue)} settled through your flow`,
           nodeId: nodeId.invoice(inv.id),
         };
-      if (scheduled.includes(inv.id))
-        return {
-          ...base,
-          kind: "keeperSettled",
-          title: `Keeper settled invoice #${inv.id}`,
-          detail: `${usdc(inv.faceValue)} paid from escrow at due date`,
-          nodeId: nodeId.invoice(inv.id),
-        };
 
       return undefined;
+    }
+    case "ScheduleRan": {
+      // The account's own event, so this canvas is the payer. The payee hears through its own events.
+      const schedule = state.account.schedules.find(
+        (s) => s.id === event.scheduleId,
+      );
+
+      if (schedule === undefined) return undefined;
+      const to =
+        schedule.recipient === undefined
+          ? `invoice #${schedule.invoiceId}`
+          : (state.labels[schedule.recipient] ??
+            shortAddress(schedule.recipient));
+
+      return {
+        ...base,
+        kind: "scheduleRan",
+        title: `Schedule #${schedule.id} ran`,
+        detail: `${usdc(schedule.amount)} to ${to}`,
+        nodeId: nodeId.schedule(schedule.id),
+      };
     }
     case "Advanced": {
       const inv = state.invoices.find((i) => i.id === event.invoiceId);
@@ -142,13 +149,10 @@ function toNotification(
 }
 
 /** Newest first. */
-export function deriveNotifications(
-  state: CanvasState,
-  context: NotificationContext,
-): CanvasNotification[] {
+export function deriveNotifications(state: CanvasState): CanvasNotification[] {
   return state.activity
     .flatMap((item) => {
-      const n = toNotification(item, state, context);
+      const n = toNotification(item, state);
 
       return n === undefined ? [] : [n];
     })

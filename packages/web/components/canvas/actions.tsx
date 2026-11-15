@@ -35,7 +35,9 @@ import {
   type Address,
 } from "viem";
 
+import { SignaturesNote } from "./approval-parts";
 import { Field, Note, Row, Section, attempt, feedback } from "./form-parts";
+import { SchedulePaymentForm, ScheduleTransferForm } from "./schedule-parts";
 
 import {
   useCounterpartyCheck,
@@ -69,14 +71,11 @@ import {
 } from "@/lib/api/invite";
 import { advanceEligibility } from "@/lib/canvas/advance";
 import { Amount, Bps, amountText, bpsText } from "@/components/ui/amount";
-import { formatDate, parseUsdc, shortAddress } from "@/lib/format";
+import { parseUsdc, shortAddress } from "@/lib/format";
 import { SANDBOX_NAMES } from "@/lib/sandbox/config";
 import { toAppError } from "@/lib/query/errors";
 import { queryKeys } from "@/lib/query/keys";
-import {
-  createDemoCounterparty,
-  scheduleSandboxSettlement,
-} from "@/lib/sandbox/session";
+import { createDemoCounterparty } from "@/lib/sandbox/session";
 
 const DAY = 86_400;
 
@@ -95,7 +94,8 @@ export const ACTION_TITLES: Record<CanvasAction["kind"], string> = {
   addBudget: "Add a budget",
   approveInvoice: "Approve against a budget",
   setPolicy: "Approval policy",
-  schedule: "Schedule settlement",
+  schedulePayment: "Schedule the payment",
+  scheduleTransfer: "Scheduled transfer",
   setRoute: "Split",
   escrow: "Escrow the invoice",
   vaultDeposit: "Vault",
@@ -622,12 +622,11 @@ export function ApproveForm({
           Reject
         </Button>
       </div>
-      {state.account.threshold > 1 ? (
-        <Note>
-          Above <Amount value={state.account.approvalLimit} />:{" "}
-          {state.account.threshold} signatures at the Approval node
-        </Note>
-      ) : null}
+      <SignaturesNote
+        account={state.account}
+        amount={invoice?.faceValue}
+        network={network}
+      />
     </div>
   );
 }
@@ -666,7 +665,7 @@ function PolicyForm({ network, state, onDone }: FormProps) {
         onChange={setThreshold}
       />
       <Field
-        label="For payments above, zUSDC"
+        label="One signature up to, per 24 h, zUSDC"
         value={limit}
         onChange={setLimit}
       />
@@ -690,47 +689,8 @@ function PolicyForm({ network, state, onDone }: FormProps) {
       >
         Save policy
       </Button>
+      <Note>Allowance shared by the whole account · rolling 24 h</Note>
       <Note>Saving cancels operations awaiting signatures</Note>
-    </div>
-  );
-}
-
-function ScheduleForm({
-  network,
-  state,
-  onDone,
-  invoiceId,
-}: FormProps & { readonly invoiceId: bigint }) {
-  const [busy, setBusy] = useState(false);
-  const invoice = state.invoices.find((inv) => inv.id === invoiceId);
-
-  return (
-    <div className="flex flex-col gap-2">
-      {invoice === undefined ? null : (
-        <Row label="Settles on" value={formatDate(invoice.dueDate)} />
-      )}
-      <Note>Keeper calls payInvoice at due date · needs no account rights</Note>
-      {network.kind === "sandbox" ? (
-        <Button
-          isPending={busy}
-          size="sm"
-          onPress={async () => {
-            setBusy(true);
-            await attempt(
-              () => scheduleSandboxSettlement(invoiceId),
-              "Scheduled · sandbox keeper settles at due date",
-            );
-            setBusy(false);
-            onDone();
-          }}
-        >
-          Auto-settle at due date
-        </Button>
-      ) : (
-        <Button isDisabled size="sm">
-          Requires a keeper
-        </Button>
-      )}
     </div>
   );
 }
@@ -959,6 +919,11 @@ function EscrowForm({
       >
         Escrow now
       </Button>
+      <SignaturesNote
+        account={state.account}
+        amount={invoice?.faceValue}
+        network={network}
+      />
       <Note>
         Locks face value · anyone settles once due · risk-free advance
       </Note>
@@ -1199,8 +1164,10 @@ export function ActionForm({
       );
     case "setPolicy":
       return <PolicyForm {...props} />;
-    case "schedule":
-      return <ScheduleForm {...props} invoiceId={action.invoiceId} />;
+    case "schedulePayment":
+      return <SchedulePaymentForm {...props} invoiceId={action.invoiceId} />;
+    case "scheduleTransfer":
+      return <ScheduleTransferForm {...props} recipient={action.recipient} />;
     case "setRoute":
       return (
         <>

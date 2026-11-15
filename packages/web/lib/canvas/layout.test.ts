@@ -44,8 +44,7 @@ import {
   state,
 } from "./test-fixtures";
 
-const graphOf = (s: CanvasState, scheduled: readonly bigint[] = []) =>
-  buildCanvasGraph(s, { vault: VAULT, scheduled });
+const graphOf = (s: CanvasState) => buildCanvasGraph(s, { vault: VAULT });
 
 /** A seller with `count` active buyers, one issued invoice each, a Split and a budget: a large canvas. */
 const big = (count: number): CanvasState => {

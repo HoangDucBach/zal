@@ -102,12 +102,15 @@ export async function openSandboxChain(
       throwOnFail: false,
     });
 
-    if (result.errors !== undefined && result.errors.length > 0)
-      throw result.errors[0];
+    // tevm runs the queued call once at the latest block's time, which can be older than the block it is mined in,
+    // so its revert is not final: the receipt below decides, and `send` has already checked at the block's time.
     const hash = result.txHash;
 
     if (hash === undefined)
-      throw new Error("The sandbox did not queue the transaction.");
+      throw (
+        result.errors?.[0] ??
+        new Error("The sandbox did not queue the transaction.")
+      );
     await mineAt(entry.timestamp);
     const receipt = (await request("eth_getTransactionReceipt", [hash])) as {
       status: Hex;
@@ -145,7 +148,9 @@ export async function openSandboxChain(
           timestamp: nextTimestamp(),
         };
 
-        // A failing call is checked first, so a revert neither mines a block nor enters the journal.
+        // A failing call is checked first, so a revert neither mines a block nor enters the journal. It runs at
+        // the block time the transaction will get: blocks come only with transactions, so the latest block can be
+        // minutes older, and a time check (a schedule falling due) would pass there and fail here, or the reverse.
         await request("eth_call", [
           {
             from: tx.from,
@@ -154,6 +159,8 @@ export async function openSandboxChain(
             gas: numberToHex(30_000_000),
           },
           "latest",
+          undefined,
+          { time: numberToHex(entry.timestamp) },
         ]);
         const hash = await apply(entry);
 

@@ -43,6 +43,7 @@ import {
   type PoolState,
   type Relationship,
   type RoutedPayment,
+  type Schedule,
 } from "@/lib/canvas/types";
 
 const FROM = 0n;
@@ -85,6 +86,21 @@ function decodeGated(data: `0x${string}`): GatedCall {
       return { fn: "payInvoice", invoiceId: call.args[0] };
     case "withdraw":
       return { fn: "withdraw", to: call.args[0], amount: call.args[1] };
+    case "createSchedule": {
+      const [kind, recipient, invoiceId, amount, start, interval, runs] =
+        call.args;
+      const terms = {
+        amount,
+        start: Number(start),
+        interval,
+        runs,
+      };
+
+      // The contract ignores the recipient of a PayInvoice and the invoice of a Transfer.
+      return kind === 0
+        ? { fn: "createSchedule", kind: "transfer", recipient, ...terms }
+        : { fn: "createSchedule", kind: "payInvoice", invoiceId, ...terms };
+    }
     default:
       throw new Error(`Unexpected gated call ${call.functionName}`);
   }
@@ -170,6 +186,7 @@ async function readAccount(
       budgets: [],
       budgetOfInvoice: {},
       ops: [],
+      schedules: [],
       vaultShares: 0n,
       vaultAssets: 0n,
     };
@@ -198,6 +215,7 @@ async function readAccount(
     route,
     logs,
     vaultShares,
+    schedules,
   ] = await Promise.all([
     read("threshold") as Promise<number>,
     read("approvalLimit") as Promise<bigint>,
@@ -217,6 +235,7 @@ async function readAccount(
       functionName: "balanceOf",
       args: [account],
     }),
+    readSchedules(client, account),
   ]);
 
   const roles = new Map<string, Member>();
@@ -295,9 +314,50 @@ async function readAccount(
     budgets: budgets.sort((a, b) => Number(a.id - b.id)),
     budgetOfInvoice,
     ops,
+    schedules,
     vaultShares,
     vaultAssets,
   };
+}
+
+const SCHEDULE_KINDS = ["transfer", "payInvoice"] as const;
+
+/** Schedule ids run 1..scheduleCount and are never deleted, so the count enumerates them (ADR 0015). */
+async function readSchedules(
+  client: PublicClient,
+  account: Address,
+): Promise<Schedule[]> {
+  const count = await client.readContract({
+    address: account,
+    abi: canvasAccountAbi,
+    functionName: "scheduleCount",
+  });
+  const ids = Array.from({ length: Number(count) }, (_, i) => BigInt(i + 1));
+
+  return Promise.all(
+    ids.map(async (id): Promise<Schedule> => {
+      const s = await client.readContract({
+        address: account,
+        abi: canvasAccountAbi,
+        functionName: "getSchedule",
+        args: [id],
+      });
+      const kind = SCHEDULE_KINDS[s.kind] ?? "transfer";
+      const base = {
+        id,
+        kind,
+        amount: s.amount,
+        nextAt: Number(s.nextAt),
+        interval: s.interval,
+        remaining: s.remaining,
+        active: s.active,
+      };
+
+      return kind === "transfer"
+        ? { ...base, recipient: s.recipient }
+        : { ...base, invoiceId: s.invoiceId };
+    }),
+  );
 }
 
 async function readPool(

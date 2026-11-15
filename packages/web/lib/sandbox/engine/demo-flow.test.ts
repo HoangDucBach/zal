@@ -49,7 +49,7 @@ async function settle(
 }
 
 /** What the visitor's canvas draws, read the way the page reads it. */
-async function canvas(chain: SandboxChain, scheduled: readonly bigint[] = []) {
+async function canvas(chain: SandboxChain) {
   const client = createPublicClient({
     chain: sandboxChain,
     transport: custom({
@@ -57,7 +57,7 @@ async function canvas(chain: SandboxChain, scheduled: readonly bigint[] = []) {
     }),
   });
   const state = await readCanvasState({ client, addresses: d, wallet: USER });
-  const graph = buildCanvasGraph(state, { vault: d.vault, scheduled });
+  const graph = buildCanvasGraph(state, { vault: d.vault });
   const node = (id: string): CanvasNodeData | undefined =>
     graph.nodes.find((n) => n.id === id)?.data;
 
@@ -351,10 +351,7 @@ describe("sandbox runs the PRD demo on the real bytecode", () => {
       ]),
     );
     expect(
-      deriveNotifications(after7.state, { scheduled: [] }).map((n) => [
-        n.kind,
-        n.nodeId,
-      ]),
+      deriveNotifications(after7.state).map((n) => [n.kind, n.nodeId]),
     ).toEqual([
       ["paymentReceived", "invoice-1"],
       ["advancePaid", "invoice-1"],
@@ -525,35 +522,147 @@ describe("sandbox lets the visitor buy from the print shop and lend as an LP", (
     expect(before - (await balance(chain, account))).toBe(usdc(1_200));
   });
 
-  test("the keeper settles a scheduled invoice at its due date, and only a scheduled one", async () => {
-    const { dueDate } = await invoiceOf(invoiceId);
+  const createSchedule = (args: {
+    kind: 0 | 1;
+    recipient?: Address;
+    invoiceId?: bigint;
+    amount?: bigint;
+    start: number;
+    interval: number;
+    runs: number;
+  }) =>
+    submit(
+      encodeFunctionData({
+        abi: canvasAccountAbi,
+        functionName: "createSchedule",
+        args: [
+          args.kind,
+          args.recipient ?? "0x0000000000000000000000000000000000000000",
+          args.invoiceId ?? 0n,
+          args.amount ?? 0n,
+          BigInt(args.start),
+          args.interval,
+          args.runs,
+        ],
+      }),
+    );
+
+  test("a pay-at schedule is a ghost until co-signed, then the keeper pays the invoice at that time (ZR-SCH-01, ZR-SCH-05)", async () => {
     const shopBefore = await balance(chain, printShop);
+    const start = chain.now() + 120;
 
-    await settle(chain, { scheduled: [invoiceId] });
+    await createSchedule({ kind: 1, invoiceId, start, interval: 0, runs: 1 });
+    const opId = await opCount();
+
+    expect((await canvas(chain)).node(`schedule-op-${opId}`)).toMatchObject({
+      commitment: "ghost",
+      schedule: { status: "pending", kind: "payInvoice", invoiceId },
+    });
+    await cosign(chain, account, opId);
+    expect((await canvas(chain)).node("schedule-1")).toMatchObject({
+      commitment: "solid",
+      schedule: { status: "active", nextAt: start, remaining: 1 },
+    });
+
+    await settle(chain);
     expect((await invoiceOf(invoiceId)).status).toBe(2);
-    expect(
-      (await canvas(chain, [invoiceId])).node(`schedule-${invoiceId}`)
-        ?.commitment,
-    ).toBe("solid");
 
-    await chain.advanceTo(Number(dueDate));
-    await runBots(chain);
-    expect((await invoiceOf(invoiceId)).status).toBe(2);
-
-    await runBots(chain, { scheduled: [invoiceId] });
+    await chain.advanceTo(start);
+    await settle(chain);
     expect((await invoiceOf(invoiceId)).status).toBe(3);
     expect((await balance(chain, printShop)) - shopBefore).toBe(usdc(1_200));
-    const paid = parseEventLogs({
-      abi: zalInvoiceAbi,
-      logs: (await chain.request("eth_getLogs", [
-        { address: d.invoices, fromBlock: "0x0" },
-      ])) as Log[],
-    }).find((l) => l.eventName === "InvoicePaid");
+    const after = await canvas(chain);
 
-    expect(paid?.args).toMatchObject({
-      id: invoiceId,
-      payer: SANDBOX_BOTS.keeper,
+    expect(after.node("schedule-1")).toMatchObject({
+      commitment: "ended",
+      schedule: { status: "ended", remaining: 0 },
     });
+    expect(after.state.activity.map((a) => a.title)).toContain(
+      "Schedule #1 ran",
+    );
+  });
+
+  test("a recurring transfer every 60 s for 3 runs pays 3 times after a day, then ends (ZR-SCH-02, ZR-SCH-06)", async () => {
+    const shopBefore = await balance(chain, printShop);
+    const start = chain.now() + 90;
+
+    await createSchedule({
+      kind: 0,
+      recipient: printShop,
+      amount: usdc(100),
+      start,
+      interval: 60,
+      runs: 3,
+    });
+    const opId = await opCount();
+    const live = await canvas(chain);
+
+    // Priced at amount × runs: 300 is within the 500 USDC limit, so one signature executes it.
+    expect(live.state.account.ops.find((op) => op.opId === opId)).toMatchObject(
+      { amount: usdc(300), executed: true },
+    );
+
+    expect(live.node("schedule-2")).toMatchObject({
+      commitment: "solid",
+      schedule: { kind: "transfer", remaining: 3, interval: 60 },
+    });
+    expect(
+      live.graph.edges.find((e) => e.source === "schedule-2")?.target,
+    ).toBe(`rel-${relId}`);
+
+    await chain.advanceTo(chain.now() + DAY);
+    await settle(chain);
+    expect((await balance(chain, printShop)) - shopBefore).toBe(usdc(300));
+    const done = await canvas(chain);
+
+    expect(done.node("schedule-2")).toMatchObject({
+      commitment: "ended",
+      schedule: { status: "ended", remaining: 0 },
+    });
+    expect(
+      deriveNotifications(done.state).filter((n) => n.kind === "scheduleRan"),
+    ).toHaveLength(4);
+  });
+
+  test("one signature spends at most 500 USDC per 24 h across ops, then the co-signer is needed (ZR-ACC-11, AT-26)", async () => {
+    const withdraw = (amount: bigint) =>
+      submit(
+        encodeFunctionData({
+          abi: canvasAccountAbi,
+          functionName: "withdraw",
+          args: [printShop, amount],
+        }),
+      );
+    const window = async () =>
+      (await read(chain, account, canvasAccountAbi, "spendWindow", [])) as [
+        bigint,
+        bigint,
+        bigint,
+      ];
+
+    await withdraw(usdc(400));
+    expect((await window()).slice(1)).toEqual([usdc(400), usdc(100)]);
+
+    await withdraw(usdc(200));
+    const opId = await opCount();
+
+    expect(
+      (await canvas(chain)).state.account.ops.find((op) => op.opId === opId),
+    ).toMatchObject({ confirmations: 1, required: 2, executed: false });
+
+    await cosign(chain, account, opId);
+    expect(
+      (await canvas(chain)).state.account.ops.find((op) => op.opId === opId),
+    ).toMatchObject({ executed: true });
+    expect((await window())[1]).toBe(usdc(400));
+
+    await chain.advanceTo(chain.now() + DAY);
+    await withdraw(usdc(200));
+    expect(
+      (await canvas(chain)).state.account.ops.find(
+        (op) => op.opId === opId + 1n,
+      ),
+    ).toMatchObject({ confirmations: 1, executed: true });
   });
 
   test("after settlement the print shop issues its next invoice", async () => {

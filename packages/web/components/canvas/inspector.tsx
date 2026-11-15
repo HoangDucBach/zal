@@ -29,7 +29,9 @@ import {
   VaultForm,
   EndpointForm,
 } from "./actions";
+import { PolicyText, SignaturesNote, WindowUsage } from "./approval-parts";
 import { Field, Note, Row, Section, attempt, feedback } from "./form-parts";
+import { ScheduleDetails } from "./schedule-parts";
 import { ApiDiffers, recipientText, SignableOp } from "./signable-op";
 
 import {
@@ -43,7 +45,12 @@ import {
 import { useChainInvoice, useChainOp } from "@/hooks/contracts/chain-op";
 import { useSettleEscrowedInvoice } from "@/hooks/contracts/invoice";
 import { isEscrowBacked } from "@/lib/canvas/graph";
-import { invoiceDisagreement, opDisagreement, opLabel } from "@/lib/canvas/ops";
+import {
+  invoiceDisagreement,
+  invoiceOf,
+  opDisagreement,
+  opLabel,
+} from "@/lib/canvas/ops";
 import { allows } from "@/lib/canvas/roles";
 import { useMintTestUsdc } from "@/hooks/contracts/usdc";
 import { Amount, Bps } from "@/components/ui/amount";
@@ -153,15 +160,13 @@ function AccountDetails({ network, state }: Ctx) {
         value={<Amount unit="zUSDC (testnet)" value={account.balance} />}
       />
       <Row label="Your role here" value={account.myRole} />
-      <Row
-        label="Policy"
-        value={
-          <>
-            {account.threshold} signature(s) above{" "}
-            <Amount value={account.approvalLimit} />
-          </>
-        }
-      />
+      <Row label="Policy" value={<PolicyText account={account} />} />
+      {account.threshold > 1 ? (
+        <Row
+          label="Allowance"
+          value={<WindowUsage account={account} network={network} />}
+        />
+      ) : null}
       {account.vaultAssets > 0n ? (
         <Row
           label="In vault (simulated)"
@@ -335,10 +340,7 @@ function ChainInvoiceDetails({
   const [asking, setAsking] = useState(false);
   const due = state.now >= invoice.dueDate;
   const ops = state.account.ops.filter(
-    (op) =>
-      !op.executed &&
-      op.call.fn !== "withdraw" &&
-      op.call.invoiceId === invoice.id,
+    (op) => !op.executed && invoiceOf(op.call) === invoice.id,
   );
   const admin = allows(state.account.myRole, "admin");
   const signs = allows(state.account.myRole, "approver");
@@ -412,10 +414,15 @@ function ChainInvoiceDetails({
           >
             Pay now
           </Button>
+          <SignaturesNote
+            account={state.account}
+            amount={invoice.faceValue}
+            network={network}
+          />
           <Note>
             One transaction: pool (if financed) → seller&apos;s Split
             {invoice.escrowed === 0n
-              ? " · Escrow or Schedule to lock or automate"
+              ? " · Escrow to lock · Schedule to pay at a time"
               : ""}
           </Note>
         </Section>
@@ -572,12 +579,11 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
         <div className="flex flex-col gap-2">
           <Row
             label="Signatures needed"
-            value={
-              <>
-                {state.account.threshold} above{" "}
-                <Amount value={state.account.approvalLimit} />
-              </>
-            }
+            value={<PolicyText account={state.account} />}
+          />
+          <Row
+            label="Allowance"
+            value={<WindowUsage account={state.account} network={network} />}
           />
           <OpList network={network} ops={state.account.ops} state={state} />
         </div>
@@ -609,20 +615,12 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
       );
     case "schedule":
       return (
-        <div className="flex flex-col gap-2">
-          <Row label="Invoice" value={`#${data.invoice.id}`} />
-          <Row
-            label="Settles"
-            value={
-              data.invoice.status === "paid"
-                ? "settled"
-                : `${formatDate(data.invoice.dueDate)}, ${formatDaysFrom(data.now, data.invoice.dueDate)}`
-            }
-          />
-          <Note>
-            Sandbox keeper pays from escrow at due date · off-chain job
-          </Note>
-        </div>
+        <ScheduleDetails
+          label={data.label}
+          network={network}
+          state={state}
+          view={data.schedule}
+        />
       );
     case "vault":
       return allows(state.account.myRole, "admin") ? (

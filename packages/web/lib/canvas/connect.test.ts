@@ -10,11 +10,9 @@ import {
   palette,
   type ConnectEnd,
   type PaletteComponent,
-  type PaletteContext,
 } from "./palette";
 import { ME, VAULT, account, invoice, rel, state } from "./test-fixtures";
 
-const SANDBOX: PaletteContext = { keeper: true, scheduled: [] };
 const SHOP = "0x00000000000000000000000000000000000000f6" as const;
 
 const budget = {
@@ -88,7 +86,7 @@ const draft = (component: PaletteComponent): ConnectEnd => ({
   component,
 });
 const connect = (source: ConnectEnd, target: ConnectEnd, s = world) =>
-  canConnect(source, target, s, SANDBOX);
+  canConnect(source, target, s);
 
 describe("canConnect: every valid pair opens its action", () => {
   test.each<[string, ConnectEnd, ConnectEnd, string]>([
@@ -164,7 +162,25 @@ describe("canConnect: every valid pair opens its action", () => {
       "escrowed invoice I pay -> draft Schedule",
       node(nodeId.invoice(12n)),
       draft("schedule"),
-      "schedule",
+      "schedulePayment",
+    ],
+    [
+      "approved invoice I pay, not escrowed -> draft Schedule",
+      node(nodeId.invoice(11n)),
+      draft("schedule"),
+      "schedulePayment",
+    ],
+    [
+      "draft Schedule -> counterparty",
+      draft("schedule"),
+      node(nodeId.counterparty(2n)),
+      "scheduleTransfer",
+    ],
+    [
+      "draft Schedule -> Account",
+      draft("schedule"),
+      node(nodeId.account),
+      "scheduleTransfer",
     ],
     [
       "invoice I sell -> draft Funding pool",
@@ -248,10 +264,22 @@ describe("canConnect: invalid pairs say why", () => {
       "Only the buyer escrows",
     ],
     [
-      "draft Schedule -> approved invoice not escrowed",
+      "draft Schedule -> issued invoice I pay",
       draft("schedule"),
-      node(nodeId.invoice(11n)),
-      "Escrow first · Schedule pays from escrow",
+      node(nodeId.invoice(10n)),
+      "Approve the invoice first",
+    ],
+    [
+      "draft Schedule -> invoice I sell",
+      draft("schedule"),
+      node(nodeId.invoice(7n)),
+      "Only the buyer schedules payment",
+    ],
+    [
+      "draft Schedule -> Split",
+      draft("schedule"),
+      node(nodeId.split),
+      "Schedule attaches to the Account, a counterparty or an invoice",
     ],
     [
       "draft Funding pool -> invoice I pay",
@@ -298,20 +326,11 @@ describe("canConnect: invalid pairs say why", () => {
   ])("%s", (_, source, target, reason) => {
     expect(connect(source, target)).toEqual({ ok: false, reason });
   });
-
-  test("a Schedule without a keeper is refused with the keeper reason", () => {
-    expect(
-      canConnect(draft("schedule"), node(nodeId.invoice(12n)), world, {
-        keeper: false,
-        scheduled: [],
-      }),
-    ).toMatchObject({ ok: false, reason: expect.stringContaining("keeper") });
-  });
 });
 
 describe("palette offers drafts with nothing selected", () => {
   test("components that need a node become drafts that say what to connect to", () => {
-    const entries = palette(world, undefined, SANDBOX);
+    const entries = palette(world, undefined);
     const status = Object.fromEntries(
       entries.map((e) => [e.component, e.availability.status]),
     );
@@ -322,7 +341,7 @@ describe("palette offers drafts with nothing selected", () => {
       invoice: "draft",
       escrow: "draft",
       pool: "draft",
-      schedule: "draft",
+      schedule: "ready",
       stream: "unsupported",
       account: "blocked",
     });
@@ -338,10 +357,10 @@ describe("palette offers drafts with nothing selected", () => {
     const invoiceData = node(nodeId.invoice(11n));
 
     if (invoiceData.kind !== "node") throw new Error("unreachable");
-    const ready = palette(world, invoiceData.data, SANDBOX)
+    const ready = palette(world, invoiceData.data)
       .filter((e) => e.availability.status === "ready")
       .map((e) => e.component);
 
-    expect(ready).toEqual(["escrow"]);
+    expect(ready).toEqual(["schedule", "escrow"]);
   });
 });

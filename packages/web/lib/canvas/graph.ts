@@ -15,6 +15,14 @@ import type {
 
 import { isAddressEqual, type Address } from "viem";
 
+import {
+  cadenceText,
+  pendingScheduleNodeId,
+  scheduleNodeId,
+  scheduleViews,
+  type ScheduleView,
+} from "./schedules";
+
 /** Ghost: on-chain but the other side has not committed. Solid: committed. Ended: rejected or cancelled. */
 export type Commitment = "ghost" | "solid" | "ended";
 
@@ -106,10 +114,12 @@ export type CanvasNodeData =
       readonly invoice: Invoice;
     }
   | {
-      /** A keeper job, off-chain like any keeper's list: settle this invoice from escrow at its due date. */
+      /** A payment the account approved ahead of time (ADR 0015); ghost while its op waits for signatures. */
       readonly kind: "schedule";
       readonly commitment: Commitment;
-      readonly invoice: Invoice;
+      readonly schedule: ScheduleView;
+      /** The recipient's display name, when the app knows it. */
+      readonly label: string | undefined;
       readonly now: number;
     }
   | {
@@ -164,13 +174,14 @@ export const nodeId = {
   counterparty: (relId: bigint) => `rel-${relId}`,
   invoice: (id: bigint) => `invoice-${id}`,
   escrow: (id: bigint) => `escrow-${id}`,
-  schedule: (id: bigint) => `schedule-${id}`,
+  schedule: scheduleNodeId,
+  pendingSchedule: pendingScheduleNodeId,
   budget: (id: bigint) => `budget-${id}`,
 } as const;
 
 /**
  * Columns, left to right: the account (Approval above it, budgets below), its Split (the Vault above), the
- * counterparties with their invoices stacked under each, then each invoice's Escrow and Schedule on its row (the
+ * counterparties with their invoices stacked under each, then each invoice's Escrow and Schedules on its row (the
  * pool above them, so an invoice's edge to it never runs through the counterparty stack). One card is 224 px wide, so a 270 px column leaves a gutter for the edges, and the seeded canvas
  * fits a 1280 px laptop screen at a readable zoom with the palette and Inspector open.
  */
@@ -194,13 +205,29 @@ function endedByMe(rel: Relationship, account: Address): boolean {
 
 export interface BuildOptions {
   readonly vault: Address;
-  /** Invoices a keeper settles at their due date. Only the sandbox runs a keeper today. */
-  readonly scheduled?: readonly bigint[];
+}
+
+/** The cadence while money still moves; a finished or cancelled schedule's edge stays quiet. */
+const scheduleEdgeLabel = (view: ScheduleView): string | undefined =>
+  view.status === "active" || view.status === "pending"
+    ? cadenceText(view.interval)
+    : undefined;
+
+function scheduleCommitment(view: ScheduleView): Commitment {
+  switch (view.status) {
+    case "pending":
+      return "ghost";
+    case "active":
+      return "solid";
+    case "ended":
+    case "cancelled":
+      return "ended";
+  }
 }
 
 export function buildCanvasGraph(
   state: CanvasState,
-  { vault, scheduled = [] }: BuildOptions,
+  { vault }: BuildOptions,
 ): CanvasGraph {
   const me = state.account.address;
   const nodes: CanvasNodeSpec[] = [];
@@ -217,6 +244,53 @@ export function buildCanvasGraph(
     },
   });
   if (!state.account.exists) return { nodes, edges, inbox };
+
+  const pushSchedule = (
+    view: ScheduleView,
+    position: { x: number; y: number },
+  ) =>
+    nodes.push({
+      id: view.nodeId,
+      position,
+      data: {
+        kind: "schedule",
+        commitment: scheduleCommitment(view),
+        schedule: view,
+        label:
+          view.recipient === undefined
+            ? undefined
+            : state.labels[view.recipient],
+        now: state.now,
+      },
+    });
+  const unplaced = new Set(scheduleViews(state.account));
+  /**
+   * Places each schedule `match` picks on the row at `y`, from column `firstColumn` rightwards, with an edge to
+   * `target`: a PayInvoice beside its invoice, a Transfer beside the counterparty it pays.
+   */
+  const placeSchedules = (
+    match: (view: ScheduleView) => boolean,
+    target: string,
+    firstColumn: number,
+    y: number,
+  ) => {
+    let column = firstColumn;
+
+    for (const view of unplaced) {
+      if (!match(view)) continue;
+      unplaced.delete(view);
+      pushSchedule(view, { x: COLUMN * column, y });
+      column += 1;
+      edges.push({
+        id: `${view.nodeId}-${target}`,
+        source: view.nodeId,
+        target,
+        label: scheduleEdgeLabel(view),
+        ghost: view.status === "pending",
+        flow: "money",
+      });
+    }
+  };
 
   const route = state.account.route;
 
@@ -328,6 +402,15 @@ export function buildCanvasGraph(
       ghost: commitment !== "solid",
       flow: "link",
     });
+    placeSchedules(
+      (view) =>
+        view.kind === "transfer" &&
+        view.recipient !== undefined &&
+        isAddressEqual(view.recipient, counterparty),
+      relNode,
+      3,
+      relRow,
+    );
 
     invoices.forEach((invoice, index) => {
       const id = nodeId.invoice(invoice.id);
@@ -414,32 +497,29 @@ export function buildCanvasGraph(
         });
       }
 
-      if (myRole === "buyer" && scheduled.includes(invoice.id)) {
-        // Solid once the keeper can act on it: escrowed and approved, or already settled.
-        const ready = invoice.status === "paid" || isEscrowBacked(invoice);
-
-        nodes.push({
-          id: nodeId.schedule(invoice.id),
-          position: { x: COLUMN * (invoice.escrowed > 0n ? 4 : 3), y },
-          data: {
-            kind: "schedule",
-            commitment: ready ? "solid" : "ghost",
-            invoice,
-            now: state.now,
-          },
-        });
-        edges.push({
-          id: `${id}-schedule`,
-          source: nodeId.schedule(invoice.id),
-          target: id,
-          label: "at due date",
-          ghost: !ready,
-          flow: "link",
-        });
-      }
+      if (myRole === "buyer")
+        placeSchedules(
+          (view) => view.kind === "payInvoice" && view.invoiceId === invoice.id,
+          id,
+          invoice.escrowed > 0n ? 4 : 3,
+          y,
+        );
     });
     row += (1 + invoices.length) * BELOW + STACK_GAP;
   }
+
+  // The rest pay an address with no counterparty node here: below the Split, paid from the Account.
+  [...unplaced].forEach((view, index) => {
+    pushSchedule(view, { x: COLUMN, y: ROW + index * BELOW });
+    edges.push({
+      id: `account-${view.nodeId}`,
+      source: nodeId.account,
+      target: view.nodeId,
+      label: scheduleEdgeLabel(view),
+      ghost: view.status === "pending",
+      flow: "money",
+    });
+  });
 
   const financed = state.invoices.filter(
     (inv) => inv.status === "approved" && isFunded(inv, state.pool.address),
@@ -499,7 +579,9 @@ export function nodeTitle(data: CanvasNodeData): string {
     case "escrow":
       return `Escrow #${data.invoice.id}`;
     case "schedule":
-      return `Schedule #${data.invoice.id}`;
+      return data.schedule.id === undefined
+        ? `Schedule (op #${data.schedule.opId})`
+        : `Schedule #${data.schedule.id}`;
     case "vault":
       return "Vault";
     case "pool":

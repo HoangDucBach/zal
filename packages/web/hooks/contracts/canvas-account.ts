@@ -6,6 +6,7 @@
 
 import type { ZalNetwork } from "@/config/chains";
 import type { GatedCall } from "@/lib/canvas/types";
+import type { SpendWindow } from "@/lib/canvas/spend-window";
 import type {
   MutationProps,
   MutationResult,
@@ -20,6 +21,7 @@ import {
   type ContractFunctionArgs,
   type Hex,
   type PublicClient,
+  zeroAddress,
 } from "viem";
 import { useConfig, type Config } from "wagmi";
 import { getPublicClient } from "wagmi/actions";
@@ -193,6 +195,20 @@ export function encodeGatedCall(call: GatedCall): Hex {
         functionName: call.fn,
         args: [call.to, call.amount],
       });
+    case "createSchedule":
+      return encodeFunctionData({
+        abi: canvasAccountAbi,
+        functionName: call.fn,
+        args: [
+          call.kind === "transfer" ? 0 : 1,
+          call.recipient ?? zeroAddress,
+          call.invoiceId ?? 0n,
+          call.amount,
+          BigInt(call.start),
+          call.interval,
+          call.runs,
+        ],
+      });
   }
 }
 
@@ -219,6 +235,18 @@ export function useSubmitOp({
       }),
   });
 }
+
+/** One Approver or Admin stops a schedule (ZR-SCH-04). */
+export const useCancelSchedule = ({
+  network,
+  options,
+}: CallProps<"cancelSchedule">) =>
+  useAccountCall("cancelSchedule", network, options);
+/** Runs a due schedule; any wallet may (ZR-SCH-05), and the run pays only what the schedule stores. */
+export const useRunSchedule = ({
+  network,
+  options,
+}: CallProps<"runSchedule">) => useAccountCall("runSchedule", network, options);
 
 export const useConfirmOp = ({ network, options }: CallProps<"confirm">) =>
   useAccountCall("confirm", network, options);
@@ -269,6 +297,44 @@ export function useAccountPolicy({
           ]);
 
         return { threshold, approvalLimit, policyNonce, opCount };
+      } catch (error) {
+        throw toAppError(error);
+      }
+    },
+  });
+}
+
+/**
+ * `spendWindow()` of one account, read from the chain whatever the canvas source (ADR 0012: the API is a read model,
+ * and this decides how many signatures an op needs). Shares the account's key, so its events refresh it.
+ */
+export function useSpendWindow({
+  payload,
+  options,
+}: QueryProps<
+  { readonly network: ZalNetwork | undefined; readonly account: Address },
+  SpendWindow
+>): QueryResult<SpendWindow> {
+  const config = useConfig();
+  const { network, account } = payload;
+  const chainId = network?.chain.id ?? 0;
+
+  return useQuery<SpendWindow, AppError>({
+    ...options,
+    enabled: network !== undefined && (options?.enabled ?? true),
+    queryKey: [...queryKeys.account(chainId, account), "spendWindow"],
+    queryFn: async () => {
+      try {
+        const client = getPublicClient(config, {
+          chainId: chainId as never,
+        }) as PublicClient;
+        const [start, spent, remaining] = await client.readContract({
+          address: account,
+          abi: canvasAccountAbi,
+          functionName: "spendWindow",
+        });
+
+        return { start: Number(start), spent, remaining };
       } catch (error) {
         throw toAppError(error);
       }

@@ -26,8 +26,8 @@ const item = (event: ActivityEvent): ActivityItem => {
   };
 };
 
-const kinds = (s: CanvasState, scheduled: readonly bigint[] = []) =>
-  deriveNotifications(s, { scheduled }).map((n) => [n.kind, n.nodeId]);
+const kinds = (s: CanvasState) =>
+  deriveNotifications(s).map((n) => [n.kind, n.nodeId]);
 
 describe("notifications from the event stream", () => {
   test("a proposal from someone else is news; my own proposal is not", () => {
@@ -42,7 +42,7 @@ describe("notifications from the event stream", () => {
     });
 
     expect(kinds(fromClub)).toEqual([["proposalReceived", "rel-1"]]);
-    expect(deriveNotifications(fromClub, { scheduled: [] })[0]?.title).toBe(
+    expect(deriveNotifications(fromClub)[0]?.title).toBe(
       "Demo club proposed a relationship",
     );
     expect(kinds(mine)).toEqual([]);
@@ -90,7 +90,7 @@ describe("notifications from the event stream", () => {
     ).toEqual([]);
   });
 
-  test("the seller hears about the advance and the payment; a buyer hears when the keeper settled", () => {
+  test("the seller hears about the advance and the payment; a buyer hears when a schedule ran", () => {
     const sold = state({
       invoices: [
         invoice({
@@ -109,7 +109,7 @@ describe("notifications from the event stream", () => {
       ["paymentReceived", "invoice-7"],
       ["advancePaid", "invoice-7"],
     ]);
-    expect(deriveNotifications(sold, { scheduled: [] })[1]?.detail).toBe(
+    expect(deriveNotifications(sold)[1]?.detail).toBe(
       "3,950.00 zUSDC from the funding pool",
     );
 
@@ -118,8 +118,32 @@ describe("notifications from the event stream", () => {
       activity: [item({ name: "InvoicePaid", invoiceId: 7n })],
     });
 
-    expect(kinds(bought, [7n])).toEqual([["keeperSettled", "invoice-7"]]);
     expect(kinds(bought)).toEqual([]);
+
+    const ran = state({
+      account: account({
+        schedules: [
+          {
+            id: 2n,
+            kind: "transfer",
+            recipient: CLUB,
+            amount: 100_000_000n,
+            nextAt: 120,
+            interval: 60,
+            remaining: 2,
+            active: true,
+          },
+        ],
+      }),
+      activity: [item({ name: "ScheduleRan", scheduleId: 2n })],
+      labels: { [CLUB]: "Demo club" },
+    });
+
+    expect(kinds(ran)).toEqual([["scheduleRan", "schedule-2"]]);
+    expect(deriveNotifications(ran)[0]).toMatchObject({
+      title: "Schedule #2 ran",
+      detail: "100.00 zUSDC to Demo club",
+    });
   });
 
   test("events that are not news (my own route change, approvals I made) are left out", () => {
@@ -152,8 +176,8 @@ describe("notifications from the event stream", () => {
         item({ name: "InvoiceIssued", invoiceId: 8n }),
       ],
     });
-    const before = deriveNotifications(s1, { scheduled: [] });
-    const after = deriveNotifications(s2, { scheduled: [] });
+    const before = deriveNotifications(s1);
+    const after = deriveNotifications(s2);
 
     expect(arrivals(before, after).map((n) => n.nodeId)).toEqual(["invoice-8"]);
     expect(arrivals(after, after)).toEqual([]);
@@ -173,7 +197,6 @@ describe("read state per wallet", () => {
         invoices: [invoice({ buyer: ME, seller: CLUB })],
         activity: [item({ name: "InvoiceIssued", invoiceId: 7n })],
       }),
-      { scheduled: [] },
     );
     const key = feed[0]?.key ?? "";
 

@@ -133,10 +133,7 @@ export function sellerDemo(state: CanvasState): DemoTrack {
 }
 
 /** The roles the sandbox adds beyond the PRD script: buying from the print shop, and lending as an LP. */
-export function buyerAndLpDemo(
-  state: CanvasState,
-  scheduled: readonly bigint[],
-): DemoTrack {
+export function buyerAndLpDemo(state: CanvasState): DemoTrack {
   const me = state.account.address;
   const buying = state.relationships.filter(
     (rel) => isAddressEqual(rel.buyer, me) && !isAddressEqual(rel.proposer, me),
@@ -192,11 +189,11 @@ export function buyerAndLpDemo(
       focus: invoiceNode,
     },
     {
-      title: "Schedule it: the keeper settles at the due date",
-      done: bought.some(
-        (inv) => inv.status === "paid" && scheduled.includes(inv.id),
+      title: "Schedule its payment: the keeper runs it on-chain",
+      done: state.account.schedules.some(
+        (s) => s.kind === "payInvoice" && s.remaining === 0,
       ),
-      hint: "Schedule → escrowed invoice · jump to due date · keeper pays",
+      hint: "Schedule → approved invoice · pay at ≥ 1 min · jump past it",
       focus: invoiceNode,
     },
     {

@@ -192,6 +192,12 @@ const REASONS: Readonly<Record<ZalErrorName, string>> = {
   // ZalVault
   NotOwnerOrKeeper: "Only the vault owner or keeper can do that",
   ZeroAmount: "The amount must be more than zero",
+  ScheduleStartTooSoon: "Start at least 1 minute from now",
+  InvalidScheduleTiming: "Once, or every ≥ 1 min for 1–1000 runs",
+  InvalidScheduleRecipient: "Recipient must be another address",
+  InvoiceNotSchedulable: "Only an approved invoice you pay",
+  ScheduleNotActive: "Schedule ended or cancelled",
+  ScheduleNotDue: "Not due yet",
   // Shared library errors
   OwnableInvalidOwner: "That owner address is not valid",
   OwnableUnauthorizedAccount: "Only the contract owner can do that",

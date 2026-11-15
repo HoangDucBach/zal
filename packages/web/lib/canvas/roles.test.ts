@@ -4,11 +4,9 @@ import type { MemberRole } from "./types";
 import { describe, expect, test } from "vitest";
 
 import { buildCanvasGraph, nodeId } from "./graph";
-import { canConnect, palette, type PaletteContext } from "./palette";
+import { canConnect, palette } from "./palette";
 import { allows, ROLE_FOR_CALL } from "./roles";
 import { VAULT, account, invoice, rel, state } from "./test-fixtures";
-
-const LIVE: PaletteContext = { keeper: false, scheduled: [] };
 
 /** A canvas that buys from CLUB: an issued invoice to approve, a budget to charge, two members. */
 const buyer = (myRole: MemberRole) =>
@@ -63,7 +61,7 @@ const ready = (
   s: ReturnType<typeof buyer>,
   target = undefined as ReturnType<typeof invoiceNode> | undefined,
 ) =>
-  palette(s, target, LIVE)
+  palette(s, target)
     .filter(
       (e) =>
         e.availability.status === "ready" || e.availability.status === "draft",
@@ -78,11 +76,11 @@ describe("member roles", () => {
     expect(ready(s, invoiceNode(s))).toEqual([]);
   });
 
-  test("an approver approves an invoice it pays against a budget, and nothing an admin signs", () => {
+  test("an approver approves an invoice it pays against a budget and schedules payments, and nothing an admin signs", () => {
     const s = buyer("approver");
 
     expect(ready(s, invoiceNode(s))).toEqual(["budget"]);
-    expect(ready(s)).toEqual(["liquidity"]);
+    expect(ready(s)).toEqual(["schedule", "liquidity"]);
   });
 
   test("an admin keeps every action", () => {
@@ -105,7 +103,6 @@ describe("member roles", () => {
         { kind: "node", data: budget },
         { kind: "node", data: invoiceNode(s) },
         s,
-        LIVE,
       ),
     ).toEqual({
       ok: false,
@@ -113,17 +110,23 @@ describe("member roles", () => {
     });
   });
 
-  test("the write gate matches the contract: approvers confirm, revoke and submit; admins do the rest", () => {
+  test("the write gate matches the contract: approvers sign, submit and cancel schedules; anyone runs one; admins do the rest", () => {
     const approverCalls = Object.entries(ROLE_FOR_CALL)
       .filter(([, needed]) => allows("approver", needed))
       .map(([call]) => call)
       .sort();
 
-    expect(approverCalls).toEqual(["confirm", "revoke", "submit"]);
+    expect(approverCalls).toEqual([
+      "cancelSchedule",
+      "confirm",
+      "revoke",
+      "runSchedule",
+      "submit",
+    ]);
     expect(
       Object.keys(ROLE_FOR_CALL).filter((call) =>
         allows("viewer", ROLE_FOR_CALL[call as keyof typeof ROLE_FOR_CALL]),
       ),
-    ).toEqual([]);
+    ).toEqual(["runSchedule"]);
   });
 });

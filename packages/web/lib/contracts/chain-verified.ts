@@ -7,6 +7,7 @@ import type { Invoice, PendingOp } from "@/lib/canvas/types";
 
 import { type Address, type PublicClient } from "viem";
 
+import { invoiceOf } from "@/lib/canvas/ops";
 import { readInvoice, readOp } from "@/lib/contracts/canvas-reads";
 
 declare const fromChain: unique symbol;
@@ -17,7 +18,7 @@ const verified = <T>(value: T) => value as ChainVerified<T>;
 /** A pending op and, for an invoice op, the invoice it acts on: what Confirm moves and who it pays. */
 export interface ChainOp {
   readonly op: PendingOp;
-  /** `undefined` for a withdrawal, which names its amount and recipient in the call. */
+  /** `undefined` for a withdrawal or a scheduled transfer, which name their amount and recipient in the call. */
   readonly invoice: Invoice | undefined;
 }
 
@@ -41,10 +42,11 @@ export async function readChainOp(
   const op = await readOp(client, account, opId, wallet);
 
   if (op === undefined) return undefined;
+  const invoiceId = invoiceOf(op.call);
   const invoice =
-    op.call.fn === "withdraw"
+    invoiceId === undefined
       ? undefined
-      : await readInvoice(client, addresses, op.call.invoiceId);
+      : await readInvoice(client, addresses, invoiceId);
 
   return verified({ op, invoice });
 }

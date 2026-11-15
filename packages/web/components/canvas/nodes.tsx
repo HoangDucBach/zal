@@ -10,6 +10,7 @@ import type { Node, NodeProps, NodeTypes } from "@xyflow/react";
 import type { CanvasNodeData, Commitment } from "@/lib/canvas/graph";
 import type { Draft, GateSummary, PortData } from "@/lib/canvas/layout";
 import type { Connection } from "@/lib/canvas/palette";
+import type { ZalNetwork } from "@/config/chains";
 
 import { Button, Card, Chip, Tooltip } from "@heroui/react";
 import {
@@ -30,18 +31,34 @@ import {
 import { Handle, Position, useConnection } from "@xyflow/react";
 import { Fragment, createContext, use, useRef, useState } from "react";
 
+import { UsageText, approverCount, useAccountWindow } from "./approval-parts";
 import { COMPONENT_ICONS } from "./palette";
+import {
+  RunScheduleButton,
+  ScheduleStatusChip,
+  recipientText,
+  useScheduleClock,
+} from "./schedule-parts";
 
 import { HANDLE, PORT_LABELS } from "@/lib/canvas/layout";
 import { CATALOGUE, DRAFT_TARGETS, describeAction } from "@/lib/canvas/palette";
 import { Amount, Bps } from "@/components/ui/amount";
-import { formatDaysFrom, shortAddress } from "@/lib/format";
+import { cadenceText, committed } from "@/lib/canvas/schedules";
+import {
+  formatDateTime,
+  formatDaysFrom,
+  formatTimeFrom,
+  shortAddress,
+} from "@/lib/format";
 
 type Data<K extends CanvasNodeData["kind"]> = Extract<
   CanvasNodeData,
   { kind: K }
 >;
 type Props<K extends CanvasNodeData["kind"]> = NodeProps<Node<Data<K>>>;
+
+/** The network the canvas acts on, for the few cards that send a transaction themselves (Run now). */
+export const CanvasNetwork = createContext<ZalNetwork | undefined>(undefined);
 
 /** What a gate's Open button does: the canvas provides it, so a node card stays a plain view. */
 export const GateActions = createContext<{
@@ -440,19 +457,28 @@ function BudgetNode({ id, data, selected }: Props<"budget">) {
 
 function ApprovalNode({ id, data, selected }: Props<"approval">) {
   const { account } = data;
+  const window = useAccountWindow(use(CanvasNetwork), account);
   const pending = account.ops.filter((op) => !op.executed && !op.stale).length;
-  const approvers = account.members.filter(
-    (m) => m.role === "admin" || m.role === "approver",
-  ).length;
 
   return (
     <Frame
       chips={
-        pending > 0 ? (
-          <Chip color="accent" size="sm" variant="soft">
-            {pending} waiting
-          </Chip>
-        ) : undefined
+        <>
+          {account.threshold < 2 || window.data === undefined ? null : (
+            <Chip size="sm" variant="tertiary">
+              <UsageText
+                account={account}
+                spent={window.data.spent}
+                unit={null}
+              />
+            </Chip>
+          )}
+          {pending > 0 ? (
+            <Chip color="accent" size="sm" variant="soft">
+              {pending} waiting
+            </Chip>
+          ) : null}
+        </>
       }
       commitment="solid"
       icon={<ShieldCheckIcon {...ICON} />}
@@ -460,8 +486,8 @@ function ApprovalNode({ id, data, selected }: Props<"approval">) {
       selected={selected}
       subtitle={
         <>
-          {account.threshold} of {approvers} sign above{" "}
-          <Amount value={account.approvalLimit} />
+          {account.threshold} of {approverCount(account)} above{" "}
+          <Amount unit={null} value={account.approvalLimit} />
         </>
       }
       title="Approval"
@@ -522,28 +548,53 @@ function EscrowNode({ id, data, selected }: Props<"escrow">) {
 }
 
 function ScheduleNode({ id, data, selected }: Props<"schedule">) {
-  const { invoice, commitment, now } = data;
+  const { schedule: view, commitment, label } = data;
+  const { now, keeper } = useScheduleClock();
+  const network = use(CanvasNetwork);
+  const live = view.status === "active" || view.status === "pending";
 
   return (
     <Frame
       chips={
         <>
-          <CommitmentChip commitment={commitment} />
-          <Chip size="sm" variant="secondary">
-            keeper (sandbox)
-          </Chip>
+          <ScheduleStatusChip view={view} />
+          {live ? (
+            <>
+              <Chip size="sm" variant="secondary">
+                {view.remaining} left
+              </Chip>
+              <Chip size="sm" variant="secondary">
+                <Amount precision="cents" unit={null} value={committed(view)} />{" "}
+                committed
+              </Chip>
+              <span className="w-full text-xs text-muted">
+                Next {formatTimeFrom(now, view.nextAt)} ·{" "}
+                {formatDateTime(view.nextAt)}
+              </span>
+            </>
+          ) : null}
+          {view.status === "active" && keeper === "offline" ? (
+            <Chip color="warning" size="sm" variant="soft">
+              Keeper offline · run manually
+            </Chip>
+          ) : null}
+          {network === undefined ? null : (
+            <RunScheduleButton network={network} view={view} />
+          )}
         </>
       }
-      commitment={commitment}
+      // A schedule that ran all its runs is done, not refused: faded, without the danger tile of a cancel.
+      commitment={view.status === "ended" ? "ghost" : commitment}
       icon={<ClockCircleIcon {...ICON} />}
       id={id}
       selected={selected}
-      subtitle={`Invoice #${invoice.id} · ${
-        invoice.status === "paid"
-          ? "settled"
-          : `settles ${formatDaysFrom(now, invoice.dueDate)}`
-      }`}
-      title="Schedule"
+      subtitle={
+        <>
+          <Amount value={view.amount} /> → {recipientText(view, label)} ·{" "}
+          {cadenceText(view.interval)}
+        </>
+      }
+      title={view.id === undefined ? "Schedule" : `Schedule #${view.id}`}
     />
   );
 }

@@ -89,7 +89,7 @@ export function NotificationsProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { wallet, network, selected, canvas, scheduled } = useCanvasView();
+  const { wallet, network, selected, canvas } = useCanvasView();
   const href = useAppHref();
   const key =
     wallet === undefined || network === undefined
@@ -125,10 +125,8 @@ export function NotificationsProvider({
   });
   const derived = useMemo(
     () =>
-      canvas.data === undefined
-        ? undefined
-        : deriveNotifications(canvas.data, { scheduled }),
-    [canvas.data, scheduled],
+      canvas.data === undefined ? undefined : deriveNotifications(canvas.data),
+    [canvas.data],
   );
   // While the API is down the canvas falls back to the chain, and so does the feed.
   const feed =

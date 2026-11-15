@@ -83,3 +83,19 @@ export function formatDaysFrom(now: number, then: number): string {
     ? `in ${days} day${days === 1 ? "" : "s"}`
     : `${-days} day${days === -1 ? "" : "s"} ago`;
 }
+
+/** Time from `now` to `then` in the largest whole unit: "in 3 min", "in 2 h", "in 4 d", "now", "5 min ago". */
+export function formatTimeFrom(now: number, then: number): string {
+  const diff = then - now;
+  const size = Math.abs(diff);
+
+  if (size < 60) return diff > 0 ? "in < 1 min" : "now";
+  const [count, unit] =
+    size < 3_600
+      ? [Math.floor(size / 60), "min"]
+      : size < 86_400
+        ? [Math.floor(size / 3_600), "h"]
+        : [Math.floor(size / 86_400), "d"];
+
+  return diff > 0 ? `in ${count} ${unit}` : `${count} ${unit} ago`;
+}

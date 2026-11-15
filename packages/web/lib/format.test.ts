@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   formatBps,
   formatDaysFrom,
+  formatTimeFrom,
   formatNative,
   formatUsdc,
   parseUsdc,
@@ -38,5 +39,14 @@ describe("amount formatting", () => {
     expect(formatDaysFrom(0, 30 * 86_400)).toBe("in 30 days");
     expect(formatDaysFrom(86_400, 0)).toBe("1 day ago");
     expect(formatDaysFrom(100, 100)).toBe("today");
+  });
+
+  test("time from now picks the largest whole unit, down to the minute", () => {
+    expect(formatTimeFrom(0, 30)).toBe("in < 1 min");
+    expect(formatTimeFrom(0, 0)).toBe("now");
+    expect(formatTimeFrom(0, 125)).toBe("in 2 min");
+    expect(formatTimeFrom(0, 7_200)).toBe("in 2 h");
+    expect(formatTimeFrom(0, 3 * 86_400)).toBe("in 3 d");
+    expect(formatTimeFrom(300, 0)).toBe("5 min ago");
   });
 });

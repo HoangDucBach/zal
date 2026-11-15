@@ -53,9 +53,16 @@ import { Inbox } from "./inbox";
 import { Inspector, type InspectorSubject } from "./inspector";
 import { LiveBar } from "./live-bar";
 import { NodeMenu } from "./node-menu";
-import { ConnectRules, GateActions, NODE_ICONS, nodeTypes } from "./nodes";
+import {
+  CanvasNetwork,
+  ConnectRules,
+  GateActions,
+  NODE_ICONS,
+  nodeTypes,
+} from "./nodes";
 import { CHILD_CANVAS, DRAG_TYPE, Palette } from "./palette";
 import { SandboxClock } from "./sandbox-clock";
+import { ScheduleClock } from "./schedule-parts";
 import { Timeline } from "./timeline";
 import { ToolBar, type PointerMode } from "./tool-bar";
 
@@ -63,6 +70,7 @@ import { useNotifications } from "@/components/shell/notifications";
 import { liveNetwork } from "@/config/chains";
 import { useCanvasLayout, type UpdateLayout } from "@/hooks/use-canvas-layout";
 import { useCanvasView } from "@/hooks/use-canvas-view";
+import { useChainClock, useKeeperStatus } from "@/hooks/use-schedules";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { type LayoutChange } from "@/lib/api/layout-sync";
 import { nodeId, nodeTitle } from "@/lib/canvas/graph";
@@ -234,7 +242,6 @@ function CanvasFlow() {
     selected: selectedCanvas,
     canvas,
     graph,
-    scheduled,
   } = useCanvasView();
   const { focusRequest } = useNotifications();
   const accountAddress = canvas.data?.account.exists
@@ -425,16 +432,9 @@ function CanvasFlow() {
   const selectedGate = view?.nodes.find(
     (n) => n.id === selected && n.data.kind === "gate",
   )?.data;
-  const context = useMemo(
-    () => ({ keeper: network?.kind === "sandbox", scheduled }),
-    [network, scheduled],
-  );
   const entries = useMemo(
-    () =>
-      canvas.data === undefined
-        ? []
-        : palette(canvas.data, selectedData, context),
-    [canvas.data, selectedData, context],
+    () => (canvas.data === undefined ? [] : palette(canvas.data, selectedData)),
+    [canvas.data, selectedData],
   );
 
   const group = useCallback(
@@ -537,9 +537,9 @@ function CanvasFlow() {
         source === undefined ||
         target === undefined
         ? undefined
-        : canConnect(source, target, canvas.data, context);
+        : canConnect(source, target, canvas.data);
     },
-    [canvas.data, context, endOf],
+    [canvas.data, endOf],
   );
   const rules = useMemo(() => ({ judge }), [judge]);
 
@@ -595,7 +595,6 @@ function CanvasFlow() {
             { kind: "node", data: anchorData },
             { kind: "draft", component },
             canvas.data,
-            context,
           );
 
     if (anchor !== undefined && result?.ok === true) {
@@ -620,7 +619,7 @@ function CanvasFlow() {
   /** Creating the canvas account is the one component with no draft: its ghost node is already drawn. */
   const direct = (component: PaletteComponent) => {
     if (canvas.data === undefined) return;
-    const availability = evaluate(component, canvas.data, undefined, context);
+    const availability = evaluate(component, canvas.data, undefined);
 
     if (availability.status !== "ready") {
       toast.danger(availability.reason);
@@ -647,7 +646,7 @@ function CanvasFlow() {
     const chosen =
       selected !== undefined && dataOf(selected) !== undefined
         ? selected
-        : evaluate(component, state, undefined, context).status === "ready"
+        : evaluate(component, state, undefined).status === "ready"
           ? nodeId.account
           : undefined;
     const anchorAt =
@@ -693,7 +692,7 @@ function CanvasFlow() {
     const result =
       end === undefined
         ? undefined
-        : canConnect({ kind: "draft", component }, end, state, context);
+        : canConnect({ kind: "draft", component }, end, state);
 
     if (result === undefined) toast.danger(NOT_A_NODE);
     else if (!result.ok) toast.danger(result.reason);
@@ -1241,7 +1240,7 @@ function CanvasFlow() {
                 )}
                 {sandbox ? (
                   <GuidedDemo
-                    buyer={buyerAndLpDemo(canvas.data, scheduled)}
+                    buyer={buyerAndLpDemo(canvas.data)}
                     compact={
                       subject !== undefined || selectedGate !== undefined
                     }
@@ -1299,13 +1298,29 @@ function CanvasFlow() {
   );
 }
 
+/** What schedule cards read beyond their node data: the network for Run now, a ticking chain clock, the keeper. */
+function ScheduleScope({ children }: { readonly children: React.ReactNode }) {
+  const { network, canvas } = useCanvasView();
+  const keeper = useKeeperStatus(network);
+  const now = useChainClock(canvas.data?.now ?? 0, canvas.dataUpdatedAt);
+  const clock = useMemo(() => ({ now, keeper }), [now, keeper]);
+
+  return (
+    <CanvasNetwork value={network}>
+      <ScheduleClock value={clock}>{children}</ScheduleClock>
+    </CanvasNetwork>
+  );
+}
+
 export function Canvas() {
   // Another canvas starts with its own selection, level and viewport.
   const selected = useSelectedAccount();
 
   return (
     <ReactFlowProvider key={selected ?? "own"}>
-      <CanvasFlow />
+      <ScheduleScope>
+        <CanvasFlow />
+      </ScheduleScope>
     </ReactFlowProvider>
   );
 }

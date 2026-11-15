@@ -134,9 +134,11 @@ export default function DocsPage() {
               signs again.
             </>,
             <>
-              Add {b("Schedule")} to the escrowed invoice, then jump past its
-              due date. The sandbox keeper settles it for you. On the live
-              network this needs a keeper.
+              Add {b("Schedule")} to the invoice and pick a time, at least 1
+              minute ahead. The co-signer signs, then jump past that time. The
+              keeper runs it on-chain. Anyone can press {b("Run now")} on a due
+              schedule. On the Account or a counterparty, Schedule repeats a
+              transfer every minute, hour or day.
             </>,
             <>
               Add {b("Pool liquidity")} (Financing) and deposit from your

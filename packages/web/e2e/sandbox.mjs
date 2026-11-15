@@ -2,7 +2,7 @@
 // Usage: BASE=<web url> node e2e/sandbox.mjs [outDir]
 import { spawnSync } from "node:child_process";
 
-const drivers = [["zal-connect.mjs"], ["zal-canvas.mjs"], ["zal-check.mjs", "--seller"], ["zal-partners.mjs"]];
+const drivers = [["zal-connect.mjs"], ["zal-canvas.mjs"], ["zal-check.mjs", "--seller"], ["zal-partners.mjs"], ["zal-schedule.mjs"], ["zal-approval.mjs"]];
 const failed = [];
 for (const [driver, ...flags] of drivers) {
   console.log(`\n== ${driver}`);

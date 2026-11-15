@@ -6,8 +6,8 @@
 // - Each demo partner the visitor creates behaves like one of them: a buyer like the club (one signer), a seller
 //   like the print shop.
 // - Every bot counterparty accepts a relationship the visitor proposes to it.
-// - The keeper settles each invoice the visitor scheduled, once it is escrowed and due. `payInvoice` is
-//   permissionless then (ZR-PAY-03), so the keeper holds no rights over anyone's account.
+// - The keeper runs every due schedule on every canvas (ADR 0015). `runSchedule` is permissionless and pays only
+//   what the account approved, so the keeper holds no rights over anyone's account.
 //
 // `runBots` reconciles from chain state instead of reacting to single events, so a tick that was interrupted (a
 // reload, a failed confirmation) is finished by the next one, and running it twice does nothing new.
@@ -34,6 +34,7 @@ import { accountOf, canvasOf, read, write } from "./seed";
 import {
   canvasAccountAbi,
   relationshipRegistryAbi,
+  zalFactoryAbi,
   zalInvoiceAbi,
 } from "@/contracts/abis";
 
@@ -204,8 +205,6 @@ interface InvoiceView {
 export interface BotOptions {
   /** Pay this invoice now, before its due date (ADR 0004 allows early payment). */
   readonly payNow?: bigint;
-  /** Invoices the visitor asked the keeper to settle at their due date. */
-  readonly scheduled?: readonly bigint[];
 }
 
 const readInvoice = async (chain: SandboxChain, id: bigint) =>
@@ -349,33 +348,75 @@ async function acceptProposals(
   return actions;
 }
 
-/** Settles each scheduled invoice that is fully escrowed and due. */
-async function runKeeper(
-  chain: SandboxChain,
-  scheduled: readonly bigint[],
-): Promise<number> {
+interface StoredSchedule {
+  readonly nextAt: bigint;
+  readonly active: boolean;
+}
+
+/** Every active schedule on every canvas, with the account that stores it. */
+async function activeSchedules(chain: SandboxChain) {
+  const created = await logsOf(chain, d.factory, zalFactoryAbi);
+  const accounts = created.flatMap((log) =>
+    log.eventName === "AccountCreated" ? [log.args.account] : [],
+  );
+  const found: { account: Address; id: bigint; nextAt: number }[] = [];
+
+  for (const account of accounts) {
+    const count = (await read(
+      chain,
+      account,
+      canvasAccountAbi,
+      "scheduleCount",
+      [],
+    )) as bigint;
+
+    for (let id = 1n; id <= count; id += 1n) {
+      const s = (await read(chain, account, canvasAccountAbi, "getSchedule", [
+        id,
+      ])) as StoredSchedule;
+
+      if (s.active) found.push({ account, id, nextAt: Number(s.nextAt) });
+    }
+  }
+
+  return found;
+}
+
+/**
+ * Runs each due schedule once per pass, so a schedule that fell behind catches up one run per tick. A run that
+ * reverts (the account lacks the balance, or its invoice was paid another way) stays due; like the real keeper,
+ * this one skips it and tries again on the next pass instead of stopping the other bots.
+ */
+async function runKeeper(chain: SandboxChain): Promise<number> {
   let actions = 0;
 
-  for (const id of scheduled) {
-    const inv = await readInvoice(chain, id);
-    const ready =
-      inv.status === InvoiceStatus.Approved &&
-      inv.escrowed === inv.faceValue &&
-      BigInt(chain.now()) >= inv.dueDate;
-
-    if (!ready) continue;
-    await write(
-      chain,
-      SANDBOX_BOTS.keeper,
-      d.invoices,
-      zalInvoiceAbi,
-      "payInvoice",
-      [id],
-    );
-    actions += 1;
+  for (const { account, id, nextAt } of await activeSchedules(chain)) {
+    if (chain.now() < nextAt) continue;
+    try {
+      await write(
+        chain,
+        SANDBOX_BOTS.keeper,
+        account,
+        canvasAccountAbi,
+        "runSchedule",
+        [id],
+      );
+      actions += 1;
+    } catch {
+      // Left due on-chain; the next pass retries it.
+    }
   }
 
   return actions;
+}
+
+/** The chain time the next active schedule falls due, so the runtime can wake the keeper then. */
+export async function nextScheduleDue(
+  chain: SandboxChain,
+): Promise<number | undefined> {
+  const due = (await activeSchedules(chain)).map((s) => s.nextAt);
+
+  return due.length === 0 ? undefined : Math.min(...due);
 }
 
 /** The sandbox co-signer confirms one pending operation on the visitor's account. */
@@ -404,7 +445,7 @@ export async function runBots(
 
   for (const bot of bots)
     if (bot.role === "seller") actions += await runSeller(chain, bot);
-  actions += await runKeeper(chain, options.scheduled ?? []);
+  actions += await runKeeper(chain);
   actions += await acceptProposals(chain, bots);
   for (const bot of bots)
     if (bot.role === "buyer")

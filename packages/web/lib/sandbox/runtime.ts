@@ -6,7 +6,7 @@ import type { DemoPartner, PartnerRole } from "./partners";
 import { concat, keccak256, type Address, type Hash, type Hex } from "viem";
 
 import { BOT_DELAY_MS, sandboxDeployment } from "./config";
-import { cosign, runBots } from "./engine/bots";
+import { cosign, nextScheduleDue, runBots } from "./engine/bots";
 import { openSandboxChain, type SandboxChain } from "./engine/chain";
 import { accountOf, createDemoPartner, read, seedSandbox } from "./engine/seed";
 import { clearSandbox, loadSandbox, saveSandbox } from "./persistence";
@@ -21,24 +21,25 @@ export interface SandboxStatus {
   readonly now: number;
   /** A demo counterparty is about to act or is acting. */
   readonly botsBusy: boolean;
-  /** Invoices the keeper settles at their due date. */
-  readonly scheduled: readonly bigint[];
 }
+
+/** The keeper wakes at most this long after a schedule falls due, and at least this often while one waits. */
+const KEEPER_WAKE_MAX_MS = 60_000;
+const KEEPER_WAKE_MIN_MS = 1_000;
 
 export class SandboxRuntime {
   private botTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Wakes the bots when the next schedule falls due on the sandbox clock. */
+  private keeperTimer: ReturnType<typeof setTimeout> | undefined;
   private botsBusy = false;
   private readonly listeners = new Set<() => void>();
   private status: SandboxStatus;
-  private scheduled: readonly bigint[];
 
   private constructor(
     readonly user: Address,
     private chain: SandboxChain,
-    scheduled: readonly bigint[] = [],
   ) {
-    this.scheduled = scheduled;
-    this.status = { now: chain.now(), botsBusy: false, scheduled };
+    this.status = { now: chain.now(), botsBusy: false };
   }
 
   /** Resumes the visitor's saved sandbox, or seeds a new one. */
@@ -56,7 +57,7 @@ export class SandboxRuntime {
     const runtime =
       chain === undefined
         ? new SandboxRuntime(user, await SandboxRuntime.seed(user))
-        : new SandboxRuntime(user, chain, (saved?.scheduled ?? []).map(BigInt));
+        : new SandboxRuntime(user, chain);
 
     runtime.persist();
     runtime.scheduleBots(0);
@@ -104,14 +105,6 @@ export class SandboxRuntime {
     await this.runBotsOnce({ payNow: invoiceId });
   }
 
-  /** Registers an invoice with the keeper, which settles it from escrow once it is due. */
-  schedule(invoiceId: bigint): void {
-    if (!this.scheduled.includes(invoiceId))
-      this.scheduled = [...this.scheduled, invoiceId];
-    this.changed();
-    this.scheduleBots(0);
-  }
-
   /** Seeds one more counterparty. Its transactions join the journal, so a reload replays it and Reset drops it. */
   async createDemoPartner(role: PartnerRole): Promise<DemoPartner> {
     const partner = await createDemoPartner(this.chain, role);
@@ -130,8 +123,8 @@ export class SandboxRuntime {
 
   async reset(): Promise<void> {
     if (this.botTimer !== undefined) clearTimeout(this.botTimer);
+    clearTimeout(this.keeperTimer);
     clearSandbox(this.user);
-    this.scheduled = [];
     this.chain = await SandboxRuntime.seed(this.user);
     this.changed();
   }
@@ -161,16 +154,13 @@ export class SandboxRuntime {
 
   close(): void {
     if (this.botTimer !== undefined) clearTimeout(this.botTimer);
+    clearTimeout(this.keeperTimer);
     this.listeners.clear();
   }
 
   private changed(): void {
     this.persist();
-    this.status = {
-      now: this.chain.now(),
-      botsBusy: this.botsBusy,
-      scheduled: this.scheduled,
-    };
+    this.status = { now: this.chain.now(), botsBusy: this.botsBusy };
     for (const listener of this.listeners) listener();
   }
 
@@ -179,8 +169,26 @@ export class SandboxRuntime {
       codeHash: CODE_HASH,
       offsetSeconds: this.chain.offset(),
       journal: this.chain.journal(),
-      scheduled: this.scheduled.map(String),
     });
+  }
+
+  /** Sleeps until the next schedule falls due in real time, then runs the bots, which run it. */
+  private async wakeKeeper(): Promise<void> {
+    clearTimeout(this.keeperTimer);
+    const due = await nextScheduleDue(this.chain).catch(() => undefined);
+
+    if (due === undefined || this.botTimer !== undefined) return;
+    const ahead = due - this.chain.now();
+    // Already due after a pass means its run reverted (no balance, say): retry slowly, as the real keeper backs off.
+    const waitMs =
+      ahead < 0
+        ? KEEPER_WAKE_MAX_MS
+        : Math.min(
+            KEEPER_WAKE_MAX_MS,
+            Math.max(KEEPER_WAKE_MIN_MS, ahead * 1000),
+          );
+
+    this.keeperTimer = setTimeout(() => this.scheduleBots(0), waitMs);
   }
 
   /** One bot step per tick, so each reaction lands visibly on the canvas before the next. */
@@ -190,9 +198,9 @@ export class SandboxRuntime {
     this.changed();
     this.botTimer = setTimeout(() => {
       this.botTimer = undefined;
-      void this.runBotsOnce().then((actions) => {
-        if (actions > 0) this.scheduleBots(BOT_DELAY_MS);
-      });
+      void this.runBotsOnce().then((actions) =>
+        actions > 0 ? this.scheduleBots(BOT_DELAY_MS) : this.wakeKeeper(),
+      );
     }, delayMs);
   }
 
@@ -202,10 +210,7 @@ export class SandboxRuntime {
     let actions = 0;
 
     try {
-      actions = await runBots(this.chain, {
-        ...options,
-        scheduled: this.scheduled,
-      });
+      actions = await runBots(this.chain, options);
     } catch {
       // A bot action that reverts (for example a budget that is full) leaves the invoice for the visitor to see.
       actions = 0;

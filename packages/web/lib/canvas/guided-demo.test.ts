@@ -135,14 +135,11 @@ describe("guided demo: buyer and LP roles", () => {
   test("a proposal from the print shop is step one, not done until accepted", () => {
     const pending = buyerAndLpDemo(
       state({ relationships: [{ ...shopRel, status: "proposed" }] }),
-      [],
     );
 
     expect(pending.done).toBe(0);
     expect(pending.next?.focus).toBe(nodeId.counterparty(2n));
-    expect(buyerAndLpDemo(state({ relationships: [shopRel] }), []).done).toBe(
-      1,
-    );
+    expect(buyerAndLpDemo(state({ relationships: [shopRel] })).done).toBe(1);
   });
 
   test("approvals count only when two signatures executed them", () => {
@@ -159,22 +156,40 @@ describe("guided demo: buyer and LP roles", () => {
       }),
     });
 
-    expect(buyerAndLpDemo(one, []).steps[3]?.done).toBe(false);
+    expect(buyerAndLpDemo(one).steps[3]?.done).toBe(false);
     expect(
-      buyerAndLpDemo(two, [])
+      buyerAndLpDemo(two)
         .steps.slice(3, 5)
         .map((s) => s.done),
     ).toEqual([true, true]);
   });
 
-  test("the schedule step needs the keeper's settlement of a scheduled invoice", () => {
-    const paid = state({
-      relationships: [shopRel],
-      invoices: [{ ...bought, status: "paid" }],
-    });
+  test("the schedule step needs a scheduled invoice payment that ran", () => {
+    const run = (remaining: number, active: boolean) =>
+      state({
+        relationships: [shopRel],
+        invoices: [
+          { ...bought, status: remaining === 0 ? "paid" : "approved" },
+        ],
+        account: account({
+          schedules: [
+            {
+              id: 1n,
+              kind: "payInvoice",
+              invoiceId: bought.id,
+              amount: bought.faceValue,
+              nextAt: 100,
+              interval: 0,
+              remaining,
+              active,
+            },
+          ],
+        }),
+      });
 
-    expect(buyerAndLpDemo(paid, []).steps[5]?.done).toBe(false);
-    expect(buyerAndLpDemo(paid, [9n]).steps[5]?.done).toBe(true);
+    expect(buyerAndLpDemo(run(1, true)).steps[5]?.done).toBe(false);
+    expect(buyerAndLpDemo(run(1, false)).steps[5]?.done).toBe(false);
+    expect(buyerAndLpDemo(run(0, false)).steps[5]?.done).toBe(true);
   });
 
   test("an LP position in the wallet finishes the LP step", () => {
@@ -188,6 +203,6 @@ describe("guided demo: buyer and LP roles", () => {
       },
     });
 
-    expect(buyerAndLpDemo(lp, []).steps[6]?.done).toBe(true);
+    expect(buyerAndLpDemo(lp).steps[6]?.done).toBe(true);
   });
 });

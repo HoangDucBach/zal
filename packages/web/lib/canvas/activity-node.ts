@@ -31,5 +31,9 @@ export function activityNodeId(event: ActivityEvent): string {
     case "OpSubmitted":
     case "OpExecuted":
       return nodeId.approval;
+    case "ScheduleCreated":
+    case "ScheduleRan":
+    case "ScheduleCancelled":
+      return nodeId.schedule(event.scheduleId);
   }
 }

@@ -4,16 +4,8 @@ import type { CanvasState } from "./types";
 import { describe, expect, test } from "vitest";
 
 import { buildCanvasGraph, nodeId } from "./graph";
-import {
-  evaluate,
-  palette,
-  type PaletteComponent,
-  type PaletteContext,
-} from "./palette";
+import { evaluate, palette, type PaletteComponent } from "./palette";
 import { CLUB, ME, VAULT, account, invoice, rel, state } from "./test-fixtures";
-
-const SANDBOX: PaletteContext = { keeper: true, scheduled: [] };
-const LIVE: PaletteContext = { keeper: false, scheduled: [] };
 
 /** The node the user selected, built the way the canvas builds it. */
 const select = (s: CanvasState, id: string): CanvasNodeData => {
@@ -27,8 +19,8 @@ const select = (s: CanvasState, id: string): CanvasNodeData => {
 };
 
 /** The components the palette offers (ready) for a selection. */
-const offered = (s: CanvasState, target?: CanvasNodeData, context = SANDBOX) =>
-  palette(s, target, context)
+const offered = (s: CanvasState, target?: CanvasNodeData) =>
+  palette(s, target)
     .filter((e) => e.availability.status === "ready")
     .map((e) => e.component);
 
@@ -36,9 +28,8 @@ const reason = (
   component: PaletteComponent,
   s: CanvasState,
   target?: CanvasNodeData,
-  context = SANDBOX,
 ) => {
-  const a = evaluate(component, s, target, context);
+  const a = evaluate(component, s, target);
 
   return a.status === "ready" ? undefined : a.reason;
 };
@@ -70,6 +61,7 @@ describe("palette rules (story C2)", () => {
     expect(offered(state())).toEqual([
       "counterparty",
       "endpoint",
+      "schedule",
       "split",
       "vault",
       "liquidity",
@@ -102,12 +94,7 @@ describe("palette rules (story C2)", () => {
       "invoice",
     );
     expect(
-      evaluate(
-        "invoice",
-        active,
-        select(active, nodeId.counterparty(1n)),
-        SANDBOX,
-      ),
+      evaluate("invoice", active, select(active, nodeId.counterparty(1n))),
     ).toEqual({
       status: "ready",
       action: { kind: "issueInvoice", relationshipId: 1n },
@@ -156,6 +143,7 @@ describe("palette rules (story C2)", () => {
     const approved = s({ status: "approved" });
 
     expect(offered(approved, select(approved, nodeId.invoice(9n)))).toEqual([
+      "schedule",
       "escrow",
     ]);
     expect(
@@ -199,9 +187,7 @@ describe("palette rules (story C2)", () => {
       }),
     });
 
-    expect(
-      evaluate("budget", s, select(s, nodeId.invoice(9n)), SANDBOX),
-    ).toEqual({
+    expect(evaluate("budget", s, select(s, nodeId.invoice(9n)))).toEqual({
       status: "ready",
       action: { kind: "approveInvoice", invoiceId: 9n, budgetId: 2n },
     });
@@ -212,43 +198,65 @@ describe("palette rules (story C2)", () => {
     );
   });
 
-  test("Schedule needs an escrowed invoice I pay, a keeper, and is offered once", () => {
-    const escrowed = state({
-      relationships: [buying],
-      invoices: [
-        {
-          ...boughtInvoice,
-          status: "approved",
-          escrowed: boughtInvoice.faceValue,
-        },
-      ],
-    });
-    const target = select(escrowed, nodeId.invoice(9n));
-    const unescrowed = state({
+  test("Schedule pays an approved invoice I buy, escrowed or not, once (ZR-SCH-01)", () => {
+    const approved = state({
       relationships: [buying],
       invoices: [{ ...boughtInvoice, status: "approved" }],
     });
-
-    expect(evaluate("schedule", escrowed, target, SANDBOX)).toEqual({
-      status: "ready",
-      action: { kind: "schedule", invoiceId: 9n },
+    const target = select(approved, nodeId.invoice(9n));
+    const issued = state({
+      relationships: [buying],
+      invoices: [boughtInvoice],
     });
-    expect(evaluate("schedule", escrowed, target, LIVE).status).toBe(
-      "unsupported",
-    );
-    expect(reason("schedule", escrowed, target, LIVE)).toMatch(
-      /No keeper on this network/,
-    );
+
+    expect(evaluate("schedule", approved, target)).toEqual({
+      status: "ready",
+      action: { kind: "schedulePayment", invoiceId: 9n },
+    });
     expect(
-      reason("schedule", escrowed, target, { keeper: true, scheduled: [9n] }),
+      reason("schedule", issued, select(issued, nodeId.invoice(9n))),
+    ).toMatch(/Approve the invoice first/);
+    const scheduled = state({
+      relationships: [buying],
+      invoices: [{ ...boughtInvoice, status: "approved" }],
+      account: account({
+        schedules: [
+          {
+            id: 1n,
+            kind: "payInvoice",
+            invoiceId: 9n,
+            amount: boughtInvoice.faceValue,
+            nextAt: 100,
+            interval: 0,
+            remaining: 1,
+            active: true,
+          },
+        ],
+      }),
+    });
+
+    expect(
+      reason("schedule", scheduled, select(scheduled, nodeId.invoice(9n))),
     ).toMatch(/Already scheduled/);
-    expect(
-      reason("schedule", unescrowed, select(unescrowed, nodeId.invoice(9n))),
-    ).toMatch(/Escrow first/);
+  });
+
+  test("Schedule on the Account or a counterparty starts a transfer to it", () => {
+    const s = state({ relationships: [buying] });
+
+    expect(evaluate("schedule", s, select(s, nodeId.account))).toEqual({
+      status: "ready",
+      action: { kind: "scheduleTransfer" },
+    });
+    expect(evaluate("schedule", s, select(s, nodeId.counterparty(2n)))).toEqual(
+      {
+        status: "ready",
+        action: { kind: "scheduleTransfer", recipient: CLUB },
+      },
+    );
   });
 
   test("Stream is always listed as unsupported by the v1 contracts", () => {
-    const entry = palette(state(), undefined, SANDBOX).find(
+    const entry = palette(state(), undefined).find(
       (e) => e.component === "stream",
     );
 
@@ -261,7 +269,7 @@ describe("palette rules (story C2)", () => {
   test("every component sits in its PRD catalogue group", () => {
     expect(
       Object.fromEntries(
-        palette(state(), undefined, SANDBOX).map((e) => [e.component, e.group]),
+        palette(state(), undefined).map((e) => [e.component, e.group]),
       ),
     ).toEqual({
       account: "Root",

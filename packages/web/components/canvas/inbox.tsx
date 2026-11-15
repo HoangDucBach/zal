@@ -31,7 +31,7 @@ const KIND_ICON: Record<NotificationKind, React.ReactNode> = {
   signatureNeeded: <PenNewSquareIcon {...ICON} />,
   paymentReceived: <WalletMoneyIcon {...ICON} />,
   advancePaid: <HandMoneyIcon {...ICON} />,
-  keeperSettled: <ClockCircleIcon {...ICON} />,
+  scheduleRan: <ClockCircleIcon {...ICON} />,
 };
 
 const describe = (data: CanvasNodeData | undefined): string => {

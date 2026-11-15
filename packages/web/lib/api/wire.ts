@@ -8,6 +8,7 @@ import type {
   CanvasState,
   GatedCall,
   Invoice,
+  Schedule,
 } from "@/lib/canvas/types";
 
 import { getAddress, type Address, type Hash, type Hex } from "viem";
@@ -53,6 +54,11 @@ const bps = int.max(10_000);
 export const asOfSchema = z.object({ block: int, updatedAt: int });
 export type AsOf = z.output<typeof asOfSchema>;
 
+const scheduleKind = z.enum(["transfer", "payInvoice"]);
+/** Missing or `null` on the wire: a PayInvoice has no recipient, a Transfer no invoice. */
+const optionalAddress = address.nullish().transform((a) => a ?? undefined);
+const optionalBig = big.nullish().transform((n) => n ?? undefined);
+
 const gatedCall: z.ZodType<GatedCall, unknown> = z.union([
   z.object({
     fn: z.literal("approveInvoice"),
@@ -62,7 +68,29 @@ const gatedCall: z.ZodType<GatedCall, unknown> = z.union([
   z.object({ fn: z.literal("escrowInvoice"), invoiceId: big }),
   z.object({ fn: z.literal("payInvoice"), invoiceId: big }),
   z.object({ fn: z.literal("withdraw"), to: address, amount: big }),
+  z.object({
+    fn: z.literal("createSchedule"),
+    kind: scheduleKind,
+    recipient: optionalAddress,
+    invoiceId: optionalBig,
+    amount: big,
+    start: int,
+    interval: int,
+    runs: int,
+  }),
 ]);
+
+const schedule: z.ZodType<Schedule, unknown> = z.object({
+  id: big,
+  kind: scheduleKind,
+  recipient: optionalAddress,
+  invoiceId: optionalBig,
+  amount: big,
+  nextAt: int,
+  interval: int,
+  remaining: int,
+  active: z.boolean(),
+});
 
 const activityEvent = z.union([
   z.object({
@@ -91,6 +119,10 @@ const activityEvent = z.union([
   z.object({ name: z.enum(["OpSubmitted", "OpExecuted"]), opId: big }),
   z.object({ name: z.literal("BudgetSet"), budgetId: big }),
   z.object({ name: z.literal("RouteSet") }),
+  z.object({
+    name: z.enum(["ScheduleCreated", "ScheduleRan", "ScheduleCancelled"]),
+    scheduleId: big,
+  }),
 ]);
 
 const activityItem: z.ZodType<ActivityItem, unknown> = z.object({
@@ -157,6 +189,8 @@ export const canvasStateSchema: z.ZodType<CanvasState, unknown> = z.object({
         confirmedByMe: z.boolean(),
       }),
     ),
+    /** An API from before ADR 0015 sends none. */
+    schedules: z.array(schedule).default([]),
     vaultShares: big,
     vaultAssets: big,
   }),

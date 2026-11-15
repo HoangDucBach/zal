@@ -13,6 +13,11 @@ const schema = z.object({
     .url()
     .transform((url) => url.replace(/\/+$/, ""))
     .optional(),
+  /** The schedule keeper (ADR 0015). Only its GET /health is read; without it, schedules show "run manually". */
+  keeperUrl: z
+    .url()
+    .transform((url) => url.replace(/\/+$/, ""))
+    .optional(),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -24,4 +29,5 @@ export const env: Env = schema.parse({
   l1NativeSymbol: process.env.NEXT_PUBLIC_ZAL_NATIVE_SYMBOL || undefined,
   l1Explorer: process.env.NEXT_PUBLIC_ZAL_EXPLORER_URL || undefined,
   apiUrl: process.env.NEXT_PUBLIC_ZAL_API_URL || undefined,
+  keeperUrl: process.env.NEXT_PUBLIC_ZAL_KEEPER_URL || undefined,
 });

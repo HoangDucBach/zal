@@ -50,6 +50,46 @@ const live: CanvasState = state({
         stale: false,
         confirmedByMe: true,
       },
+      {
+        opId: 3n,
+        call: {
+          fn: "createSchedule",
+          kind: "transfer",
+          recipient: BUYER,
+          amount: 100_000_000n,
+          start: 1_802_736_000,
+          interval: 60,
+          runs: 3,
+        },
+        amount: 300_000_000n,
+        confirmations: 1,
+        required: 1,
+        executed: true,
+        stale: false,
+        confirmedByMe: true,
+      },
+    ],
+    schedules: [
+      {
+        id: 1n,
+        kind: "transfer",
+        recipient: BUYER,
+        amount: 100_000_000n,
+        nextAt: 1_802_736_060,
+        interval: 60,
+        remaining: 2,
+        active: true,
+      },
+      {
+        id: 2n,
+        kind: "payInvoice",
+        invoiceId: 3n,
+        amount: 5_000_000_000n,
+        nextAt: 1_802_740_000,
+        interval: 0,
+        remaining: 0,
+        active: false,
+      },
     ],
   }),
   relationships: [
@@ -82,6 +122,15 @@ const live: CanvasState = state({
         "0x263ae5dfab4ecfc82d65b1dd19c752d655be40b17be4a5796a44d8fc48dd0888",
       title: "Relationship #3 proposed",
       event: { name: "RelationshipProposed", relationshipId: 3n },
+    },
+    {
+      key: "0x263ae5dfab4ecfc82d65b1dd19c752d655be40b17be4a5796a44d8fc48dd0888:1",
+      timestamp: 1_802_736_060,
+      blockNumber: 70n,
+      transactionHash:
+        "0x263ae5dfab4ecfc82d65b1dd19c752d655be40b17be4a5796a44d8fc48dd0888",
+      title: "Schedule #1 ran",
+      event: { name: "ScheduleRan", scheduleId: 1n },
     },
   ],
   cash: [
@@ -118,6 +167,19 @@ describe("canvas wire form", () => {
     expect(parsed.canvas.relationships[0]?.buyer).toBe(BUYER);
     expect(parsed.canvas.invoices[1]?.owner).toBeUndefined();
     expect(parsed.canvas.invoices[0]?.advance).toBeUndefined();
+  });
+
+  test("an API from before scheduled payments sends no schedules: none (ADR 0015)", () => {
+    const wire = toWire(live) as { account: Record<string, unknown> };
+
+    delete wire.account.schedules;
+    expect(
+      canvasResponseSchema.parse({
+        asOf: { block: 1, updatedAt: 1 },
+        canvas: wire,
+        layout: null,
+      }).canvas.account.schedules,
+    ).toEqual([]);
   });
 
   test("rejects a response whose amounts are not decimal strings", () => {
