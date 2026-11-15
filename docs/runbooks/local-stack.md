@@ -5,7 +5,7 @@ Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the
 ## Before you start
 
 - Docker with Compose v2. On this Mac that is OrbStack.
-- These host ports are free: 5433 (Postgres), 8545 (anvil), 42069 (indexer), 3100 (web). To use other ports, copy `.env.example` to `.env` and change them there.
+- These host ports are free: 5433 (Postgres), 8545 (anvil), 42069 (indexer), 42070 (keeper), 3100 (web). To use other ports, copy `.env.example` to `.env` and change them there.
 
 ## Start the stack
 
@@ -23,6 +23,7 @@ Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the
    | `anvil` | Chain 31337. State persists in the `anvil` volume | `cast chain-id` answers |
    | `deploy` | Runs `Deploy.s.sol` once, then exits 0. On a rerun it sees the factory has code and skips | exited 0 |
    | `indexer` | Applies the `zal_app` migrations, then `ponder start` | `GET /ready` returns 200 |
+   | `keeper` | Sends `runSchedule` for due schedules (ADR 0015) from anvil's account 9 | `GET /health` returns 200 |
    | `web` | Next.js, live network baked in at build time | `GET /` returns 200 |
 
 2. Check that every service is healthy:
@@ -70,6 +71,7 @@ If anvil runs on another host port, set `ZAL_RPC_URL`, for example `ZAL_RPC_URL=
 | `GET /v1/accounts/:address/activity?before=&limit=` | Activity, newest first, paged by cursor |
 | `GET /v1/accounts/:address/notifications?wallet=` | The six notification kinds, each with `read` for that wallet |
 | `GET /v1/pool?wallet=` | Pool figures, and the wallet's LP position |
+| `GET /v1/schedules/due?chainId=&before=&limit=` | Active schedules with `nextAt <= before` (Unix seconds, default the indexed head's time), earliest first, at most `limit` (default 100, max 500). The keeper's work list |
 | `GET /v1/stream?account=` | SSE: `ready`, then `feed` events with id `<block>-<logIndex>`, and `layout` events. A `Last-Event-ID` more than 2,000 rows back gets `reset` first: refetch state. At most 10 streams per client and 1,000 in all |
 | `POST /v1/auth/nonce`, `POST /v1/auth/verify` | Sign-in with Ethereum, then a bearer token |
 | `GET`, `DELETE /v1/auth/session` | The session's wallet, or sign out |
@@ -94,9 +96,28 @@ Request bodies are capped at 64 KB, and a layout at 256 KB. Every success carrie
 - **The web app shows an old version.** The image is built from the disk at build time. After a change to `packages/web`, run `docker compose up -d --build --wait web`.
 - **"Live updates paused" on the canvas.** The page could not reach `GET /v1/stream` for 4 seconds and is polling the chain instead. Check `docker compose logs indexer`; the page switches back by itself when the stream answers.
 
+## Scheduled payments
+
+The `keeper` service runs schedules once they are due (ADR 0015). Every 10 seconds (`KEEPER_TICK_MS`) it reads `GET /v1/schedules/due`, simulates each run at the next block's time, and sends `runSchedule` one transaction at a time. A run that would revert is skipped and retried with backoff.
+
+- `curl localhost:42070/health` shows `ok`, the keeper address, its gas balance, the last tick and counts.
+- `curl localhost:42070/status` lists recent runs and failures.
+- `docker compose logs -f keeper` prints one JSON line per run and per failure.
+
+To try it from a terminal, create a schedule through the account's gated `submit`. With threshold 1 and an Admin sender, `submit` runs it at once. `start` must be at least 60 seconds ahead:
+
+```bash
+RPC=http://localhost:8545
+START=$(( $(cast block latest -f timestamp -r $RPC) + 90 ))
+DATA=$(cast calldata "createSchedule(uint8,address,uint256,uint128,uint64,uint32,uint32)" 0 <payee> 0 1000000 $START 60 3)
+cast send <account> "submit(bytes)" $DATA -r $RPC --private-key <admin key>
+```
+
+This pays 1 zUSDC to `<payee>` three times, a minute apart. Kind `1` with an approved invoice id, `interval 0` and `runs 1` pays that invoice once.
+
 ## Keys
 
-The deploy job and the demo script use anvil's well-known account 0 as the protocol owner. It is a public development key, labelled local-only in `docker-compose.yml`. Never use it on a shared network.
+The deploy job and the demo script use anvil's well-known account 0 as the protocol owner. The keeper uses account 9, so it never races them for a nonce. Both are public development keys, labelled local-only in `docker-compose.yml`. Never use them on a shared network.
 
 ## Anvil state and chain resets
 - Anvil keeps every block's state (`--preserve-historical-states`) because the indexer reads past state, so the saved file grows to hundreds of MB. It dumps every 5 minutes and on stop; compose gives it a 120 s stop grace period. Never `docker kill` anvil: a stop in the middle of a dump leaves a truncated `/data/anvil-state.json` that anvil refuses to load.

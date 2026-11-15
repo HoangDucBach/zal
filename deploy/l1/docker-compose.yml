@@ -51,6 +51,27 @@ services:
       postgres:
         condition: service_healthy
 
+  # Sends runSchedule for due schedules (ADR 0015). Its wallet pays gas only; it holds no authority over funds.
+  keeper:
+    build:
+      context: ../..
+      dockerfile: packages/keeper/Dockerfile
+    restart: unless-stopped
+    environment:
+      ZAL_CHAIN_ID: "102026"
+      ZAL_RPC_URL: http://host.docker.internal:9650/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc
+      ZAL_API_URL: http://indexer:42069
+      # Generated on the host into deploy/l1/.env (never committed). Fund it with a little ZAX for gas.
+      ZAL_KEEPER_PRIVATE_KEY: ${ZAL_KEEPER_PRIVATE_KEY:?set ZAL_KEEPER_PRIVATE_KEY in deploy/l1/.env}
+      ZAL_WEB_ORIGIN: ${ZAL_WEB_ORIGIN:-https://app.100-63-191-30.sslip.io}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:42070:42070"
+    depends_on:
+      indexer:
+        condition: service_healthy
+
   web:
     build:
       context: ../..
@@ -61,6 +82,7 @@ services:
         NEXT_PUBLIC_ZAL_CHAIN_NAME: Zal L1 (Fuji)
         NEXT_PUBLIC_ZAL_NATIVE_SYMBOL: ZAX
         NEXT_PUBLIC_ZAL_API_URL: https://api.100-63-191-30.sslip.io
+        NEXT_PUBLIC_ZAL_KEEPER_URL: https://keeper.100-63-191-30.sslip.io
     restart: unless-stopped
     ports:
       - "127.0.0.1:3100:3000"

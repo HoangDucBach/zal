@@ -28,3 +28,17 @@ api.100-63-191-30.sslip.io {
 		flush_interval -1
 	}
 }
+
+# The schedule keeper (ADR 0015): only its read-only health and status pass, for the web's keeper indicator.
+keeper.100-63-191-30.sslip.io {
+	@read {
+		method GET
+		path /health /status
+	}
+	handle @read {
+		reverse_proxy 127.0.0.1:42070
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

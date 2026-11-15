@@ -1,5 +1,6 @@
 # The whole live-mode stack on one machine (ADR 0012, docs/runbooks/local-stack.md):
-# postgres, anvil as the local stand-in for the Zal L1, a one-shot deploy, the indexer and /v1 API, and the web app.
+# postgres, anvil as the local stand-in for the Zal L1, a one-shot deploy, the indexer and /v1 API, the schedule
+# keeper, and the web app.
 # Every key and password here is a local-only development value. Never reuse them on a shared network.
 name: zal
 
@@ -82,6 +83,26 @@ services:
       deploy:
         condition: service_completed_successfully
 
+  # Sends runSchedule for due schedules (ADR 0015). It pays gas only and holds no authority over funds.
+  keeper:
+    build:
+      context: .
+      dockerfile: packages/keeper/Dockerfile
+    restart: unless-stopped
+    environment:
+      ZAL_CHAIN_ID: "31337"
+      ZAL_RPC_URL: http://anvil:8545
+      ZAL_API_URL: http://indexer:42069
+      # LOCAL ONLY: anvil's well-known account 9, funded with test ETH at genesis. No other local script sends from it.
+      ZAL_KEEPER_PRIVATE_KEY: "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"
+      ZAL_WEB_ORIGIN: ${ZAL_WEB_ORIGIN:-http://localhost:3100,http://localhost:3001}
+      KEEPER_TICK_MS: ${KEEPER_TICK_MS:-10000}
+    ports:
+      - "${ZAL_KEEPER_PORT:-42070}:42070"
+    depends_on:
+      indexer:
+        condition: service_healthy
+
   web:
     build:
       context: .
@@ -92,6 +113,7 @@ services:
         NEXT_PUBLIC_ZAL_RPC_URL: http://localhost:${ZAL_ANVIL_PORT:-8545}
         NEXT_PUBLIC_ZAL_CHAIN_NAME: Zal local (anvil)
         NEXT_PUBLIC_ZAL_API_URL: http://localhost:${ZAL_INDEXER_PORT:-42069}
+        NEXT_PUBLIC_ZAL_KEEPER_URL: http://localhost:${ZAL_KEEPER_PORT:-42070}
     restart: unless-stopped
     ports:
       - "${ZAL_WEB_PORT:-3100}:3000"

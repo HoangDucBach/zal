@@ -8,12 +8,13 @@ Zal runs on the Zalax L1, the Fuji subnet "Zalax Payroll Chain" (chain id 102026
 | Public RPC | `https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc` (WebSocket: same path, ending in `/ws`) |
 | Web app | `https://app.100-63-191-30.sslip.io` |
 | API and SSE | `https://api.100-63-191-30.sslip.io` |
+| Keeper health and status | `https://keeper.100-63-191-30.sslip.io/health`, `/status` (GET only) |
 | Node, relayer | Containers `avago` and `relayer`. The data lives in `~/.avalanchego` |
 | TLS proxy | Container `caddy` (host network), using `~/caddy/Caddyfile`. The source copy is `deploy/l1/Caddyfile` |
 | Zal stack | `~/zal`, run with `deploy/l1/docker-compose.yml`. Secrets are in `deploy/l1/.env` on the host only |
 
 ## What is public
-- **Caddy routes.** Caddy passes only the Zal chain's `/rpc` and `/ws` paths to the node. `/ext/admin`, `/ext/info`, `/ext/keystore` and `/ext/health` answer 404.
+- **Caddy routes.** Caddy passes only the Zal chain's `/rpc` and `/ws` paths to the node. `/ext/admin`, `/ext/info`, `/ext/keystore` and `/ext/health` answer 404. For the keeper it passes only `GET /health` and `GET /status`; everything else answers 404.
 - **Chain APIs.** The chain config enables `eth`, `eth-filter`, `net`, `web3`, `internal-eth`, `internal-blockchain` and `internal-transaction`. The `debug*` and `internal-account` namespaces are off.
 - **Security group `sg-0eed73e8101132a42`.**
   - Ports 80 and 443 are open to everyone (ACME and HTTPS).
@@ -49,6 +50,7 @@ The web image inlines the chain, RPC and API URLs and the contract addresses at 
 
 `deploy/l1/.env` is created once on the host and never leaves it. It holds:
 - `POSTGRES_PASSWORD`, generated with `openssl rand -hex 24`.
+- `ZAL_KEEPER_PRIVATE_KEY`, the schedule keeper's key (see Keeper). Compose refuses to start without it.
 - `ZAL_FAUCET_PRIVATE_KEY`, the gas faucet's key (see Faucet). Optional `ZAL_FAUCET_DRIP_WEI` and `ZAL_FAUCET_MIN_BALANCE_WEI` override the drip (0.05 ZAX) and the threshold (0.01 ZAX).
 
 ## Node config pitfalls
@@ -76,3 +78,29 @@ cast send <faucet address> --value 100ether \
 ```
 
 Then recreate the indexer (`docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d indexer`). Top it up the same way when `faucetBalanceWei` in `GET /v1/faucet` runs low. The key never leaves `deploy/l1/.env`, and the API never logs or returns it. Without the key, `POST /v1/faucet` answers 503.
+
+## Keeper
+Scheduled payments live in each `CanvasAccount` (ADR 0015). `runSchedule(id)` is permissionless, so the keeper only triggers runs that are due. Every `KEEPER_TICK_MS` (10 s by default) it reads `GET /v1/schedules/due` from the indexer on the compose network, simulates each run at the next block's time, and sends `runSchedule` from its own wallet, one transaction at a time. A run that would revert, for example on an empty balance, is skipped and retried with exponential backoff (15 s doubling to 10 min). The wallet pays gas only. It holds no authority over funds, and the chain's `nextAt` refuses a second run, so a keeper outage makes payments late but never lost or doubled.
+
+Set it up once, on the host:
+
+```
+cd ~/zal
+echo "ZAL_KEEPER_PRIVATE_KEY=0x$(openssl rand -hex 32)" >> deploy/l1/.env
+chmod 600 deploy/l1/.env
+cast wallet address --private-key "$(grep ^ZAL_KEEPER_PRIVATE_KEY= deploy/l1/.env | cut -d= -f2)"
+```
+
+The admin funds the printed address with a little ZAX from their own machine. One run costs well under 0.01 ZAX at the chain's gas price, so 5 ZAX lasts a long time:
+
+```
+cast send <keeper address> --value 5ether \
+  --rpc-url https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc \
+  --account zalax-admin
+```
+
+Then start it: `docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d --build --wait keeper`. Copy `deploy/l1/Caddyfile` to `~/caddy/Caddyfile` and reload Caddy (`docker exec caddy caddy reload --config /etc/caddy/Caddyfile`) to publish `keeper.100-63-191-30.sslip.io`.
+
+- `GET /health` reports `ok`, the keeper address, `gasBalanceWei`, the last tick and counts. It answers 503 when no tick has finished in the last 3 ticks plus a minute. Top the wallet up when `gasBalanceWei` runs low.
+- `GET /status` lists the last 100 runs (with transaction hashes) and the last 100 failures (with the revert reason and the retry time).
+- `docker compose -f deploy/l1/docker-compose.yml logs keeper` prints one JSON line per run (`ran`) and per failure (`run_failed`). The key is never logged or returned.
