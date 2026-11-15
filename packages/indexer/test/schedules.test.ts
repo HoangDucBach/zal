@@ -22,7 +22,7 @@ function canvasRows(overrides: Partial<CanvasRows>): CanvasRows {
   return {
     wallet: ACCOUNT,
     address: ACCOUNT,
-    account: { address: ACCOUNT, threshold: 1, approvalLimit: 0n, policyNonce: 1n, endpointPublic: false, route: [] },
+    account: { address: ACCOUNT, threshold: 1, approvalLimit: 0n, policyNonce: 1n, endpointPublic: false, windowStart: 0n, windowSpent: 0n, route: [] },
     members: [],
     budgets: [],
     charges: [],
@@ -60,7 +60,7 @@ const feedRow = (name: string, logIndex: number, scheduleId: bigint): FeedRow =>
 
 describe("schedules on the canvas", () => {
   test("each kind carries only its own target, in id order, as base-unit strings", () => {
-    const wire = toWire(assembleCanvas(canvasRows({ schedules: [payInvoice, transfer] }))) as { account: { schedules: unknown[] } };
+    const wire = toWire(assembleCanvas(canvasRows({ schedules: [payInvoice, transfer] }), 0)) as { account: { schedules: unknown[] } };
     expect(wire.account.schedules).toEqual([
       { id: "1", kind: "transfer", recipient: PAYEE, amount: "5000000", nextAt: 1060, interval: 60, remaining: 3, active: true },
       { id: "2", kind: "payInvoice", invoiceId: "9", amount: "7000000", nextAt: 1120, interval: 0, remaining: 1, active: true },
@@ -74,7 +74,7 @@ describe("schedules on the canvas", () => {
       args: [0, PAYEE, 0n, 5_000_000n, 1_060n, 60, 3],
     });
     const op = { opId: 4n, data, amount: 15_000_000n, policyNonce: 1n, required: 2, confirmations: 1, executed: false };
-    expect(assembleCanvas(canvasRows({ ops: [op] })).account.ops[0]?.call).toEqual({
+    expect(assembleCanvas(canvasRows({ ops: [op] }), 0).account.ops[0]?.call).toEqual({
       fn: "createSchedule",
       kind: "transfer",
       recipient: getAddress(PAYEE),
@@ -98,7 +98,7 @@ describe("schedules on the canvas", () => {
 describe("scheduleRan notifications", () => {
   test("each run is news for the paying account, naming what it paid and to whom", () => {
     const feed = [feedRow("ScheduleRan", 1, 1n), feedRow("ScheduleRan", 2, 2n), feedRow("ScheduleRan", 3, 99n)];
-    const notes = deriveNotifications(assembleCanvas(canvasRows({ schedules: [transfer, payInvoice], feed })));
+    const notes = deriveNotifications(assembleCanvas(canvasRows({ schedules: [transfer, payInvoice], feed }), 0));
     expect(notes.map(({ kind, title, detail, nodeId }) => ({ kind, title, detail, nodeId }))).toEqual([
       { kind: "scheduleRan", title: "Schedule #1 ran", detail: "5.00 zUSDC to 0x0000…00b2", nodeId: "schedule-1" },
       { kind: "scheduleRan", title: "Schedule #2 ran", detail: "7.00 zUSDC to invoice #9", nodeId: "schedule-2" },

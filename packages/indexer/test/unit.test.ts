@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { assembleCanvas, toWire } from "../lib/canvas.ts";
+import { assembleCanvas, requiredNow, toWire } from "../lib/canvas.ts";
 import { asOfFromCheckpoint } from "../lib/checkpoint.ts";
 import { decodeNotice, encodeNotice, formatCursor, parseCursor } from "../lib/feed-channel.ts";
 import { readDeployment } from "../lib/deployment.ts";
@@ -80,7 +80,7 @@ function rows(address: string, feed: readonly FeedRow[]): CanvasRows {
   return {
     wallet: SELLER,
     address: address as `0x${string}`,
-    account: { address: address as `0x${string}`, threshold: 1, approvalLimit: 0n, policyNonce: 1n, endpointPublic: true, route: [] },
+    account: { address: address as `0x${string}`, threshold: 1, approvalLimit: 0n, policyNonce: 1n, endpointPublic: true, windowStart: 0n, windowSpent: 0n, route: [] },
     members: [{ wallet: SELLER, role: 3 }],
     budgets: [],
     charges: [],
@@ -103,7 +103,7 @@ function rows(address: string, feed: readonly FeedRow[]): CanvasRows {
 
 describe("canvas assembly", () => {
   test("the wire form has decimal-string amounts and lowercase hex", () => {
-    const wire = toWire(assembleCanvas(rows(SELLER, []))) as {
+    const wire = toWire(assembleCanvas(rows(SELLER, []), 0)) as {
       invoices: { faceValue: string; docHash: string; advance: { principal: string }; owner: string }[];
       account: { myRole: string; balance: string };
     };
@@ -120,11 +120,11 @@ describe("canvas assembly", () => {
       feedRow("Advanced", 1, { invoiceId: 1n }),
       feedRow("InvoicePaid", 2, { invoiceId: 1n, actor: KEEPER }),
     ];
-    expect(deriveNotifications(assembleCanvas(rows(SELLER, feed))).map((n) => n.kind).sort()).toEqual([
+    expect(deriveNotifications(assembleCanvas(rows(SELLER, feed), 0)).map((n) => n.kind).sort()).toEqual([
       "advancePaid",
       "paymentReceived",
     ]);
-    expect(deriveNotifications(assembleCanvas(rows(BUYER, feed)))).toEqual([]);
+    expect(deriveNotifications(assembleCanvas(rows(BUYER, feed), 0))).toEqual([]);
   });
 });
 
@@ -164,5 +164,36 @@ describe("deployment config", () => {
 
   test("refuses a deployment file for another chain", () => {
     expect(() => readDeployment({ ...env, ZAL_CHAIN_ID: "43114" }, () => file)).toThrow(/is for chain 31337/);
+  });
+});
+
+describe("requiredNow (ADR 0016, ZR-ACC-11)", () => {
+  const acc = {
+    address: "0x00000000000000000000000000000000000000a1" as const,
+    threshold: 2,
+    approvalLimit: 1_000n,
+    policyNonce: 3n,
+    endpointPublic: false,
+    windowStart: 10_000n,
+    windowSpent: 600n,
+    route: [],
+  };
+  const pending = { opId: 1n, data: "0x" as const, amount: 600n, policyNonce: 3n, required: 2, confirmations: 1, executed: false };
+
+  test("keeps the threshold while the window holds the earlier spend", () => {
+    expect(requiredNow(acc, pending, 10_000 + 86_399)).toBe(2);
+  });
+
+  test("drops to one confirmation once the window has expired", () => {
+    expect(requiredNow(acc, pending, 10_000 + 86_400)).toBe(1);
+  });
+
+  test("needs the threshold above the limit even in an empty window", () => {
+    expect(requiredNow(acc, { ...pending, amount: 1_001n }, 10_000 + 86_400)).toBe(2);
+  });
+
+  test("keeps the submitted count for stale and executed ops", () => {
+    expect(requiredNow(acc, { ...pending, policyNonce: 2n }, 10_000 + 86_400)).toBe(2);
+    expect(requiredNow(acc, { ...pending, executed: true }, 10_000 + 86_400)).toBe(2);
   });
 });

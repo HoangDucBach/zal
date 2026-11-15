@@ -183,6 +183,7 @@ export const throttle = (limiter: RateLimiter, key: string) => {
 export function createApp(deps: ApiDeps): Hono<Env> {
   const { config, appDb: db } = deps;
   const now = deps.now ?? (() => new Date());
+  const unixNow = () => Math.floor(now().getTime() / 1000);
   const authLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
   const inviteLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
   const writeLimiter = createRateLimiter({ limit: 120, windowMs: 60_000 });
@@ -252,7 +253,7 @@ export function createApp(deps: ApiDeps): Hono<Env> {
     return c.json(
       toWire({
         asOf,
-        canvas: assembleCanvas(rows),
+        canvas: assembleCanvas(rows, unixNow()),
         layout:
           saved === undefined
             ? null
@@ -282,7 +283,7 @@ export function createApp(deps: ApiDeps): Hono<Env> {
     const { wallet } = parseInput(walletQuery, c.req.query());
     const asOf = await deps.asOf();
     const rows = await deps.canvasRows(account, wallet, asOf);
-    const feed = deriveNotifications(assembleCanvas(rows));
+    const feed = deriveNotifications(assembleCanvas(rows, unixNow()));
     const keys = feed.map((n) => n.key);
     const read =
       keys.length === 0 || wallet === zeroAddress

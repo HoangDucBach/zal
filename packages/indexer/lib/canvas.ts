@@ -25,6 +25,8 @@ export interface AccountRow {
   readonly approvalLimit: bigint;
   readonly policyNonce: bigint;
   readonly endpointPublic: boolean;
+  readonly windowStart: bigint;
+  readonly windowSpent: bigint;
   readonly route: readonly { kind: number; target: Address; bps: number }[];
 }
 
@@ -204,7 +206,21 @@ export function toActivity(feed: readonly FeedRow[]): ActivityItem[] {
   });
 }
 
-export function assembleCanvas(rows: CanvasRows): CanvasState {
+/** Mirrors `CanvasAccount.SPEND_WINDOW` (ADR 0016). */
+const SPEND_WINDOW_SECONDS = 86_400n;
+
+/**
+ * What a pending op needs if confirmed at `nowSec`: `requiredConfirmations(amount)` evaluated off-chain. Executed
+ * and stale ops keep the count read at submission.
+ */
+export function requiredNow(acc: AccountRow, op: OpRow, nowSec: number): number {
+  if (op.executed || op.policyNonce !== acc.policyNonce) return op.required;
+  const spent = BigInt(nowSec) < acc.windowStart + SPEND_WINDOW_SECONDS ? acc.windowSpent : 0n;
+  return spent + op.amount > acc.approvalLimit ? acc.threshold : 1;
+}
+
+/** `nowSec` is wall-clock unix time: the L1 makes blocks only on transactions, so the head block's time lags. */
+export function assembleCanvas(rows: CanvasRows, nowSec: number): CanvasState {
   const { account: acc, wallet } = rows;
   const memberRole = (role: number) => MEMBER_ROLES[role] ?? "none";
 
@@ -213,7 +229,7 @@ export function assembleCanvas(rows: CanvasRows): CanvasState {
     call: decodeGated(op.data),
     amount: op.amount,
     confirmations: op.confirmations,
-    required: op.required,
+    required: acc === undefined ? op.required : requiredNow(acc, op, nowSec),
     executed: op.executed,
     stale: acc !== undefined && op.policyNonce !== acc.policyNonce,
     confirmedByMe: rows.confirmedByWallet.has(op.opId),

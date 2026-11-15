@@ -11,6 +11,9 @@ export const account = onchainTable("account", (t) => ({
   approvalLimit: t.bigint().notNull(),
   policyNonce: t.bigint().notNull(),
   endpointPublic: t.boolean().notNull(),
+  /** The 24 h single-confirmation window from the last `SpendWindowCharged` (ADR 0016); 0 before any charge. */
+  windowStart: t.bigint().notNull(),
+  windowSpent: t.bigint().notNull(),
   /** The Split, in route order: `[{ kind, target, bps }]` with kind 0 Hold, 1 Transfer, 2 Vault. */
   route: t.json().$type<{ kind: number; target: `0x${string}`; bps: number }[]>().notNull(),
 }));
@@ -72,7 +75,10 @@ export const op = onchainTable(
     submittedBy: t.hex().notNull(),
     /** The account's policy nonce at submission. A later nonce makes the op stale (ZR-ACC-05). */
     policyNonce: t.bigint().notNull(),
-    /** `requiredConfirmations(amount)` read at submission. It cannot change while the op is not stale. */
+    /**
+     * `requiredConfirmations(amount)` read at submission. While the op is pending it can drop to 1 when the
+     * account's 24 h window expires, which emits nothing, so the API recomputes it from the window (lib/canvas.ts).
+     */
     required: t.integer().notNull(),
     confirmations: t.integer().notNull(),
     executed: t.boolean().notNull(),

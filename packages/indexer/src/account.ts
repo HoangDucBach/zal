@@ -23,6 +23,8 @@ async function ensureAccount(context: Context, address: `0x${string}`, timestamp
       approvalLimit: 0n,
       policyNonce: 1n,
       endpointPublic: false,
+      windowStart: 0n,
+      windowSpent: 0n,
       route: [],
     })
     .onConflictDoNothing();
@@ -150,6 +152,13 @@ ponder.on("CanvasAccount:OpRevoked", async ({ event, context }) => {
   await context.db.update(schema.op, { account, opId }).set({ confirmations });
   await context.db.delete(schema.opConfirmation, { account, opId, wallet: by });
   await publish(context, event, "OpRevoked", [account], { opId, actor: by });
+});
+
+ponder.on("CanvasAccount:SpendWindowCharged", async ({ event, context }) => {
+  const account = event.log.address;
+  const { windowStart, windowSpent } = event.args;
+  await ensureAccount(context, account, event.block.timestamp);
+  await context.db.update(schema.account, { address: account }).set({ windowStart, windowSpent });
 });
 
 ponder.on("CanvasAccount:OpExecuted", async ({ event, context }) => {
