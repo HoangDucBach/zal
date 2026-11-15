@@ -49,4 +49,9 @@ export default createConfig({
     ZalVault: { chain: "zal", abi: zalVaultAbi, address: addresses.vault, startBlock },
     ZUSDC: { chain: "zal", abi: zusdcAbi, address: addresses.usdc, startBlock },
   },
+  // The explorer reads every block from genesis, not just Zal's (docs/plans/explorer.md). Block events run after
+  // the block's log events, so the explorer handler sees the Zal tables as of the end of the block.
+  blocks: {
+    Explorer: { chain: "zal", startBlock: 0, interval: 1 },
+  },
 });

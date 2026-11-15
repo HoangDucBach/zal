@@ -1,6 +1,8 @@
 // Ponder's API entry: the /v1 routes on Ponder's Hono server, reading Ponder's tables and the chain, writing
 // zal_app. Ponder itself serves /health, /ready, /status and /metrics.
 
+import type { Context } from "hono";
+
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { publicClients } from "ponder:api";
 import { createWalletClient, getAddress, http } from "viem";
@@ -12,6 +14,7 @@ import { createApp } from "../../lib/app.ts";
 import { type Faucet } from "../../lib/faucet.ts";
 import { config } from "./config.ts";
 import { readAsOf, readCanvasRows, readDueSchedules, readFeedPage, readLp, readPool, readWalletAccounts } from "./read.ts";
+import { registerExplorerRoutes } from "./explorer.ts";
 import { streamFeed } from "./stream.ts";
 
 const client = publicClients.zal;
@@ -33,7 +36,20 @@ function createFaucet(): Faucet | undefined {
   };
 }
 
-export default createApp({
+function clientIp(c: Context): string {
+  if (config.trustProxy) {
+    // The proxy appends the address it saw; entries to its left are whatever the client sent.
+    const forwarded = c.req.header("X-Forwarded-For")?.split(",").at(-1)?.trim();
+    if (forwarded !== undefined && forwarded !== "") return forwarded;
+  }
+  try {
+    return getConnInfo(c).remote.address ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+const app = createApp({
   config: {
     chainId: config.chainId,
     webOrigins: config.webOrigins,
@@ -70,16 +86,9 @@ export default createApp({
     client.verifyMessage({ address: getAddress(address), message, signature }),
   stream: streamFeed,
   faucet: createFaucet(),
-  clientIp(c) {
-    if (config.trustProxy) {
-      // The proxy appends the address it saw; entries to its left are whatever the client sent.
-      const forwarded = c.req.header("X-Forwarded-For")?.split(",").at(-1)?.trim();
-      if (forwarded !== undefined && forwarded !== "") return forwarded;
-    }
-    try {
-      return getConnInfo(c).remote.address ?? "unknown";
-    } catch {
-      return "unknown";
-    }
-  },
+  clientIp,
 });
+
+registerExplorerRoutes(app, { clientIp });
+
+export default app;

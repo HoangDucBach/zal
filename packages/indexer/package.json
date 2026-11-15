@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:stack": "node test/stack/demo.ts",
+    "test:stack": "node test/stack/demo.ts && node test/stack/explorer.ts",
     "test:reindex": "cd ../.. && packages/indexer/test/stack/reindex-diff.sh",
     "db:migrate": "node lib/app-db/migrate.ts"
   },

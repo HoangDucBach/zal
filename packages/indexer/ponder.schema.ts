@@ -259,3 +259,186 @@ export const allowedVault = onchainTable("allowed_vault", (t) => ({
   vault: t.hex().primaryKey(),
   allowed: t.boolean().notNull(),
 }));
+
+// ---- Explorer (docs/plans/explorer.md). Written by the block handler in src/explorer.ts from every block's
+// transactions and receipts, independently of the Zal tables above.
+
+export const exBlock = onchainTable(
+  "ex_block",
+  (t) => ({
+    number: t.bigint().primaryKey(),
+    hash: t.hex().notNull(),
+    parentHash: t.hex().notNull(),
+    timestamp: t.bigint().notNull(),
+    txCount: t.integer().notNull(),
+    gasUsed: t.bigint().notNull(),
+    gasLimit: t.bigint().notNull(),
+    baseFeePerGas: t.bigint(),
+    miner: t.hex().notNull(),
+  }),
+  (table) => ({ hashIdx: index().on(table.hash) }),
+);
+
+export const exTx = onchainTable(
+  "ex_tx",
+  (t) => ({
+    hash: t.hex().primaryKey(),
+    blockNumber: t.bigint().notNull(),
+    index: t.integer().notNull(),
+    timestamp: t.bigint().notNull(),
+    from: t.hex().notNull(),
+    /** Null on a contract creation. */
+    to: t.hex(),
+    value: t.bigint().notNull(),
+    gasUsed: t.bigint().notNull(),
+    effectiveGasPrice: t.bigint().notNull(),
+    fee: t.bigint().notNull(),
+    /** `success` or `reverted`. */
+    status: t.text().notNull(),
+    /** The first 4 bytes of calldata; null when there are fewer. */
+    selector: t.hex(),
+    /** The Zal function name for `selector`, else null. */
+    method: t.text(),
+    contractCreated: t.hex(),
+    /** `zal` | `token` | `native` | `deploy` | `other` (lib/explorer/chain.ts). */
+    kind: t.text().notNull(),
+    input: t.hex().notNull(),
+  }),
+  (table) => ({
+    orderIdx: index().on(table.blockNumber, table.index),
+    fromIdx: index().on(table.from, table.blockNumber, table.index),
+    toIdx: index().on(table.to, table.blockNumber, table.index),
+  }),
+);
+
+/** Every log of every transaction, raw. The API decodes them with the Zal ABIs when it serves a transaction. */
+export const exLog = onchainTable(
+  "ex_log",
+  (t) => ({
+    txHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+    blockNumber: t.bigint().notNull(),
+    address: t.hex().notNull(),
+    topics: t.json().$type<`0x${string}`[]>().notNull(),
+    data: t.hex().notNull(),
+  }),
+  (table) => ({ pk: primaryKey({ columns: [table.txHash, table.logIndex] }) }),
+);
+
+export const exAddress = onchainTable("ex_address", (t) => ({
+  address: t.hex().primaryKey(),
+  firstSeenBlock: t.bigint().notNull(),
+  /** Transactions sent from or to the address. */
+  txCount: t.integer().notNull(),
+  isContract: t.boolean().notNull(),
+  /** A deployment name or `Zal canvas`. */
+  label: t.text(),
+}));
+
+export const exToken = onchainTable(
+  "ex_token",
+  (t) => ({
+    address: t.hex().primaryKey(),
+    /** `erc20` | `erc721`, from the first Transfer log's shape. */
+    standard: t.text().notNull(),
+    /** Read once when the token first appears; null when the read failed. */
+    name: t.text(),
+    symbol: t.text(),
+    decimals: t.integer(),
+    /** Mints minus burns: an amount for ERC-20, a count for ERC-721. */
+    totalSupply: t.bigint().notNull(),
+    holderCount: t.integer().notNull(),
+    transferCount: t.integer().notNull(),
+  }),
+  (table) => ({ popularIdx: index().on(table.transferCount, table.address) }),
+);
+
+export const exTransfer = onchainTable(
+  "ex_transfer",
+  (t) => ({
+    txHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+    blockNumber: t.bigint().notNull(),
+    timestamp: t.bigint().notNull(),
+    token: t.hex().notNull(),
+    from: t.hex().notNull(),
+    to: t.hex().notNull(),
+    /** ERC-20 only. */
+    value: t.bigint(),
+    /** ERC-721 only. */
+    tokenId: t.bigint(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.txHash, table.logIndex] }),
+    tokenIdx: index().on(table.token, table.blockNumber, table.logIndex),
+    fromIdx: index().on(table.from, table.blockNumber, table.logIndex),
+    toIdx: index().on(table.to, table.blockNumber, table.logIndex),
+  }),
+);
+
+/** A positive balance: an amount for ERC-20, a count for ERC-721. A row that reaches zero is deleted. */
+export const exHolding = onchainTable(
+  "ex_holding",
+  (t) => ({
+    token: t.hex().notNull(),
+    holder: t.hex().notNull(),
+    balance: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.token, table.holder] }),
+    rankIdx: index().on(table.token, table.balance, table.holder),
+    holderIdx: index().on(table.holder),
+  }),
+);
+
+export const exNft = onchainTable(
+  "ex_nft",
+  (t) => ({
+    token: t.hex().notNull(),
+    tokenId: t.bigint().notNull(),
+    /** Null once burned. */
+    owner: t.hex(),
+    mintedBlock: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.token, table.tokenId] }),
+    ownerIdx: index().on(table.owner, table.token, table.tokenId),
+  }),
+);
+
+/** Per UTC unix day (`floor(timestamp / 86400)`). */
+export const exDaily = onchainTable("ex_daily", (t) => ({
+  day: t.integer().primaryKey(),
+  txCount: t.integer().notNull(),
+  activeAddresses: t.integer().notNull(),
+  gasUsed: t.bigint().notNull(),
+  fees: t.bigint().notNull(),
+  /** `InvoicePaid` face values plus Transfer-schedule payments (`ScheduleRan` of kind Transfer), in zUSDC units. */
+  zusdcSettled: t.bigint().notNull(),
+  /** Zal `AccountCreated`. */
+  newAccounts: t.integer().notNull(),
+  zalTxs: t.integer().notNull(),
+  tokenTxs: t.integer().notNull(),
+  nativeTxs: t.integer().notNull(),
+  deployTxs: t.integer().notNull(),
+  otherTxs: t.integer().notNull(),
+}));
+
+/** Which addresses were active on a day, so `ex_daily.activeAddresses` counts each once. */
+export const exDailyAddress = onchainTable(
+  "ex_daily_address",
+  (t) => ({
+    day: t.integer().notNull(),
+    address: t.hex().notNull(),
+  }),
+  (table) => ({ pk: primaryKey({ columns: [table.day, table.address] }) }),
+);
+
+/** One row (id 1): running totals, so /stats reads counts without scanning. */
+export const exTotals = onchainTable("ex_totals", (t) => ({
+  id: t.integer().primaryKey(),
+  txCount: t.bigint().notNull(),
+  addressCount: t.bigint().notNull(),
+  contractCount: t.bigint().notNull(),
+  canvasCount: t.bigint().notNull(),
+}));

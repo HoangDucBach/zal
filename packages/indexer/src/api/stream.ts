@@ -39,7 +39,7 @@ let streams = 0;
 let connecting: Promise<void> | undefined;
 
 /** Connects the shared LISTEN client once, and again after it drops. Streams still heartbeat meanwhile. */
-function ensureListener(): Promise<void> {
+export function ensureListener(): Promise<void> {
   connecting ??= (async () => {
     const client = new pg.Client({ connectionString: config.databaseUrl });
     const reconnect = () => {
@@ -68,7 +68,7 @@ function ensureListener(): Promise<void> {
   return connecting;
 }
 
-function subscribe(subjects: readonly string[], wake: Wake): () => void {
+export function subscribe(subjects: readonly string[], wake: Wake): () => void {
   for (const s of subjects) {
     const set = listeners.get(s) ?? new Set();
     set.add(wake);
@@ -84,7 +84,7 @@ function subscribe(subjects: readonly string[], wake: Wake): () => void {
 }
 
 /** Takes a stream slot now, before any await, so a burst cannot overshoot the caps. Returns its release. */
-function reserveSlot(client: string): () => void {
+export function reserveSlot(client: string): () => void {
   const held = perClient.get(client) ?? 0;
   if (streams >= MAX_STREAMS) throw new ApiError("unavailable", "Too many open streams");
   if (held >= MAX_STREAMS_PER_CLIENT) throw new ApiError("rate_limited", "Too many open streams from this client");
@@ -195,7 +195,7 @@ export async function streamFeed(c: Context, account: Address, client: string): 
       if (reset) enqueue(() => send({ event: "reset", data: JSON.stringify({ cursor: formatCursor(cursor), asOf }) }));
       enqueue(() => send({ event: "ready", data: JSON.stringify({ cursor: formatCursor(cursor), asOf }) }));
       unsubscribe = subscribe(subjects, (notice) => {
-        if (notice.kind === "feed") {
+        if (notice.kind !== "layout") {
           drain();
           return;
         }

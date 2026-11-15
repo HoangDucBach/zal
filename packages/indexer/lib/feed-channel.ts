@@ -19,13 +19,18 @@ export function parseCursor(text: string | undefined): FeedCursor | undefined {
 }
 
 
+/** The `subject` of explorer block notices, which no account address can equal. */
+export const EXPLORER_SUBJECT = "explorer";
+
 /**
  * `feed`: indexing committed feed rows for `subject` up to `cursor`. `layout`: a member saved the account's layout
  * (zal_app.layouts) at `revision`, so other devices refetch it.
  */
 export type FeedNotice =
   | { readonly kind: "feed"; readonly subject: string; readonly cursor: string }
-  | { readonly kind: "layout"; readonly subject: string; readonly revision: number };
+  | { readonly kind: "layout"; readonly subject: string; readonly revision: number }
+  /** The explorer indexed block `number` (subject {@link EXPLORER_SUBJECT}). */
+  | { readonly kind: "block"; readonly subject: string; readonly number: string };
 
 export const encodeNotice = (notice: FeedNotice): string => JSON.stringify(notice);
 
@@ -39,6 +44,9 @@ export function decodeNotice(payload: string): FeedNotice | undefined {
     }
     if (value.kind === "layout" && "revision" in value && typeof value.revision === "number") {
       return { kind: "layout", subject: value.subject, revision: value.revision };
+    }
+    if (value.kind === "block" && "number" in value && typeof value.number === "string" && /^\d{1,20}$/.test(value.number)) {
+      return { kind: "block", subject: value.subject, number: value.number };
     }
   } catch {
     // A malformed payload is not ours.

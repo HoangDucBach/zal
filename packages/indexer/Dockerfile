@@ -15,7 +15,7 @@ COPY packages/indexer/ ./packages/indexer/
 WORKDIR /app/packages/indexer
 # Ponder refuses a schema that other indexing code built, so each build indexes into a schema named after the
 # inputs Ponder hashes into its build id: config, schema, ABIs and handlers. An API-only change keeps the schema.
-RUN cat ponder.config.ts ponder.schema.ts abis/index.ts src/*.ts lib/feed-channel.ts lib/deployment.ts \
+RUN cat ponder.config.ts ponder.schema.ts abis/index.ts src/*.ts lib/feed-channel.ts lib/deployment.ts lib/explorer/chain.ts lib/explorer/decode.ts \
       | sha256sum | cut -c1-12 > .schema-id \
   && chown -R node:node /app/packages/indexer
 USER node

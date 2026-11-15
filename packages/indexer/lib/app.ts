@@ -173,7 +173,7 @@ const json = async (c: Context): Promise<unknown> => {
   }
 };
 
-const throttle = (limiter: RateLimiter, key: string) => {
+export const throttle = (limiter: RateLimiter, key: string) => {
   const wait = limiter.hit(key);
   if (wait > 0) {
     throw new ApiError("rate_limited", `Too many requests. Retry in ${wait}s`, undefined, { "Retry-After": String(wait) });
