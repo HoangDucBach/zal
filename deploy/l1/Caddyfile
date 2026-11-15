@@ -23,6 +23,9 @@ api.100-63-191-30.sslip.io {
 	request_body {
 		max_size 512KB
 	}
+	# Ponder's /metrics and /status describe the indexer's internals; services on the compose network still reach them.
+	@internal path /metrics /metrics/* /status /status/*
+	respond @internal "Not found" 404
 	# SSE: flush every event at once instead of buffering.
 	reverse_proxy 127.0.0.1:42069 {
 		flush_interval -1
