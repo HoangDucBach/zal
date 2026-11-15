@@ -97,7 +97,8 @@ Created by `ZalFactory.createAccount(admin, salt)` as an ERC-1167 clone, so the 
 ### Members and approval policy
 - `setMember(address, MemberRole)` (Admin). The last Admin cannot be removed (ZR-ACC-02).
 - `setPolicy(uint8 threshold, uint128 approvalLimit)` (Admin). `threshold >= 1` and `threshold <= approver count` (Admins count as approvers).
-- A gated operation needs `threshold` confirmations when its amount exceeds `approvalLimit`, and one confirmation otherwise. A personal canvas with one Admin and threshold 1 behaves like a plain wallet.
+- A gated operation needs `threshold` confirmations when `spentInWindow + amount > approvalLimit`, and one confirmation otherwise (ZR-ACC-11, ADR 0016). `approvalLimit` is a single-signature allowance per rolling 24 h, shared by the whole account. The check runs when the op would execute, so an op priced at one confirmation at submit can need `threshold` once the window has filled. A personal canvas with one Admin and threshold 1 behaves like a plain wallet.
+- The window is `windowStart` and `windowSpent`. An op that executes with fewer than `threshold` confirmations adds its amount to the window and emits `SpendWindowCharged(opId, amount, windowSpent, windowStart)`; an op that collected the full threshold adds nothing. A window with nothing in it, or older than 24 h (`now >= windowStart + 24 h`), restarts at `now`. With threshold 1 every op is recorded, saturating at `type(uint128).max`, and never blocks. `spendWindow()` returns `(start, spent, remaining)`, with `spent` 0 once expired and `remaining` floored at 0. Policy changes keep the window.
 
 ### Gated operations
 Spending actions go through `submit(bytes call) returns (uint256 opId)` and `confirm(opId)`. `call` is an ABI-encoded call to this account. Only the selectors below are allowed. Arbitrary targets are not (ZR-ACC-03). The submitter's confirmation counts. The operation executes inside the confirmation that reaches the required count. Each approver confirms once (ZR-ACC-04). `revoke(opId)` withdraws a confirmation before execution. An executed or cancelled op cannot run again (INV-08).
@@ -127,6 +128,35 @@ These four functions are `onlySelf`. Members reach them only through `submit` an
 
 ### Payee Endpoint visibility
 `endpointPublic` is an off-chain display flag, not on-chain privacy. Any chain reader sees the route. The PRD's private mode hides the route in the Zal UI only (open question 3).
+
+### Scheduled payments (ADR 0015)
+```solidity
+enum ScheduleKind { Transfer, PayInvoice }
+struct Schedule {
+    ScheduleKind kind;
+    address recipient;   // Transfer only; nonzero
+    uint256 invoiceId;   // PayInvoice only; this account must be its buyer
+    uint128 amount;      // Transfer: per run. PayInvoice: the invoice face value at creation (informational)
+    uint64  nextAt;      // next run time (unix seconds)
+    uint32  interval;    // 0 = once; otherwise >= 60
+    uint32  remaining;   // runs left; >= 1 at creation, <= 1000
+    bool    active;
+}
+```
+- `createSchedule(kind, recipient, invoiceId, amount, start, interval, runs)` is a gated operation (`onlySelf`, reached through `submit`/`confirm`). The policy amount is `amount × runs` for Transfer and the face value for PayInvoice. Requirements:
+  - `start >= block.timestamp + 60`.
+  - `interval == 0 && runs == 1`, or `interval >= 60 && 1 <= runs <= 1000`.
+  - A Transfer recipient is not zero and not this account.
+  - A PayInvoice schedule is once only, and its invoice is `Approved` with this account as buyer.
+  - It emits `ScheduleCreated(id, kind, recipient, invoiceId, amount, start, interval, runs)` (ZR-SCH-01..03).
+- `cancelSchedule(id)` is direct, for an Approver or Admin. It sets `active = false` and emits `ScheduleCancelled(id, by)` (ZR-SCH-04).
+- `runSchedule(id)` is permissionless and `nonReentrant`. It requires `active`, `remaining > 0` and `block.timestamp >= nextAt`. Effects come first: decrement `remaining`, set `nextAt += interval`, and if `remaining == 0` set `active = false`. Then the payment:
+  - **Transfer:** `safeTransfer(usdc, recipient, amount)`.
+  - **PayInvoice:** approve exactly the face value, then call `invoices.payInvoice(invoiceId)`.
+
+  It emits `ScheduleRan(id, runAt, amountPaid, remaining)`. A failing payment reverts the whole run, so the schedule stays due (ZR-SCH-05..07).
+- `getSchedule(id)` and `scheduleCount()` are views.
+- Budgets are not charged by schedules in v1. Approval of the schedule is the spend control.
 
 ## RelationshipRegistry
 

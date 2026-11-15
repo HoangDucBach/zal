@@ -39,6 +39,14 @@ PRD story codes (C1, R1, I1, …) are in [../product/prd.md](../product/prd.md).
 | ZR-FND-06 | Pool and vault shares shall use a virtual offset of 6 decimals | n/a |
 | ZR-FND-07 | An advance shall require the invoice to be fully escrowed, or its buyer to be enrolled by the pool owner with open advance principal plus the new principal at or under its limit | F1 |
 | ZR-ACC-10 | An account shall receive a settlement that its own gated operation triggered | P1, I3 |
+| ZR-ACC-11 | Single-confirmation spending shall be capped by `approvalLimit` per rolling 24 h across the whole account; an op that would exceed it shall need `threshold` confirmations (ADR 0016) | P3 |
+| ZR-SCH-01 | `createSchedule` shall be a gated operation whose policy amount is the total it may pay | P4 |
+| ZR-SCH-02 | A schedule shall start at least 60 s after creation, and a recurring schedule shall have an interval of at least 60 s and 1 to 1000 runs | P4 |
+| ZR-SCH-03 | A PayInvoice schedule shall run once, for an Approved invoice this account buys; a Transfer schedule shall pay a fixed nonzero recipient other than the account | P4 |
+| ZR-SCH-04 | An Approver or Admin shall cancel a schedule directly, and a cancelled schedule never runs | P4 |
+| ZR-SCH-05 | Anyone shall run a schedule once its time has come, and it shall pay exactly the approved amount to the approved target | P4 |
+| ZR-SCH-06 | A schedule shall run at most once per due time, and at most its run count in total | P4 |
+| ZR-SCH-07 | A failed run shall revert without consuming a run | P4 |
 | ZR-VLT-01 | `ZalVault` yield shall be simulated and labelled simulated wherever it is shown | P2 |
 
 ## Invariants
@@ -54,6 +62,8 @@ Each has a Foundry invariant test or a stateful fuzz handler.
 - INV-07 `ZalInvoice.totalEscrowed == Σ escrowed` over invoices that are not `Paid`, and `USDC.balanceOf(ZalInvoice) >= totalEscrowed`. (Changed from `balance == Σ escrowed`: anyone can send USDC to the contract, so exact balance equality cannot hold.)
 - INV-08 A gated op executes at most once.
 - INV-09 An Invoice NFT is held by its seller or by the pool, or burned.
+- INV-12 On an account with threshold above 1, the amounts of ops executed with fewer than `threshold` confirmations since `windowStart` sum to at most the `approvalLimit` in force when each executed (ADR 0016).
+- INV-11 For every schedule, runs executed + `remaining` equals the runs it was created with, and `nextAt` = start + runs executed × interval.
 - INV-10 For every enrolled buyer, `obligorOutstanding[buyer] == Σ principal` of its open advances that used the credit limit, and it never exceeds the limit at the moment an advance is made.
 
 ## Acceptance tests
@@ -82,3 +92,10 @@ These mirror the demo script in the PRD, with designer `D`, club `C` (members `c
 | AT-18 | Owner enrols C with limit 6,000. D advances against a 5,000 unescrowed invoice, then a second 5,000 invoice | First succeeds, second reverts. After C pays the first, a new advance fits again |
 | AT-19 | D's own account settles D's escrowed invoice after the due date, unfunded and funded | Both succeed. Pool keeps principal + fee, D's route gets the rest |
 | AT-20 | Seller route has a vault leg whose `deposit` returns no data | Payment succeeds. Amount held. `LegFailed` emitted |
+| AT-21 | C (2 of 3) schedules 100 zUSDC to D every 60 s for 3 runs; a stranger runs it at t+60, t+120, t+180 and tries a 4th and an early run | 3 payments of 100; the early and the 4th run revert |
+| AT-22 | C schedules payment of an approved, unescrowed invoice at t+60; the keeper runs it | Invoice Paid through D's route in one transaction |
+| AT-23 | A run when C's balance is short | Reverts; `remaining` and `nextAt` unchanged; succeeds after C is funded |
+| AT-24 | An Approver cancels a schedule; anyone tries to run it | Run reverts |
+| AT-26 | Threshold 2, limit 1,000: c1 alone withdraws 600, then submits 600 more; after 24 h, 600 again | Second waits for c2; third runs on c1 alone |
+| AT-27 | c1 alone creates five 1,000 single-run schedules under limit 1,000 | Only the first runs on one signature; the rest wait |
+| AT-25 | createSchedule with start < now + 60, interval 30, or 0 runs | Reverts |

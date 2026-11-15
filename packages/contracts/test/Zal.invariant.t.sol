@@ -9,7 +9,16 @@ import {RelationshipRegistry} from "../src/RelationshipRegistry.sol";
 import {ZalFundingPool} from "../src/ZalFundingPool.sol";
 import {ZalInvoice} from "../src/ZalInvoice.sol";
 import {ZalVault} from "../src/ZalVault.sol";
-import {Advance, Invoice, InvoiceStatus, Leg, LegKind, MemberRole} from "../src/lib/ZalTypes.sol";
+import {
+    Advance,
+    Invoice,
+    InvoiceStatus,
+    Leg,
+    LegKind,
+    MemberRole,
+    Schedule,
+    ScheduleKind
+} from "../src/lib/ZalTypes.sol";
 import {FlakyVault} from "./support/Mocks.sol";
 import {ZalTestBase} from "./support/ZalTestBase.sol";
 
@@ -28,6 +37,20 @@ contract ZalHandler is Test {
         address owner;
         address c2;
         address c3;
+    }
+
+    /// @dev What a schedule was created with, and what its events have reported since.
+    struct ScheduleRecord {
+        uint64 start;
+        uint32 interval;
+        uint32 runs;
+        uint32 executed;
+        bool cancelled;
+    }
+
+    struct ScheduleRef {
+        address account;
+        uint256 id;
     }
 
     uint256 internal constant ACCOUNTS = 4;
@@ -67,6 +90,17 @@ contract ZalHandler is Test {
     /// was booked against the wrong one of the two.
     bool public ghostUnbackedAdvance;
 
+    /// @dev ZR-SCH-04..06. A schedule ran after it was cancelled, before a due time, more often than it was
+    /// created for, or paid something other than its amount to its recipient.
+    bool public ghostScheduleMisran;
+
+    /// @dev ZR-ACC-11, INV-12. Single-confirmation spend on an account with threshold above 1 went over the
+    /// `approvalLimit` in force within one 24 h window.
+    bool public ghostWindowOverspent;
+    uint256 public ghostSingleConfirmationSpends;
+    mapping(address account => uint64) public windowStartModel;
+    mapping(address account => uint256) public windowSpentModel;
+
     /// @dev USDC sent to ZalInvoice outside escrow (INV-07).
     uint256 public ghostDonatedToInvoices;
     uint256 public ghostAdvancedOnEscrow;
@@ -78,6 +112,14 @@ contract ZalHandler is Test {
     uint256 public ghostRouted;
     uint256 public ghostLegFailed;
     uint256 public ghostOpsExecuted;
+    uint256 public ghostSchedulesCreated;
+    uint256 public ghostSchedulesCancelled;
+    uint256 public ghostTransferRuns;
+    uint256 public ghostInvoiceRuns;
+    uint256 public ghostSchedulesFinished;
+
+    mapping(address account => mapping(uint256 scheduleId => ScheduleRecord)) public scheduleRecords;
+    ScheduleRef[] private createdSchedules;
 
     mapping(uint256 invoiceId => InvoiceStatus) private lastStatus;
     mapping(uint256 invoiceId => address) private lastOwner;
@@ -203,6 +245,74 @@ contract ZalHandler is Test {
         invoices.payInvoice(id);
     }
 
+    // ---- Schedules
+
+    /// @dev Many of these are invalid on purpose: a start or interval under 60 s, 0 runs, the account as its own
+    /// recipient, a recurring PayInvoice, or an invoice the account does not buy. INV-11 fails if one is stored.
+    function createSchedule(uint256 accountSeed, uint256 seed, uint256 amount, uint256 timingSeed, uint256 runs)
+        external
+        tracked
+    {
+        uint256 account = accountSeed % ACCOUNTS;
+        uint64 start =
+            uint64(block.timestamp + (timingSeed % 8 == 0 ? 59 : [uint256(60), 300, 2 hours][timingSeed % 3]));
+        uint32 interval = (timingSeed >> 8) % 8 == 0 ? 30 : [uint32(0), 60, 600, 1 hours][(timingSeed >> 16) % 4];
+        uint32 runCount = runs % 9 == 0 ? 0 : uint32(bound(runs, 1, 5));
+        if (interval == 0 && (timingSeed >> 24) % 4 != 0) runCount = 1;
+        if (seed % 3 != 0) {
+            address recipient = seed % 7 == 0 ? address(accounts[account]) : sinks[(seed >> 8) % 3];
+            uint128 perRun = uint128(bound(amount, 1, 1_000e6));
+            _exec(
+                account,
+                abi.encodeCall(
+                    CanvasAccount.createSchedule,
+                    (ScheduleKind.Transfer, recipient, 0, perRun, start, interval, runCount)
+                )
+            );
+            return;
+        }
+        (uint256 id, Invoice memory inv) = _pick(seed >> 8);
+        if (seed % 4 != 0) {
+            account = _indexOf(inv.buyer);
+            interval = 0;
+            runCount = 1;
+        }
+        _exec(
+            account,
+            abi.encodeCall(
+                CanvasAccount.createSchedule, (ScheduleKind.PayInvoice, sinks[0], id, 1, start, interval, runCount)
+            )
+        );
+    }
+
+    /// @dev Run by a stranger. The account is funded on most calls, so both paid and short runs happen.
+    function runSchedule(uint256 pickSeed, uint256 fundSeed) external tracked {
+        if (createdSchedules.length == 0) return;
+        ScheduleRef memory ref = createdSchedules[pickSeed % createdSchedules.length];
+        (CanvasAccount account, uint256 id) = (CanvasAccount(ref.account), ref.id);
+        Schedule memory s = account.getSchedule(id);
+        bool isTransfer = s.kind == ScheduleKind.Transfer;
+        if (fundSeed % 4 != 0 && (isTransfer || invoices.getInvoice(s.invoiceId).escrowed == 0)) {
+            usdc.mint(address(account), s.amount);
+        }
+        uint256 recipientBefore = usdc.balanceOf(s.recipient);
+        uint256 accountBefore = usdc.balanceOf(address(account));
+        vm.prank(stranger);
+        account.runSchedule(id);
+        if (!isTransfer) return;
+        if (
+            usdc.balanceOf(s.recipient) != recipientBefore + s.amount
+                || usdc.balanceOf(address(account)) != accountBefore - s.amount
+        ) ghostScheduleMisran = true;
+    }
+
+    function cancelSchedule(uint256 pickSeed, uint256 memberSeed) external tracked {
+        if (createdSchedules.length == 0) return;
+        ScheduleRef memory ref = createdSchedules[pickSeed % createdSchedules.length];
+        vm.prank(_member(_indexOf(ref.account), memberSeed));
+        CanvasAccount(ref.account).cancelSchedule(ref.id);
+    }
+
     // ---- Club approvals outside the happy path
 
     /// @dev Leaves the op pending on odd seeds. On even seeds c2 executes it and c3 then tries to run it again,
@@ -233,6 +343,12 @@ contract ZalHandler is Test {
         if (count == 0) return;
         vm.prank(_member(CLUB, memberSeed));
         accounts[CLUB].revoke(bound(opSeed, 1, count));
+    }
+
+    /// @dev Keeps threshold 2 and moves the single-confirmation allowance, so INV-12 has spend to bound.
+    function clubPolicy(uint256 limit) external tracked {
+        vm.prank(admins[CLUB]);
+        accounts[CLUB].setPolicy(2, uint128(bound(limit, 0, 3_000e6)));
     }
 
     function clubChurn(uint256 seed) external tracked {
@@ -306,7 +422,12 @@ contract ZalHandler is Test {
     }
 
     function warp(uint256 secs) external tracked {
-        vm.warp(block.timestamp + bound(secs, 1 hours, 3 days));
+        vm.warp(vm.getBlockTimestamp() + bound(secs, 1 hours, 3 days));
+    }
+
+    /// @dev Steps of about a schedule interval, so recurring schedules are met part of the way through.
+    function warpMinutes(uint256 secs) external tracked {
+        vm.warp(vm.getBlockTimestamp() + bound(secs, 20, 15 minutes));
     }
 
     // ---- Internals
@@ -349,6 +470,7 @@ contract ZalHandler is Test {
             if (sig == CanvasAccount.OpExecuted.selector) {
                 ++ghostOpsExecuted;
                 if (++executions[log.emitter][uint256(log.topics[1])] > 1) ghostOpExecutedTwice = true;
+                _modelWindow(CanvasAccount(log.emitter), uint256(log.topics[1]));
             } else if (sig == CanvasAccount.PaymentRouted.selector) {
                 ++ghostRouted;
                 (uint256 amount, uint256[] memory legAmounts) = abi.decode(log.data, (uint256, uint256[]));
@@ -359,6 +481,29 @@ contract ZalHandler is Test {
                 if (total != amount) ghostRouteSumMismatch = true;
             } else if (sig == CanvasAccount.LegFailed.selector) {
                 ++ghostLegFailed;
+            } else if (sig == CanvasAccount.ScheduleCreated.selector) {
+                ++ghostSchedulesCreated;
+                createdSchedules.push(ScheduleRef(log.emitter, uint256(log.topics[1])));
+                (,, uint64 start, uint32 interval, uint32 runs) =
+                    abi.decode(log.data, (ScheduleKind, uint128, uint64, uint32, uint32));
+                scheduleRecords[log.emitter][uint256(log.topics[1])] =
+                    ScheduleRecord({start: start, interval: interval, runs: runs, executed: 0, cancelled: false});
+            } else if (sig == CanvasAccount.ScheduleCancelled.selector) {
+                ++ghostSchedulesCancelled;
+                scheduleRecords[log.emitter][uint256(log.topics[1])].cancelled = true;
+            } else if (sig == CanvasAccount.ScheduleRan.selector) {
+                uint256 scheduleId = uint256(log.topics[1]);
+                ScheduleRecord storage record = scheduleRecords[log.emitter][scheduleId];
+                (uint64 runAt, uint128 amountPaid, uint32 remaining) = abi.decode(log.data, (uint64, uint128, uint32));
+                uint256 dueAt = record.start + uint256(record.executed) * record.interval;
+                Schedule memory s = CanvasAccount(log.emitter).getSchedule(scheduleId);
+                if (s.kind == ScheduleKind.Transfer) ++ghostTransferRuns;
+                else ++ghostInvoiceRuns;
+                if (remaining == 0) ++ghostSchedulesFinished;
+                if (
+                    record.cancelled || runAt < dueAt || runAt != block.timestamp || ++record.executed > record.runs
+                        || remaining != record.runs - record.executed || amountPaid != s.amount
+                ) ghostScheduleMisran = true;
             } else if (sig == ZalInvoice.InvoiceIssued.selector) {
                 ++ghostIssued;
             } else if (sig == ZalInvoice.InvoicePaid.selector) {
@@ -393,6 +538,22 @@ contract ZalHandler is Test {
                 }
             }
         }
+    }
+
+    /// @dev An independent model of ADR 0016: only executions below the threshold count, and a window lasts 24 h
+    /// from the first such execution after the last one expired.
+    function _modelWindow(CanvasAccount account, uint256 opId) private {
+        uint8 threshold = account.threshold();
+        CanvasAccount.Op memory op = account.getOp(opId);
+        if (threshold == 1 || op.confirmations >= threshold) return;
+        address key = address(account);
+        if (block.timestamp >= windowStartModel[key] + 1 days || windowSpentModel[key] == 0) {
+            windowStartModel[key] = uint64(block.timestamp);
+            windowSpentModel[key] = 0;
+        }
+        windowSpentModel[key] += op.amount;
+        ++ghostSingleConfirmationSpends;
+        if (windowSpentModel[key] > account.approvalLimit()) ghostWindowOverspent = true;
     }
 
     function _scanInvoices() private {
@@ -555,6 +716,40 @@ contract ZalInvariantTest is ZalTestBase {
         }
     }
 
+    function invariant_INV11_scheduleRunsAndNextAtFollowItsCreation() public view {
+        assertFalse(handler.ghostScheduleMisran(), "ZR-SCH-04..06 a run that should not have happened");
+        for (uint256 i; i < ACCOUNTS; ++i) {
+            uint256 count = accounts[i].scheduleCount();
+            for (uint256 id = 1; id <= count; ++id) {
+                (uint64 start, uint32 interval, uint32 runs, uint32 executed, bool cancelled) =
+                    handler.scheduleRecords(address(accounts[i]), id);
+                Schedule memory s = accounts[i].getSchedule(id);
+                assertGe(start, 1_700_000_060, "ZR-SCH-02 start");
+                assertTrue(interval == 0 ? runs == 1 : interval >= 60 && runs >= 1 && runs <= 1000, "ZR-SCH-02");
+                assertEq(uint256(executed) + s.remaining, runs, "INV-11 runs");
+                assertEq(s.nextAt, start + uint256(executed) * interval, "INV-11 nextAt");
+                assertEq(s.active, s.remaining != 0 && !cancelled, "active");
+                if (s.kind == ScheduleKind.Transfer) {
+                    assertTrue(s.recipient != address(0) && s.recipient != address(accounts[i]), "ZR-SCH-03 recipient");
+                } else {
+                    assertEq(_invoice(s.invoiceId).buyer, address(accounts[i]), "ZR-SCH-03 buyer");
+                    assertEq(s.amount, _invoice(s.invoiceId).faceValue, "ZR-SCH-03 face value");
+                    assertEq(runs, 1, "ZR-SCH-03 once");
+                }
+            }
+        }
+    }
+
+    function invariant_INV12_singleConfirmationSpendFitsTheDailyAllowance() public view {
+        assertFalse(handler.ghostWindowOverspent(), "INV-12");
+        CanvasAccount club = accounts[2];
+        (uint64 start, uint128 spent,) = club.spendWindow();
+        uint256 modelSpent = handler.windowSpentModel(address(club));
+        if (block.timestamp >= handler.windowStartModel(address(club)) + 1 days) modelSpent = 0;
+        assertEq(spent, modelSpent, "ZR-ACC-11 window spend matches the model");
+        if (modelSpent != 0) assertEq(start, handler.windowStartModel(address(club)), "ZR-ACC-11 window start");
+    }
+
     function invariant_poolSharePriceNeverFalls() public view {
         assertFalse(handler.ghostPoolSharePriceFell(), "share price");
     }
@@ -562,7 +757,7 @@ contract ZalInvariantTest is ZalTestBase {
     /// @dev Guards the suite itself: a fixed pseudo-random walk over the handler must reach every settled state,
     /// or the invariants above would pass without testing anything.
     function test_handlerReachesSettledStates() public {
-        bytes4[22] memory actions = [
+        bytes4[26] memory actions = [
             ZalHandler.issue.selector,
             ZalHandler.cancel.selector,
             ZalHandler.advance.selector,
@@ -584,10 +779,15 @@ contract ZalInvariantTest is ZalTestBase {
             ZalHandler.lpWithdraw.selector,
             ZalHandler.simulateYield.selector,
             ZalHandler.setFlaky.selector,
-            ZalHandler.warp.selector
+            ZalHandler.warp.selector,
+            ZalHandler.createSchedule.selector,
+            ZalHandler.runSchedule.selector,
+            ZalHandler.cancelSchedule.selector,
+            ZalHandler.warpMinutes.selector
         ];
+        handler.clubPolicy(1_000e6);
         // Every handler action takes only uint256 seeds, so one argument encoding fits them all.
-        for (uint256 i; i < 1500; ++i) {
+        for (uint256 i; i < 1300; ++i) {
             bytes memory args = abi.encode(_word(i, 1), _word(i, 2), _word(i, 3), _word(i, 4), _word(i, 5));
             (bool ok,) = address(handler).call(bytes.concat(actions[_word(i, 0) % actions.length], args));
             ok;
@@ -602,6 +802,8 @@ contract ZalInvariantTest is ZalTestBase {
         invariant_INV08_gatedOpExecutesAtMostOnce();
         invariant_INV09_nftHeldBySellerOrPoolOrBurned();
         invariant_INV10_obligorOutstandingIsOpenCreditPrincipal();
+        invariant_INV11_scheduleRunsAndNextAtFollowItsCreation();
+        invariant_INV12_singleConfirmationSpendFitsTheDailyAllowance();
         invariant_poolSharePriceNeverFalls();
 
         assertGt(handler.ghostIssued(), 0, "issued");
@@ -614,6 +816,12 @@ contract ZalInvariantTest is ZalTestBase {
         assertGt(handler.ghostRepaid(), 0, "repaid through the pool");
         assertGt(handler.ghostRouted(), 0, "routed");
         assertGt(handler.ghostLegFailed(), 0, "a leg failed and fell back");
+        assertGt(handler.ghostSchedulesCreated(), 0, "schedules created");
+        assertGt(handler.ghostTransferRuns(), 0, "a transfer schedule ran");
+        assertGt(handler.ghostInvoiceRuns(), 0, "an invoice schedule ran");
+        assertGt(handler.ghostSchedulesFinished(), 0, "a schedule ran to its end");
+        assertGt(handler.ghostSchedulesCancelled(), 0, "a schedule was cancelled");
+        assertGt(handler.ghostSingleConfirmationSpends(), 0, "the club spent on one confirmation");
         emit log_named_uint("issued", handler.ghostIssued());
         emit log_named_uint("ops executed", handler.ghostOpsExecuted());
         emit log_named_uint("advanced", handler.ghostAdvanced());
@@ -623,6 +831,12 @@ contract ZalInvariantTest is ZalTestBase {
         emit log_named_uint("repaid", handler.ghostRepaid());
         emit log_named_uint("routed", handler.ghostRouted());
         emit log_named_uint("leg failed", handler.ghostLegFailed());
+        emit log_named_uint("schedules created", handler.ghostSchedulesCreated());
+        emit log_named_uint("transfer runs", handler.ghostTransferRuns());
+        emit log_named_uint("invoice runs", handler.ghostInvoiceRuns());
+        emit log_named_uint("schedules finished", handler.ghostSchedulesFinished());
+        emit log_named_uint("schedules cancelled", handler.ghostSchedulesCancelled());
+        emit log_named_uint("single-confirmation spends", handler.ghostSingleConfirmationSpends());
     }
 
     function _word(uint256 step, uint256 index) private pure returns (uint256) {

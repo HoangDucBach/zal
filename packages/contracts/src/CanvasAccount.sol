@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {ICanvasAccount} from "./interfaces/ICanvasAccount.sol";
@@ -11,11 +12,22 @@ import {IRelationshipRegistry} from "./interfaces/IRelationshipRegistry.sol";
 import {IZalFactory} from "./interfaces/IZalFactory.sol";
 import {IZalFundingPool} from "./interfaces/IZalFundingPool.sol";
 import {IZalInvoice} from "./interfaces/IZalInvoice.sol";
-import {Budget, Invite, Invoice, Leg, LegKind, MemberRole, Role} from "./lib/ZalTypes.sol";
+import {
+    Budget,
+    Invite,
+    Invoice,
+    InvoiceStatus,
+    Leg,
+    LegKind,
+    MemberRole,
+    Role,
+    Schedule,
+    ScheduleKind
+} from "./lib/ZalTypes.sol";
 
 /// @dev One per canvas, deployed as an ERC-1167 clone by ZalFactory. Holds USDC and is the party of record in
 /// every relationship and invoice. An Admin is fully trusted: one Admin can change members, policy and the
-/// receive route alone. The confirmation threshold protects the four gated spending operations only.
+/// receive route alone. The confirmation threshold protects the five gated spending operations only.
 contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
 
@@ -30,6 +42,12 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     uint256 public constant BPS = 10_000;
     uint256 public constant MAX_LEGS = 8;
     uint64 public constant DEFAULT_BUDGET_PERIOD = 30 days;
+    /// @dev ZR-SCH-02. The least time between creating a schedule and its first run, and between two runs.
+    uint64 public constant MIN_SCHEDULE_DELAY = 60;
+    uint32 public constant MIN_SCHEDULE_INTERVAL = 60;
+    uint32 public constant MAX_SCHEDULE_RUNS = 1000;
+    /// @dev ZR-ACC-11, ADR 0016.
+    uint64 public constant SPEND_WINDOW = 1 days;
 
     IZalFactory public immutable factory;
 
@@ -49,6 +67,9 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     uint64 public policyNonce;
     /// @dev Display flag for the Zal UI only. The route is always readable on-chain.
     bool public endpointPublic;
+    /// @dev ZR-ACC-11. Single-confirmation spend since `windowStart`. Read through `spendWindow`.
+    uint64 private windowStart;
+    uint128 private windowSpent;
 
     uint256 public opCount;
     mapping(uint256 opId => Op) private _ops;
@@ -57,6 +78,9 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     mapping(uint256 budgetId => Budget) public budgets;
     Leg[] private _route;
 
+    uint256 public scheduleCount;
+    mapping(uint256 scheduleId => Schedule) private _schedules;
+
     event MemberSet(address indexed member, MemberRole role, uint64 policyNonce);
     event PolicySet(uint8 threshold, uint128 approvalLimit, uint64 policyNonce);
     /// @dev Carries the full call, so approvers and the indexer see which invoice or recipient an op is for.
@@ -64,6 +88,7 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     event OpConfirmed(uint256 indexed opId, address indexed by, uint32 confirmations);
     event OpRevoked(uint256 indexed opId, address indexed by, uint32 confirmations);
     event OpExecuted(uint256 indexed opId, address indexed by);
+    event SpendWindowCharged(uint256 indexed opId, uint128 amount, uint128 windowSpent, uint64 windowStart);
     event BudgetSet(uint256 indexed budgetId, uint128 limit, uint64 periodLength);
     event BudgetCharged(uint256 indexed budgetId, uint256 indexed invoiceId, uint128 amount, uint128 used);
     event RouteSet(Leg[] legs);
@@ -73,6 +98,20 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     event VaultDeposited(address indexed vault, uint256 assets, uint256 shares);
     event VaultRedeemed(address indexed vault, uint256 shares, uint256 assets);
     event EndpointVisibilitySet(bool endpointPublic);
+    /// @dev `recipient` is zero for PayInvoice and `invoiceId` is zero for Transfer. `amount` is what one run pays.
+    event ScheduleCreated(
+        uint256 indexed id,
+        ScheduleKind kind,
+        address indexed recipient,
+        uint256 indexed invoiceId,
+        uint128 amount,
+        uint64 start,
+        uint32 interval,
+        uint32 runs
+    );
+    event ScheduleCancelled(uint256 indexed id, address indexed by);
+    /// @dev `runAt` is the block time of the run, which can be later than the time it was due.
+    event ScheduleRan(uint256 indexed id, uint64 runAt, uint128 amountPaid, uint32 remaining);
 
     error NotFactory();
     error AlreadyInitialized();
@@ -94,6 +133,12 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     error BudgetExceeded(uint256 budgetId, uint256 used, uint256 amount, uint256 limit);
     error InvalidRoute();
     error VaultNotAllowed(address vault);
+    error ScheduleStartTooSoon(uint64 start, uint256 earliest);
+    error InvalidScheduleTiming(uint32 interval, uint32 runs);
+    error InvalidScheduleRecipient(address recipient);
+    error InvoiceNotSchedulable(uint256 invoiceId);
+    error ScheduleNotActive(uint256 id);
+    error ScheduleNotDue(uint256 id, uint64 nextAt);
 
     modifier onlyAdmin() {
         if (roleOf[msg.sender] != MemberRole.Admin) revert NotAdmin();
@@ -167,16 +212,25 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
 
     // ---- Gated operations
 
-    /// @dev ZR-ACC-04.
+    /// @dev ZR-ACC-04, ZR-ACC-11. Priced against the spend window as it stands now, so an op that needed one
+    /// confirmation when it was submitted can need `threshold` by the time it would execute.
     function requiredConfirmations(uint256 amount) public view returns (uint256) {
-        return amount > approvalLimit ? threshold : 1;
+        return _spentInWindow() + amount > approvalLimit ? threshold : 1;
+    }
+
+    /// @dev ZR-ACC-11. `spent` is 0 once the window has expired; `start` is then the old window's start.
+    function spendWindow() external view returns (uint64 start, uint128 spent, uint128 remaining) {
+        start = windowStart;
+        spent = _spentInWindow();
+        uint128 limit = approvalLimit;
+        remaining = spent < limit ? limit - spent : 0;
     }
 
     function getOp(uint256 opId) external view returns (Op memory) {
         return _ops[opId];
     }
 
-    /// @dev ZR-ACC-03. `data` is an ABI-encoded call to one of the four gated functions of this account. The
+    /// @dev ZR-ACC-03. `data` is an ABI-encoded call to one of the five gated functions of this account. The
     /// submitter's confirmation counts, so with one required confirmation the op executes here.
     function submit(bytes calldata data) external nonReentrant onlyApprover returns (uint256 opId) {
         (bytes4 selector, uint256 amount) = _gatedAmount(data);
@@ -215,15 +269,100 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
 
     /// @dev ZalInvoice pulls exactly `faceValue` when the invoice is not escrowed, so the allowance ends at 0.
     function payInvoice(uint256 invoiceId) external onlySelf {
-        (uint128 face, uint128 escrowed) = _faceAndEscrow(invoiceId);
-        if (escrowed != face) usdc.forceApprove(address(invoices), face);
-        invoices.payInvoice(invoiceId);
+        _payInvoice(invoiceId);
     }
 
     function withdraw(address to, uint256 amount) external onlySelf {
         if (to == address(0)) revert ZeroAddress();
         usdc.safeTransfer(to, amount);
         emit Withdrawn(to, amount);
+    }
+
+    /// @dev ZR-SCH-01..03. Approving this op is the spend control for every run it allows: `submit` prices it at
+    /// `amount * runs` for a Transfer and at the face value for a PayInvoice. Runs charge no budget. `start` is
+    /// checked when the op executes, so it must still be 60 s ahead when the last confirmation lands.
+    /// A schedule is not tied to `policyNonce`. A later member or policy change leaves it running, because the
+    /// approvers of the time agreed to all of its runs. Stopping it takes one `cancelSchedule`.
+    /// For a PayInvoice the `recipient` and `amount` arguments are ignored; for a Transfer `invoiceId` is.
+    function createSchedule(
+        ScheduleKind kind,
+        address recipient,
+        uint256 invoiceId,
+        uint128 amount,
+        uint64 start,
+        uint32 interval,
+        uint32 runs
+    ) external onlySelf returns (uint256 id) {
+        uint256 earliest = block.timestamp + MIN_SCHEDULE_DELAY;
+        if (start < earliest) revert ScheduleStartTooSoon(start, earliest);
+        bool once = interval == 0 && runs == 1;
+        if (kind == ScheduleKind.Transfer) {
+            bool recurring = interval >= MIN_SCHEDULE_INTERVAL && runs != 0 && runs <= MAX_SCHEDULE_RUNS;
+            if (!once && !recurring) revert InvalidScheduleTiming(interval, runs);
+            if (recipient == address(0) || recipient == address(this)) revert InvalidScheduleRecipient(recipient);
+            invoiceId = 0;
+        } else {
+            if (!once) revert InvalidScheduleTiming(interval, runs);
+            Invoice memory inv = invoices.getInvoice(invoiceId);
+            if (inv.status != InvoiceStatus.Approved || inv.buyer != address(this)) {
+                revert InvoiceNotSchedulable(invoiceId);
+            }
+            recipient = address(0);
+            amount = inv.faceValue;
+        }
+
+        id = ++scheduleCount;
+        _schedules[id] = Schedule({
+            kind: kind,
+            recipient: recipient,
+            invoiceId: invoiceId,
+            amount: amount,
+            nextAt: start,
+            interval: interval,
+            remaining: runs,
+            active: true
+        });
+        emit ScheduleCreated(id, kind, recipient, invoiceId, amount, start, interval, runs);
+    }
+
+    // ---- Schedules
+
+    /// @dev ZR-SCH-04. One Approver or Admin is enough, so stopping money is never harder than starting it.
+    function cancelSchedule(uint256 id) external onlyApprover {
+        Schedule storage schedule = _schedules[id];
+        if (!schedule.active) revert ScheduleNotActive(id);
+        schedule.active = false;
+        emit ScheduleCancelled(id, msg.sender);
+    }
+
+    /// @dev ZR-SCH-05..07, INV-11. Open to anyone: the caller chooses nothing, and the run pays only the amount
+    /// and target that `createSchedule` stored. The schedule advances before the payment, so a payment that
+    /// reverts undoes the advance and the run stays due. A schedule that fell behind can be run once per missed
+    /// due time, back to back.
+    /// A PayInvoice run goes through `ZalInvoice.payInvoice`, which reverts unless the invoice is still Approved.
+    /// If the invoice was paid another way, the run keeps reverting until someone cancels the schedule.
+    function runSchedule(uint256 id) external nonReentrant {
+        Schedule storage schedule = _schedules[id];
+        if (!schedule.active) revert ScheduleNotActive(id);
+        uint64 dueAt = schedule.nextAt;
+        if (block.timestamp < dueAt) revert ScheduleNotDue(id, dueAt);
+
+        uint32 remaining = schedule.remaining - 1;
+        schedule.remaining = remaining;
+        schedule.nextAt = dueAt + schedule.interval;
+        if (remaining == 0) schedule.active = false;
+
+        uint128 amount = schedule.amount;
+        if (schedule.kind == ScheduleKind.Transfer) {
+            usdc.safeTransfer(schedule.recipient, amount);
+        } else {
+            _payInvoice(schedule.invoiceId);
+        }
+        emit ScheduleRan(id, SafeCast.toUint64(block.timestamp), amount, remaining);
+    }
+
+    function getSchedule(uint256 id) external view returns (Schedule memory) {
+        return _schedules[id];
     }
 
     // ---- Direct actions (Admin)
@@ -373,6 +512,10 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
         if (confirmations < requiredConfirmations(op.amount)) return;
 
         op.executed = true;
+        // ADR 0016: an op that collected the full threshold spends nothing from the window. A one-of-one
+        // account still records its spend, but its window never blocks.
+        uint8 threshold_ = threshold;
+        if (confirmations < threshold_ || threshold_ == 1) _chargeWindow(opId, op.amount);
         // The target is always this account and the selector was allow-listed in `submit`.
         (bool ok, bytes memory returndata) = address(this).call(op.data);
         if (!ok) {
@@ -381,6 +524,25 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
             }
         }
         emit OpExecuted(opId, msg.sender);
+    }
+
+    function _spentInWindow() private view returns (uint128) {
+        return block.timestamp < windowStart + SPEND_WINDOW ? windowSpent : 0;
+    }
+
+    /// @dev Restarts an expired window at now. Below the threshold the charge always fits under `approvalLimit`;
+    /// a one-of-one account can spend more, so its total saturates instead of reverting.
+    function _chargeWindow(uint256 opId, uint256 amount) private {
+        uint64 start = windowStart;
+        uint256 spent = _spentInWindow();
+        if (spent == 0) {
+            start = SafeCast.toUint64(block.timestamp);
+            windowStart = start;
+        }
+        uint128 charged = uint128(Math.min(amount, type(uint128).max));
+        uint128 total = uint128(Math.min(spent + charged, type(uint128).max));
+        windowSpent = total;
+        emit SpendWindowCharged(opId, charged, total, start);
     }
 
     /// @dev Exact lengths, so `data` carries nothing beyond the arguments of the gated function.
@@ -397,9 +559,24 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
             (selector == this.escrowInvoice.selector || selector == this.payInvoice.selector) && args.length == 32
         ) {
             (amount,) = _faceAndEscrow(abi.decode(args, (uint256)));
+        } else if (selector == this.createSchedule.selector && args.length == 224) {
+            (ScheduleKind kind,, uint256 invoiceId, uint128 perRun,,, uint32 runs) =
+                abi.decode(args, (ScheduleKind, address, uint256, uint128, uint64, uint32, uint32));
+            if (kind == ScheduleKind.Transfer) {
+                amount = uint256(perRun) * runs;
+            } else {
+                (amount,) = _faceAndEscrow(invoiceId);
+            }
         } else {
             revert OpNotAllowed();
         }
+    }
+
+    /// @dev From escrow when the invoice is escrowed. Otherwise ZalInvoice pulls exactly the face value.
+    function _payInvoice(uint256 invoiceId) private {
+        (uint128 face, uint128 escrowed) = _faceAndEscrow(invoiceId);
+        if (escrowed != face) usdc.forceApprove(address(invoices), face);
+        invoices.payInvoice(invoiceId);
     }
 
     function _faceAndEscrow(uint256 invoiceId) private view returns (uint128 face, uint128 escrowed) {

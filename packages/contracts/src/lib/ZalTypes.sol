@@ -76,6 +76,29 @@ struct Budget {
     uint64 periodLength;
 }
 
+enum ScheduleKind {
+    Transfer,
+    PayInvoice
+}
+
+/// @dev A payment a CanvasAccount approved ahead of time (ADR 0015). A schedule is `active` exactly while it
+/// has runs left and has not been cancelled.
+struct Schedule {
+    ScheduleKind kind;
+    /// @dev Transfer only. Zero for PayInvoice.
+    address recipient;
+    /// @dev PayInvoice only. Zero for Transfer.
+    uint256 invoiceId;
+    /// @dev Transfer: paid on every run. PayInvoice: the invoice's face value.
+    uint128 amount;
+    /// @dev The time from which the next run is allowed.
+    uint64 nextAt;
+    /// @dev Seconds between runs. 0 for a schedule that runs once.
+    uint32 interval;
+    uint32 remaining;
+    bool active;
+}
+
 struct Advance {
     address seller;
     uint128 principal;

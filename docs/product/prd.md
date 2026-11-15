@@ -73,8 +73,8 @@ The toolbar shows only components that fit the selected node and its state, so u
 | Payee endpoint | Relationship | Your public receiving gate | You publish your receiving flow |
 | Invoice | Document | Face value, due date, status. Sits on a relationship edge | Either side creates an invoice on that edge |
 | Budget | Spend control | Budget per category, monthly limit. Dropped on an issued invoice you pay, it approves the invoice against that budget | You have at least one relationship as buyer |
-| Approval | Spend control | Needs M of N signatures before money moves | The canvas has two or more members |
-| Schedule | Time | v1: settle an escrowed invoice at its due date, run by a keeper (ADR 0010). Pay once or recurring later | An approved, escrowed invoice you pay, and a keeper is available |
+| Approval | Spend control | Needs M of N signatures above an allowance per rolling 24 h for the whole account (ADR 0016); smaller spends need one | The canvas has two or more members |
+| Schedule | Time | Pay an approved invoice at a chosen time, or transfer a fixed amount every N minutes/hours/days (≥ 1 min, 1–1000 runs). Stored on-chain in the account, approved like a spend, run by any keeper (ADR 0015) | An approved invoice you pay, or the Account or a counterparty |
 | Stream | Time | Continuous payment at a flow rate. Not supported by v1 contracts; shown disabled with that reason | Never in v1 |
 | Split | Allocation | Splits incoming money by percentage | Dragged after the account or a payee endpoint |
 | Escrow | Commitment | Locks money for an invoice or milestone | An approved invoice is selected |
@@ -134,7 +134,7 @@ Fifteen user stories in six groups. P0 is required for the demo, P1 should have,
 | I3 | Invoice | As a buyer, I escrow the payment for an invoice in advance | The invoice gets an escrow-backed badge. The locked money shows on the escrow node | P1 |
 | P1 | Payment | As a buyer, I pay an invoice and see the money pass through both parties' flows | One transaction. Particles run on both canvases. Balances update | P0 |
 | P2 | Payment | As a seller, I split incoming money with Split and Vault | Percentages must total 100%. Each branch receives the exact amount | P0 |
-| P3 | Payment | As an organisation canvas, I require 2 of 3 signatures for large payments | The payment waits at the approval node until enough signatures arrive | P1 |
+| P3 | Payment | As an organisation canvas, I require 2 of 3 signatures for large payments | Once one-signature spending in the last 24 h would pass the allowance, the payment waits at the approval node until enough signatures arrive; splitting a payment does not avoid it | P1 |
 | P4 | Payment | As a buyer, I set a schedule or a stream instead of paying once | The payment runs on schedule or at the flow rate | P2 |
 | F1 | Financing | As a seller with an approved invoice, I get an advance from the funding pool | I receive the advance at the advance rate. The payment recipient becomes the pool. The edge reroutes on the canvas | P1 |
 | S1 | Sandbox | As a visitor, I connect my wallet, turn on Sandbox, and run the whole demo alone without faucets, gas or network setup | One switch. My account is created and funded. Demo counterparties respond on their own in every role: a demo club buys from me, a demo print shop sells to me, and I can act as an LP. A guided demo panel tracks the eight demo steps. Time can be advanced, and Reset starts over. Every sandbox value is labelled sandbox | P0 |
