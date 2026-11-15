@@ -13,6 +13,24 @@ Zal runs on the Zalax L1, the Fuji subnet "Zalax Payroll Chain" (chain id 102026
 | TLS proxy | Container `caddy` (host network), using `~/caddy/Caddyfile`. The source copy is `deploy/l1/Caddyfile` |
 | Zal stack | `~/zal`, run with `deploy/l1/docker-compose.yml`. Secrets are in `deploy/l1/.env` on the host only |
 
+## Current deployment
+Deployed on 15 Nov 2026 at block 24. The source of truth is `packages/contracts/deployments/l1.json`; the indexer mounts it and `gen:contracts` builds the web's addresses from it.
+
+| Contract or wallet | Address |
+|---|---|
+| ZalFactory | `0xb6fB0bAE55C3B10A52AbFB12a954F9AD7ce10013` |
+| CanvasAccount implementation | `0xb67FF575307699dDACd58F581b894C9C316b1EF6` |
+| RelationshipRegistry | `0x5FE372365723AAA13F59a790fB09CFC17914a191` |
+| ZalInvoice | `0xf95A169Fd0A5190F3661FFd8bcdE45f229f4D972` |
+| ZalFundingPool | `0xdfaE31B5d0B46595220788A81821f669f63CF11c` |
+| ZalVault | `0x7fF89d37623f70987485deec28ACC7a38bd73F78` |
+| ZUSDC | `0x443B9429EA87faAE61c3cCb6b10477D6993E1c30` |
+| Owner (keystore `zalax-admin`) | `0x9F7c870D0347989c2aB8c3a3263467874936208f` |
+| Schedule keeper (gas only) | `0x5050931129c6dd089ba550354B5746a9b86Dd2f7` |
+| Gas faucet | `0xc303d559a991fa0f0d6af475a57df7299dd6bedb` |
+
+A wallet must use the public HTTPS RPC above for chain 102026. A network saved earlier with `http://100.63.191.30:9650/…` fails with "Failed to fetch", because port 9650 is closed to the internet.
+
 ## What is public
 - **Caddy routes.** Caddy passes only the Zal chain's `/rpc` and `/ws` paths to the node. `/ext/admin`, `/ext/info`, `/ext/keystore` and `/ext/health` answer 404. For the keeper it passes only `GET /health` and `GET /status`; everything else answers 404.
 - **Chain APIs.** The chain config enables `eth`, `eth-filter`, `net`, `web3`, `internal-eth`, `internal-blockchain` and `internal-transaction`. The `debug*` and `internal-account` namespaces are off.
