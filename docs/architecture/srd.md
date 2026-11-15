@@ -955,6 +955,21 @@ erDiagram
 
 Not drawn (no relations): `token_balance (token, holder)`, `pool_allowance (owner)`, `usdc_transfer (id)`, `allowed_vault (vault)`. `feed` also carries nullable `relationshipId`, `invoiceId`, `opId`, `budgetId`, `scheduleId`. `invoice` also has `issuedAt`, `approvedAt`, `docHash`.
 
+**Explorer tables** ([plan](../plans/explorer.md)). A Ponder `blocks` source (interval 1, from block 0) runs [src/explorer.ts](../../packages/indexer/src/explorer.ts) after each block's log events. It reads the full block and `eth_getBlockReceipts` (per-transaction receipts when the node lacks it) and writes:
+
+| Table | Key | Holds |
+|---|---|---|
+| `ex_block` | `number` | hash, parent, time, tx count, gas, base fee, miner |
+| `ex_tx` | `hash` | position, from/to, value, gas, fee, status, selector, Zal method name, created contract, kind (`zal`, `token`, `native`, `deploy`, `other`), input |
+| `ex_log` | `txHash, logIndex` | raw logs; the API decodes them with the Zal ABIs |
+| `ex_address` | `address` | first seen block, tx count, contract flag, label (deployment name or `Zal canvas`) |
+| `ex_token` | `address` | ERC-20 (3-topic `Transfer`) or ERC-721 (4-topic), metadata read once, supply from mints and burns, holder and transfer counts |
+| `ex_transfer` | `txHash, logIndex` | every token transfer |
+| `ex_holding` | `token, holder` | positive balance (ERC-721: count) |
+| `ex_nft` | `token, tokenId` | owner (null when burned), minted block |
+| `ex_daily`, `ex_daily_address` | `day` (UTC unix day), `day, address` | per-day txs, active addresses, gas, fees, zUSDC settled (`InvoicePaid` face plus Transfer-schedule runs), new canvases, count per kind |
+| `ex_totals` | `id` = 1 | running tx, address, contract and canvas counts |
+
 ### 7.3 Off-chain store (`zal_app`, Drizzle)
 
 The only data that needs backup (ADR 0012). Schema: [lib/app-db/schema.ts](../../packages/indexer/lib/app-db/schema.ts), migrations [drizzle/](../../packages/indexer/drizzle).
@@ -1043,6 +1058,8 @@ Base: `api.<host>` (L1) or `http://localhost:42069` (local). Implemented in [lib
 | GET | `/v1/pool?wallet=` | none | Pool figures and the wallet's LP position | `pool { address, idleCash, totalAssets, advanceRateBps, annualFeeBps }`, `lp` |
 | GET | `/v1/schedules/due?chainId=&before=&limit=` | none | Keeper work list; `before` defaults to indexed head time; limit 1..500, default 100 | `chainId`, `before`, `schedules[] { account, id, kind, recipient, invoiceId, amount, nextAt, interval, remaining }` |
 | GET | `/v1/stream?account=` | none | SSE for the account, pool and vault | see 8.2 |
+| GET | `/v1/explorer/{stats,blocks,blocks/:id,txs,txs/:hash,address/:a,address/:a/{txs,transfers,nfts},tokens,tokens/:a,tokens/:a/{holders,transfers},search,charts}` | none | Block explorer reads ([plan](../plans/explorer.md)). Lists take `before` (opaque cursor) and `limit` 1..100, default 25 | `{ asOf, items, next }` for lists; 404 for an unknown id |
+| GET | `/v1/explorer/stream` | none | SSE: `event: block` (id = block number) with a BlockSummary per new block; `Last-Event-ID` replays up to 100 blocks | see plan |
 | POST | `/v1/auth/nonce` | none | SIWE nonce, 600 s | 201 `nonce`, `expiresAt` |
 | POST | `/v1/auth/verify` | none | Verify SIWE, open session | 201 `token`, `wallet`, `expiresAt` |
 | GET | `/v1/auth/session` | bearer | Who am I | `wallet` |
@@ -1095,7 +1112,8 @@ Resume with `Last-Event-ID` header or `lastEventId` query. Subjects per stream: 
 | Faucet POST | 10 / min / IP; 1 drip / wallet / 24 h; 5 drips / IP / 24 h | `lib/faucet.ts` |
 | Request body | 64 KB; layout 256 KB | `lib/app.ts`, `lib/layout.ts` |
 | Layout shape | 2,000 positions, 200 children, 500 drafts, 1,000 links | `lib/layout.ts` |
-| Streams | 1,000 total, 10 per client IP; replay up to 2,000 rows | `src/api/stream.ts` |
+| Explorer reads | 300 / min / IP across `/v1/explorer/*` | `src/api/explorer.ts` |
+| Streams | 1,000 total, 10 per client IP (feed and explorer streams together); replay up to 2,000 rows | `src/api/stream.ts` |
 | Proxy body (L1) | API 512 KB, RPC 1 MB | [Caddyfile](../../deploy/l1/Caddyfile) |
 
 Rate limiters are in-memory, fixed window, one process (a second replica would need a shared store).
