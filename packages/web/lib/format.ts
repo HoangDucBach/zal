@@ -32,6 +32,16 @@ export function parseUsdc(text: string): bigint | undefined {
   return BigInt(whole) * 1_000_000n + BigInt(fraction);
 }
 
+const nativeFormat = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+});
+
+/** The L1's native gas token in wei (18 decimals) as "0.05". Display only: it rounds to 4 decimals. */
+export function formatNative(wei: bigint): string {
+  return nativeFormat.format(Number(formatUnits(wei, 18)));
+}
+
 export function formatBps(bps: number): string {
   return `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
 }

@@ -301,6 +301,28 @@ export const walletAccountsResponseSchema = z.object({
 
 export const readResponseSchema = z.object({ asOf: asOfSchema, read: int });
 
+/** GET /v1/faucet: the gas faucet, or `enabled: false` when the API has no faucet key. Amounts in wei. */
+export const faucetResponseSchema = z.discriminatedUnion("enabled", [
+  z.object({
+    asOf: asOfSchema,
+    enabled: z.literal(true),
+    address,
+    dripWei: big,
+    minBalanceWei: big,
+    faucetBalanceWei: big,
+  }),
+  z.object({ asOf: asOfSchema, enabled: z.literal(false) }),
+]);
+
+export type FaucetStatus = z.output<typeof faucetResponseSchema>;
+
+/** POST /v1/faucet: the native transfer the node accepted. */
+export const faucetDripResponseSchema = z.object({
+  asOf: asOfSchema,
+  txHash: hash,
+  amountWei: big,
+});
+
 const inviteSchema = z.object({
   id: z.string(),
   proposer: address,

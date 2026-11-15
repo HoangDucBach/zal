@@ -3,7 +3,12 @@
 // here, so a hand-formatted amount anywhere else fails the suite.
 
 import { TOKEN_SYMBOL } from "@/config/token";
-import { formatBps, formatUsdc, formatUsdcCents } from "@/lib/format";
+import {
+  formatBps,
+  formatNative,
+  formatUsdc,
+  formatUsdcCents,
+} from "@/lib/format";
 
 /** `exact` keeps every base unit ("5,000.000001"); `cents` rounds for display figures ("14,854.99"). */
 export type Precision = "exact" | "cents";
@@ -81,6 +86,17 @@ export function Amount({
   return (
     <Money size={size} text={figure(value, precision, signed)} unit={unit} />
   );
+}
+
+/** The L1's native gas token (wei, 18 decimals), rounded to 4 decimals. `unit` is the chain's native symbol. */
+export function NativeAmount({
+  value,
+  unit,
+}: {
+  readonly value: bigint;
+  readonly unit: string;
+}) {
+  return <Money size="inline" text={formatNative(value)} unit={unit} />;
 }
 
 /** "3,950.00 USDC" inside a sentence; the capture group keeps each match as its own part when splitting. */

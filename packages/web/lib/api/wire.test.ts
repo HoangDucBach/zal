@@ -4,7 +4,12 @@ import { getAddress } from "viem";
 import { describe, expect, test } from "vitest";
 
 import { problemToError } from "./client";
-import { canvasResponseSchema, streamFeedSchema } from "./wire";
+import {
+  canvasResponseSchema,
+  faucetDripResponseSchema,
+  faucetResponseSchema,
+  streamFeedSchema,
+} from "./wire";
 
 import { account, invoice, rel, state } from "@/lib/canvas/test-fixtures";
 
@@ -247,5 +252,51 @@ describe("problem details", () => {
 
     expect(error.code).toBe("http");
     expect(error.status).toBe(502);
+  });
+});
+
+describe("faucet", () => {
+  const asOf = { block: 7, updatedAt: 1_700_000_000 };
+
+  test("GET /v1/faucet parses both forms the API sends", () => {
+    expect(
+      faucetResponseSchema.parse({
+        asOf,
+        enabled: true,
+        address: POOL.toLowerCase(),
+        dripWei: "50000000000000000",
+        minBalanceWei: "10000000000000000",
+        faucetBalanceWei: "0",
+      }),
+    ).toEqual({
+      asOf,
+      enabled: true,
+      address: POOL,
+      dripWei: 50_000_000_000_000_000n,
+      minBalanceWei: 10_000_000_000_000_000n,
+      faucetBalanceWei: 0n,
+    });
+    expect(
+      faucetResponseSchema.parse({
+        asOf,
+        enabled: false,
+        address: null,
+        dripWei: null,
+        minBalanceWei: null,
+        faucetBalanceWei: null,
+      }),
+    ).toEqual({ asOf, enabled: false });
+  });
+
+  test("POST /v1/faucet parses the hash and the amount", () => {
+    const txHash = `0x${"ab".repeat(32)}`;
+
+    expect(
+      faucetDripResponseSchema.parse({
+        asOf,
+        txHash,
+        amountWei: "50000000000000000",
+      }),
+    ).toEqual({ asOf, txHash, amountWei: 50_000_000_000_000_000n });
   });
 });

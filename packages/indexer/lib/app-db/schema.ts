@@ -82,3 +82,24 @@ export const sessions = zalApp.table(
   },
   (t) => [index("sessions_wallet").on(t.wallet)],
 );
+
+/**
+ * Gas drips from the faucet. A row is the claim, written before the transfer is sent, so the 24 h limits per wallet
+ * and per IP count a drip in flight. `tx_hash` is set once the node accepts the transfer; a failed send deletes the row.
+ */
+export const faucetDrips = zalApp.table(
+  "faucet_drips",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    chainId: integer("chain_id").notNull(),
+    wallet: text("wallet").notNull(),
+    ip: text("ip").notNull(),
+    amountWei: text("amount_wei").notNull(),
+    txHash: text("tx_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("faucet_drips_wallet").on(t.chainId, t.wallet, t.createdAt),
+    index("faucet_drips_ip").on(t.chainId, t.ip, t.createdAt),
+  ],
+);

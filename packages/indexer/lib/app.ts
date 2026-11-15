@@ -5,6 +5,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import type { AppDb } from "./app-db/client.ts";
 import type { CanvasRows, FeedRow } from "./canvas.ts";
 import type { AsOf } from "./checkpoint.ts";
+import type { Faucet } from "./faucet.ts";
 import type { FeedCursor } from "./feed-channel.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 
@@ -19,6 +20,7 @@ import { z } from "zod";
 import { authNonces, invites, layouts, notificationReads, sessions } from "./app-db/schema.ts";
 import { assembleCanvas, settledByOthers, toActivity, toWire } from "./canvas.ts";
 import { ApiError, parseInput } from "./errors.ts";
+import { registerFaucetRoutes } from "./faucet.ts";
 import { encodeNotice, FEED_CHANNEL, formatCursor, parseCursor } from "./feed-channel.ts";
 import { inviteBodySchema, newInviteId, recoverInviteSigner } from "./invite.ts";
 import { LAYOUT_MAX_BYTES, layoutSchema } from "./layout.ts";
@@ -89,6 +91,8 @@ export interface ApiDeps {
   readonly stream: (c: Context, account: Address, client: string) => Promise<Response>;
   /** The caller's IP, for rate limits and stream caps. */
   readonly clientIp: (c: Context) => string;
+  /** The gas faucet; undefined when no faucet key is configured, and POST /v1/faucet answers 503. */
+  readonly faucet?: Faucet;
   readonly now?: () => Date;
 }
 
@@ -503,6 +507,17 @@ export function createApp(deps: ApiDeps): Hono<Env> {
       .where(and(eq(invites.id, id), eq(invites.chainId, config.chainId)));
     if (row === undefined) throw new ApiError("not_found", "No such invite");
     return ok(c, await deps.asOf(), { invite: inviteView(row, now()) });
+  });
+
+  registerFaucetRoutes(app, {
+    chainId: config.chainId,
+    appDb: db,
+    faucet: deps.faucet,
+    asOf: deps.asOf,
+    clientIp: deps.clientIp,
+    now,
+    readJson: json,
+    throttle,
   });
 
   return app;

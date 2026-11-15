@@ -41,6 +41,10 @@ export const queryKeys = {
   /** The API's notification feed with read state, per wallet (live). */
   notifications: (chainId: number, wallet: Address, account: Address) =>
     ["zal", chainId, "notifications", lower(wallet), lower(account)] as const,
+  /** The native gas token held by an address. */
+  nativeBalance: (chainId: number, holder: Address) =>
+    ["zal", chainId, "native", lower(holder)] as const,
+  faucet: (chainId: number) => ["zal", chainId, "faucet"] as const,
   invite: (chainId: number, id: string) =>
     ["zal", chainId, "invite", id] as const,
   sandbox: ["sandbox"] as const,

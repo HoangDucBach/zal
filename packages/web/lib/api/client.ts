@@ -9,6 +9,8 @@ import { z } from "zod";
 import {
   activityResponseSchema,
   canvasResponseSchema,
+  faucetDripResponseSchema,
+  faucetResponseSchema,
   inviteResponseSchema,
   layoutPutResponseSchema,
   nonceResponseSchema,
@@ -232,6 +234,15 @@ export const api = {
     apiRequest(`/v1/invites/${encodeURIComponent(id)}`, {
       schema: inviteResponseSchema,
       signal,
+    }),
+  faucet: (signal?: AbortSignal) =>
+    apiRequest("/v1/faucet", { schema: faucetResponseSchema, signal }),
+  /** Sends the wallet native gas. 409 when it already has gas, 429 once per wallet per 24 h. */
+  drip: (wallet: Address) =>
+    apiRequest("/v1/faucet", {
+      method: "POST",
+      body: { wallet: lower(wallet) },
+      schema: faucetDripResponseSchema,
     }),
 } as const;
 

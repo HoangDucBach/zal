@@ -2,6 +2,7 @@
 // signatures from viem's local accounts.
 
 import type { ApiDeps, WalletAccountRow } from "../lib/app.ts";
+import type { Faucet } from "../lib/faucet.ts";
 
 import { join } from "node:path";
 
@@ -43,7 +44,13 @@ const compareDesc = (a: Omit<WalletAccountRow, "role">, b: Omit<WalletAccountRow
   return 0;
 };
 
-export async function createHarness(roles: Record<string, Record<string, MemberFixture>> = {}) {
+/** The header a test sets to act as another client IP. */
+export const TEST_IP_HEADER = "X-Test-Ip";
+
+export async function createHarness(
+  roles: Record<string, Record<string, MemberFixture>> = {},
+  { faucet }: { faucet?: Faucet } = {},
+) {
   const pg = new PGlite();
   const db = drizzle(pg, { schema });
   await migrate(db, { migrationsFolder: join(import.meta.dirname, "..", "drizzle"), migrationsSchema: "zal_app" });
@@ -79,17 +86,19 @@ export async function createHarness(roles: Record<string, Record<string, MemberF
     inviteNonceUsed: (proposer, nonce) => Promise.resolve(usedInviteNonces.has(`${proposer.toLowerCase()}:${nonce}`)),
     verifyMessage: (args) => verifyMessage(args),
     stream: () => Promise.reject(new Error("not used")),
-    clientIp: () => "127.0.0.1",
+    clientIp: (c) => c.req.header(TEST_IP_HEADER) ?? "127.0.0.1",
+    ...(faucet === undefined ? {} : { faucet }),
   };
   const app = createApp(deps);
 
-  const request = (method: string, path: string, body?: unknown, token?: string) =>
+  const request = (method: string, path: string, body?: unknown, token?: string, headers: Record<string, string> = {}) =>
     app.request(path, {
       method,
       headers: {
         "Content-Type": "application/json",
         Origin: WEB_ORIGIN,
         ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
+        ...headers,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });

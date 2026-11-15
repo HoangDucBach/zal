@@ -3,17 +3,35 @@
 
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { publicClients } from "ponder:api";
-import { getAddress } from "viem";
+import { createWalletClient, getAddress, http } from "viem";
+import { nonceManager, privateKeyToAccount } from "viem/accounts";
 
 import { canvasAccountAbi, relationshipRegistryAbi, zalFactoryAbi } from "../../abis/index.ts";
 import { createAppDb } from "../../lib/app-db/client.ts";
 import { createApp } from "../../lib/app.ts";
+import { type Faucet } from "../../lib/faucet.ts";
 import { config } from "./config.ts";
 import { readAsOf, readCanvasRows, readFeedPage, readLp, readPool, readWalletAccounts } from "./read.ts";
 import { streamFeed } from "./stream.ts";
 
 const client = publicClients.zal;
 const { db: appDb } = createAppDb(config.databaseUrl);
+
+function createFaucet(): Faucet | undefined {
+  const { privateKey, dripWei, minBalanceWei } = config.faucet;
+  if (privateKey === undefined) return undefined;
+  // The nonce manager counts this process's pending transfers, so a drip sent before the last one is mined still
+  // takes the next nonce.
+  const account = privateKeyToAccount(privateKey, { nonceManager });
+  const wallet = createWalletClient({ account, transport: http(config.rpcUrl) });
+  return {
+    address: account.address,
+    dripWei,
+    minBalanceWei,
+    balanceOf: (address) => client.getBalance({ address }),
+    send: (to, value) => wallet.sendTransaction({ to, value, chain: null }),
+  };
+}
 
 export default createApp({
   config: {
@@ -50,6 +68,7 @@ export default createApp({
   verifyMessage: ({ address, message, signature }) =>
     client.verifyMessage({ address: getAddress(address), message, signature }),
   stream: streamFeed,
+  faucet: createFaucet(),
   clientIp(c) {
     if (config.trustProxy) {
       // The proxy appends the address it saw; entries to its left are whatever the client sent.

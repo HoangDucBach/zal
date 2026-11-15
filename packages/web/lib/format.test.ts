@@ -1,12 +1,24 @@
 import { describe, expect, test } from "vitest";
 
-import { formatBps, formatDaysFrom, formatUsdc, parseUsdc } from "./format";
+import {
+  formatBps,
+  formatDaysFrom,
+  formatNative,
+  formatUsdc,
+  parseUsdc,
+} from "./format";
 
 describe("amount formatting", () => {
   test("USDC base units read as dollars with cents, keeping every base unit", () => {
     expect(formatUsdc(5_000_000_000n)).toBe("5,000.00");
     expect(formatUsdc(50_013_699n)).toBe("50.013699");
     expect(formatUsdc(0n)).toBe("0.00");
+  });
+
+  test("native gas in wei reads as whole tokens, rounded to 4 decimals", () => {
+    expect(formatNative(50_000_000_000_000_000n)).toBe("0.05");
+    expect(formatNative(123_456_789_000_000_000n)).toBe("0.1235");
+    expect(formatNative(0n)).toBe("0.00");
   });
 
   test("typed amounts parse to base units and reject anything else", () => {
