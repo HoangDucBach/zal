@@ -111,8 +111,9 @@ Each operation stores the policy nonce from submission. Changing members or poli
 | `escrowInvoice(invoiceId)` | invoice `faceValue` |
 | `payInvoice(invoiceId)` | invoice `faceValue` |
 | `withdraw(to, amount)` | `amount` |
+| `createSchedule(kind, recipient, invoiceId, amount, start, interval, runs)` | `amount × runs` (Transfer) or the invoice `faceValue` (PayInvoice) |
 
-These four functions are `onlySelf`. Members reach them only through `submit` and `confirm`.
+These five functions are `onlySelf`. Members reach them only through `submit` and `confirm`.
 
 ### Direct actions (Admin)
 `proposeRelationship(counterparty, Role myRole, uint64 expiresAt)`, `acceptRelationship(id)`, `rejectRelationship(id)`, `cancelRelationship(id)`, `acceptInvite(Invite, sig)`, `issueInvoice(relationshipId, faceValue, dueDate, docHash)`, `cancelInvoice(id)`, `rejectInvoice(id)`, `requestAdvance(invoiceId)`, `setRoute(Leg[])`, `setBudget(budgetId, limit, periodLength)`, `vaultDeposit(vault, amount)`, `vaultRedeem(vault, shares)`.
@@ -205,13 +206,13 @@ Overdue invoices, disputes, and recourse are out of scope (open question 2).
   - `principal = face * advanceRateBps / 10_000`, rounded down.
   - `fee = ceil(principal * annualFeeBps * (dueDate - now) / (10_000 * 365 days))`, rounded up, because rounding favours the pool.
   - It requires `principal + fee <= face`, so the reserve is never negative (INV-05), and `principal <= idle cash`.
-  - It stores `Advance`, adds `principal` to `outstanding` (and to `obligorOutstanding[buyer]` when the advance used the credit limit), and transfers `principal` to the seller account (Hold, not routed. Open question 7). Emits `Advanced(id, seller, principal, fee)` (ZR-FND-01..03).
+  - It stores `Advance`, adds `principal` to `outstanding` (and to `obligorOutstanding[buyer]` when the advance used the credit limit), and transfers `principal` to the seller account (Hold, not routed. Open question 7). Emits `Advanced(id, seller, principal, fee, onCredit)` (ZR-FND-01..03).
 - `onRepaid(id, amount)` can only be called by `ZalInvoice`. It requires an existing, unsettled advance and `amount == face`. It sets `reserve = face - principal - fee`, subtracts `principal` from `outstanding` (and from `obligorOutstanding[buyer]` if it was counted there), deletes the advance, transfers `reserve` to the seller, and calls `seller.receivePayment(id, reserve)`. Emits `Repaid(id, principal, fee, reserve)` (ZR-FND-04).
-- `totalAssets = USDC.balanceOf(pool) + outstanding`. Fees are recognised on repayment, not accrued (open question 8, known issue K-1).
+- `totalAssets = USDC.balanceOf(pool) + outstanding`. Fees are recognised on repayment, not accrued (known issue K-1).
 - `maxWithdraw` and `maxRedeem` are capped by idle cash, so LPs cannot pull out money that is lent out (ZR-FND-05).
 - `_decimalsOffset() = 6`, a virtual-share offset against the first-depositor inflation attack (ZR-FND-06).
 
-Demo check: face 5,000, advance rate 80%, 30 days. Principal is 4,000. A fee of 50 needs `annualFeeBps ≈ 1521`: 4,000 × 0.1521 × 30 / 365 = 50.01, and the ceil gives 50.010001. The PRD's "fee 50" is a round figure. The exact demo rate is open question 6. Do not hard-code it.
+Demo check: face 5,000, advance rate 80%, 30 days. Principal is 4,000. A fee of 50 needs `annualFeeBps ≈ 1521`: 4,000 × 0.1521 × 30 / 365 = 50.005479…, and the ceil gives 50.005480. The PRD's "fee 50" is a round figure. The exact demo rate is open question 6. Do not hard-code it.
 
 ## ZalVault (ERC-4626 "Zal Simulated Vault", symbol "zSV")
 
@@ -227,7 +228,7 @@ Simulated yield for idle cash. `simulateYield(amount)` (owner or keeper) pulls U
 
 Every state change emits an event that carries the ids needed to rebuild both canvases: `relationshipId`, `invoiceId`, `opId`, and the accounts involved. The indexer never reads storage to learn that something happened (ZR-SYS-02).
 
-`CanvasAccount`: `MemberSet` and `PolicySet` (both carry the new `policyNonce`), `OpSubmitted(opId, selector, amount, by, data)`, `OpConfirmed`, `OpRevoked`, `OpExecuted`, `BudgetSet`, `BudgetCharged`, `RouteSet`, `PaymentRouted` (an empty route emits `legAmounts = [amount]`), `LegFailed`, `Withdrawn`, `VaultDeposited`, `VaultRedeemed`, `EndpointVisibilitySet`.
+`CanvasAccount`: `MemberSet` and `PolicySet` (both carry the new `policyNonce`), `OpSubmitted(opId, selector, amount, by, data)`, `OpConfirmed`, `OpRevoked`, `OpExecuted`, `BudgetSet`, `BudgetCharged`, `RouteSet`, `PaymentRouted` (an empty route emits `legAmounts = [amount]`), `LegFailed`, `Withdrawn`, `VaultDeposited`, `VaultRedeemed`, `EndpointVisibilitySet`, `SpendWindowCharged`, `ScheduleCreated`, `ScheduleCancelled`, `ScheduleRan`.
 `RelationshipRegistry`: `RelationshipProposed` (with `expiresAt`), `RelationshipAccepted`, `RelationshipRejected`, `RelationshipCancelled`. `acceptInvite` emits `RelationshipProposed` then `RelationshipAccepted`.
 `ZalFactory`: `Wired`, `AccountCreated`, `AllowedVaultSet`. (The indexer skips `Wired` and `KeeperSet`: no view depends on them.)
 `ZalVault`: `KeeperSet`, `YieldSimulated`, plus ERC-4626 events.
@@ -263,4 +264,4 @@ The spec left these open. The code and tests follow them.
 - **Mocks.** `ZUSDC` (zUSDC) has an open `mint`. `ZalVault` has no on-chain rate. The keeper reads `simulated_apy_bps` from config, and it stays TBD (open question 8).
 
 ## Out of scope for v1 contracts
-Schedule and Stream (P2). Schedule reuses the permissionless pay of an escrowed invoice after `dueDate`, triggered by a keeper. Stream needs a flow-rate token and is not built. Also out of scope: ending relationships, disputes, overdue handling, credit scoring, protocol fees, multi-asset, and upgradeability.
+Stream (P2): it needs a flow-rate token and is not built. Schedules are in v1, on-chain (ADR 0015, superseding ADR 0010). Also out of scope: ending relationships, disputes, overdue handling, credit scoring, protocol fees, multi-asset, and upgradeability.
