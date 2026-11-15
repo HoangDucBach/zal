@@ -1,0 +1,72 @@
+# Zal on the Zalax L1 (chain 102026), run on the L1 node's own host. No anvil and no deploy job: the contracts are
+# deployed once with `ZAL_NETWORK=l1 forge script script/Deploy.s.sol` and recorded in
+# packages/contracts/deployments/l1.json. Caddy on the host terminates TLS and proxies app.* and api.* to the
+# loopback ports below. Run from the repository root:
+#   docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d --build --wait
+name: zal-l1
+
+services:
+  postgres:
+    image: postgres:17.12-alpine@sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f
+    environment:
+      POSTGRES_USER: zal
+      POSTGRES_DB: zal
+      # Generated on the host into deploy/l1/.env (never committed).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/l1/.env}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "zal", "-d", "zal"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  indexer:
+    build:
+      context: ../..
+      dockerfile: packages/indexer/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://zal:${POSTGRES_PASSWORD}@postgres:5432/zal
+      ZAL_CHAIN_ID: "102026"
+      # The node runs on this host; its RPC port stays closed to the internet.
+      ZAL_RPC_URL: http://host.docker.internal:9650/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc
+      ZAL_DEPLOYMENT: /deployments/l1.json
+      ZAL_WEB_ORIGIN: ${ZAL_WEB_ORIGIN:-https://app.100-63-191-30.sslip.io}
+      ZAL_POLLING_INTERVAL_MS: "1000"
+      # Caddy is the only client of the loopback port; the client IP for rate limits is the last X-Forwarded-For entry.
+      ZAL_TRUST_PROXY: "1"
+      # The gas faucet's key, generated on the host into deploy/l1/.env (never committed). Unset: POST /v1/faucet is 503.
+      ZAL_FAUCET_PRIVATE_KEY: ${ZAL_FAUCET_PRIVATE_KEY:-}
+      ZAL_FAUCET_DRIP_WEI: ${ZAL_FAUCET_DRIP_WEI:-50000000000000000}
+      ZAL_FAUCET_MIN_BALANCE_WEI: ${ZAL_FAUCET_MIN_BALANCE_WEI:-10000000000000000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:42069:42069"
+    volumes:
+      - ../../packages/contracts/deployments:/deployments:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../..
+      dockerfile: packages/web/Dockerfile
+      args:
+        NEXT_PUBLIC_ZAL_CHAIN_ID: "102026"
+        NEXT_PUBLIC_ZAL_RPC_URL: https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc
+        NEXT_PUBLIC_ZAL_CHAIN_NAME: Zal L1 (Fuji)
+        NEXT_PUBLIC_ZAL_NATIVE_SYMBOL: ZAX
+        NEXT_PUBLIC_ZAL_API_URL: https://api.100-63-191-30.sslip.io
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      indexer:
+        condition: service_healthy
+
+volumes:
+  postgres:

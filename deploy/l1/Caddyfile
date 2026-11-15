@@ -1,0 +1,30 @@
+# Caddy on the L1 node host (container `caddy`, host network). Public names point at the Elastic IP via sslip.io.
+# The node API: only the Zal chain RPC and WebSocket pass; admin, info, keystore and health stay private.
+rpc.100-63-191-30.sslip.io {
+	encode gzip
+	request_body {
+		max_size 1MB
+	}
+	@chain path /ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc /ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/ws
+	handle @chain {
+		reverse_proxy 127.0.0.1:9650
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
+
+app.100-63-191-30.sslip.io {
+	encode gzip
+	reverse_proxy 127.0.0.1:3100
+}
+
+api.100-63-191-30.sslip.io {
+	request_body {
+		max_size 512KB
+	}
+	# SSE: flush every event at once instead of buffering.
+	reverse_proxy 127.0.0.1:42069 {
+		flush_interval -1
+	}
+}

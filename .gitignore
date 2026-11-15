@@ -33,3 +33,4 @@ packages/contracts/broadcast/*/31337/
 
 # Local decision trails
 .audit/
+deploy/l1/.env
