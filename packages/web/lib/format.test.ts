@@ -1,0 +1,30 @@
+import { describe, expect, test } from "vitest";
+
+import { formatBps, formatDaysFrom, formatUsdc, parseUsdc } from "./format";
+
+describe("amount formatting", () => {
+  test("USDC base units read as dollars with cents, keeping every base unit", () => {
+    expect(formatUsdc(5_000_000_000n)).toBe("5,000.00");
+    expect(formatUsdc(50_013_699n)).toBe("50.013699");
+    expect(formatUsdc(0n)).toBe("0.00");
+  });
+
+  test("typed amounts parse to base units and reject anything else", () => {
+    expect(parseUsdc("5,000")).toBe(5_000_000_000n);
+    expect(parseUsdc("0.5")).toBe(500_000n);
+    expect(parseUsdc("1.1234567")).toBeUndefined();
+    expect(parseUsdc("-1")).toBeUndefined();
+    expect(parseUsdc("abc")).toBeUndefined();
+  });
+
+  test("basis points read as percent", () => {
+    expect(formatBps(8000)).toBe("80%");
+    expect(formatBps(1521)).toBe("15.21%");
+  });
+
+  test("due dates read relative to chain time", () => {
+    expect(formatDaysFrom(0, 30 * 86_400)).toBe("in 30 days");
+    expect(formatDaysFrom(86_400, 0)).toBe("1 day ago");
+    expect(formatDaysFrom(100, 100)).toBe("today");
+  });
+});
