@@ -29,7 +29,7 @@ The broadcast needs the keystore password, so the owner runs it:
 cd packages/contracts
 ZAL_NETWORK=l1 forge script script/Deploy.s.sol \
   --rpc-url https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc \
-  --broadcast --account zalax-admin --sender 0xb87886b6F7EaA40c6D827CEae78E11f5Cf750Dc7
+  --broadcast --account zalax-admin --sender 0x9F7c870D0347989c2aB8c3a3263467874936208f
 ```
 
 The script refuses any chain other than 102026. Then:

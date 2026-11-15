@@ -4,11 +4,11 @@
 [chain]
 id = 102026
 
-# Broadcast with the owner key (Foundry keystore `zalax-admin`). Also the L1 precompile admin.
+# Broadcast with the owner key: the Foundry keystore `zalax-admin` holds this address (the Zalax roles.admin).
 [roles]
-owner = "0xb87886b6F7EaA40c6D827CEae78E11f5Cf750Dc7"
+owner = "0x9F7c870D0347989c2aB8c3a3263467874936208f"
 # TBD: a dedicated keeper wallet for ZalVault.simulateYield; the owner until one exists.
-keeper = "0xb87886b6F7EaA40c6D827CEae78E11f5Cf750Dc7"
+keeper = "0x9F7c870D0347989c2aB8c3a3263467874936208f"
 
 [pool]
 # Fixed by the PRD.
