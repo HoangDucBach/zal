@@ -29,7 +29,7 @@ import { Amount } from "@/components/ui/amount";
 import { formatDate } from "@/lib/format";
 
 /** A series colour: the SVG paint for marks and the matching Tailwind class for legend and tooltip keys. */
-const TONES = {
+export const TONES = {
   accent: { paint: "var(--accent)", opacity: 1, swatch: "bg-accent" },
   "accent-soft": {
     paint: "var(--accent)",
@@ -65,7 +65,7 @@ export function Swatch({ tone }: { readonly tone: Tone }) {
 
 const usdc = (amount: bigint) => Number(formatUnits(amount, 6));
 
-const compact = new Intl.NumberFormat("en-US", {
+export const compact = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
 });
@@ -74,10 +74,11 @@ const shortDate = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   timeZone: "UTC",
 });
-const dayMonth = (seconds: number) =>
+
+export const dayMonth = (seconds: number) =>
   shortDate.format(new Date(seconds * 1000));
 
-const AXIS = {
+export const AXIS = {
   axisLine: false,
   tickLine: false,
   tick: { fill: "var(--muted)", fontSize: 11 },
@@ -91,7 +92,7 @@ interface TooltipRow {
 }
 
 /** The one tooltip every chart uses: values lead, a short line in the series colour keys each row. */
-function ChartTooltip({
+export function ChartTooltip({
   title,
   rows,
 }: {
@@ -162,7 +163,7 @@ function niceScale(values: readonly number[]): {
 }
 
 /** An x tick anchored inward at the plot's ends, so the first and last labels never hang outside the chart. */
-function EdgeTick({
+export function EdgeTick({
   x,
   y,
   payload,

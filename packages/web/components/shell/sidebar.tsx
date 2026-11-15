@@ -1,10 +1,11 @@
 "use client";
 
-// The app sidebar (PRD "App shell"): Overview and Canvas, then Docs and the profile toolbar in the footer.
+// The app sidebar (PRD "App shell"): Overview, Canvas and Explorer, then Docs and the profile toolbar in the footer.
 
 import {
   BookIcon,
   ChartSquareIcon,
+  MagnifierIcon,
   RoutingIcon,
 } from "@solar-icons/react/linear";
 import { Chip, Separator, Surface, buttonVariants } from "@heroui/react";
@@ -28,6 +29,11 @@ const NAV = [
     icon: <ChartSquareIcon {...ICON} />,
   },
   { href: "/app/canvas", label: "Canvas", icon: <RoutingIcon {...ICON} /> },
+  {
+    href: "/app/explorer",
+    label: "Explorer",
+    icon: <MagnifierIcon {...ICON} />,
+  },
 ] as const;
 
 function NavLink({
@@ -42,7 +48,8 @@ function NavLink({
   /** Unread notifications, shown on the Canvas link because that is where they are acted on. */
   readonly count?: number;
 }) {
-  const active = usePathname() === href;
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(`${href}/`);
   const appHref = useAppHref();
 
   return (

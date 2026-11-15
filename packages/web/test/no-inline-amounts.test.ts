@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const WEB = fileURLToPath(new URL("..", import.meta.url));
 const AMOUNT = "components/ui/amount.tsx";
-const FORMATTER_CALL = /\bformat(?:Usdc|UsdcCents|Native|Bps)\s*\(/;
+const FORMATTER_CALL = /\bformat(?:Usdc|UsdcCents|Native|Bps|Token)\s*\(/;
 
 function tsxFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

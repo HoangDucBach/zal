@@ -48,4 +48,8 @@ export const queryKeys = {
   invite: (chainId: number, id: string) =>
     ["zal", chainId, "invite", id] as const,
   sandbox: ["sandbox"] as const,
+  /** The explorer's API reads (always the live L1, so not under a chain id). */
+  explorer: ["explorer"] as const,
+  /** The home page's live reads: stats and the latest blocks and txs, refreshed on each streamed block. */
+  explorerLive: ["explorer", "live"] as const,
 } as const;

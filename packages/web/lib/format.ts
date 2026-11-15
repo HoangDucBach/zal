@@ -99,3 +99,27 @@ export function formatTimeFrom(now: number, then: number): string {
 
   return diff > 0 ? `in ${count} ${unit}` : `${count} ${unit} ago`;
 }
+
+/**
+ * A token amount in base units with `decimals`, every digit kept, the integer part grouped: "1,250.000001".
+ * Trailing zeros are dropped. Used for tokens of any decimals and for exact native fees. `maxFraction` cuts the
+ * fraction to that many digits (rounding down) for a table column; the detail page shows every digit.
+ */
+export function formatToken(
+  amount: bigint,
+  decimals: number,
+  maxFraction?: number,
+): string {
+  const negative = amount < 0n;
+  const [whole = "0", fraction = ""] = formatUnits(
+    negative ? -amount : amount,
+    decimals,
+  ).split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const cut = (
+    maxFraction === undefined ? fraction : fraction.slice(0, maxFraction)
+  ).replace(/0+$/, "");
+  const text = cut === "" ? grouped : `${grouped}.${cut}`;
+
+  return negative ? `-${text}` : text;
+}

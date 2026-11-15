@@ -5,6 +5,7 @@ import {
   formatDaysFrom,
   formatTimeFrom,
   formatNative,
+  formatToken,
   formatUsdc,
   parseUsdc,
 } from "./format";
@@ -48,5 +49,17 @@ describe("amount formatting", () => {
     expect(formatTimeFrom(0, 7_200)).toBe("in 2 h");
     expect(formatTimeFrom(0, 3 * 86_400)).toBe("in 3 d");
     expect(formatTimeFrom(300, 0)).toBe("5 min ago");
+  });
+});
+
+describe("formatToken", () => {
+  test("keeps every base unit, groups the whole part and drops trailing zeros", () => {
+    expect(formatToken(1_250_000_001n, 6)).toBe("1,250.000001");
+    expect(formatToken(5_000_000_000n, 6)).toBe("5,000");
+    expect(formatToken(21_000_000_000_000n, 18)).toBe("0.000021");
+    expect(formatToken(7n, 0)).toBe("7");
+    expect(formatToken(-1_500_000n, 6)).toBe("-1.5");
+    expect(formatToken(107_378_743_456_320n, 18, 8)).toBe("0.00010737");
+    expect(formatToken(1_000_000_000n, 18, 4)).toBe("0");
   });
 });

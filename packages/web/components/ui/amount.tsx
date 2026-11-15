@@ -6,6 +6,7 @@ import { TOKEN_SYMBOL } from "@/config/token";
 import {
   formatBps,
   formatNative,
+  formatToken,
   formatUsdc,
   formatUsdcCents,
 } from "@/lib/format";
@@ -97,6 +98,46 @@ export function NativeAmount({
   readonly unit: string;
 }) {
   return <Money size="inline" text={formatNative(value)} unit={unit} />;
+}
+
+/**
+ * Any token amount (explorer): base units with the token's own `decimals`, every digit kept. Unknown decimals
+ * (a token whose metadata could not be read) show the raw base units. `unit` is the symbol, or null.
+ */
+export function TokenAmount({
+  value,
+  decimals,
+  unit,
+}: {
+  readonly value: bigint;
+  readonly decimals: number | null;
+  readonly unit: string | null;
+}) {
+  return (
+    <Money size="inline" text={formatToken(value, decimals ?? 0)} unit={unit} />
+  );
+}
+
+/**
+ * The native gas token with every wei kept ("0.000021"), for fees and values in the explorer. `maxFraction` cuts
+ * the decimals for a table column.
+ */
+export function ExactNativeAmount({
+  value,
+  unit,
+  maxFraction,
+}: {
+  readonly value: bigint;
+  readonly unit: string;
+  readonly maxFraction?: number;
+}) {
+  return (
+    <Money
+      size="inline"
+      text={formatToken(value, 18, maxFraction)}
+      unit={unit}
+    />
+  );
 }
 
 /** "3,950.00 USDC" inside a sentence; the capture group keeps each match as its own part when splitting. */

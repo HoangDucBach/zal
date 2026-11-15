@@ -23,8 +23,9 @@ import {
 } from "@/lib/canvas/types";
 
 const MAX_UINT256 = 2n ** 256n - 1n;
+
 /** A uint256 amount or id: non-negative, at most 2^256 - 1. */
-const big = z
+export const big = z
   .string()
   .regex(/^\d{1,78}$/, "not a non-negative decimal integer")
   .transform((s) => BigInt(s))
@@ -35,20 +36,21 @@ const signedBig = z
   .regex(/^-?\d{1,78}$/, "not a decimal integer")
   .transform((s) => BigInt(s))
   .refine((n) => n <= MAX_UINT256 && -n <= MAX_UINT256, "above uint256");
-const address = z
+
+export const address = z
   .string()
   .regex(/^0x[0-9a-fA-F]{40}$/, "not an address")
   .transform((a): Address => getAddress(a));
-const hex = z
+export const hex = z
   .string()
   .regex(/^0x[0-9a-fA-F]*$/, "not hex")
   .transform((h) => h.toLowerCase() as Hex);
-const hash = z
+export const hash = z
   .string()
   .regex(/^0x[0-9a-fA-F]{64}$/, "not a hash")
   .transform((h) => h.toLowerCase() as Hash);
 /** A count, index, block or unix time: a non-negative safe integer. */
-const int = z.number().int().nonnegative();
+export const int = z.number().int().nonnegative();
 const bps = int.max(10_000);
 
 export const asOfSchema = z.object({ block: int, updatedAt: int });
