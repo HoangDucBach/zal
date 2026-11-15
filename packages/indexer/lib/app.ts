@@ -3,7 +3,7 @@
 
 import type { Context, MiddlewareHandler } from "hono";
 import type { AppDb } from "./app-db/client.ts";
-import type { CanvasRows, FeedRow } from "./canvas.ts";
+import type { CanvasRows, FeedRow, ScheduleRow } from "./canvas.ts";
 import type { AsOf } from "./checkpoint.ts";
 import type { Faucet } from "./faucet.ts";
 import type { FeedCursor } from "./feed-channel.ts";
@@ -18,7 +18,7 @@ import { zeroAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 
 import { authNonces, invites, layouts, notificationReads, sessions } from "./app-db/schema.ts";
-import { assembleCanvas, settledByOthers, toActivity, toWire } from "./canvas.ts";
+import { assembleCanvas, toActivity, toWire } from "./canvas.ts";
 import { ApiError, parseInput } from "./errors.ts";
 import { registerFaucetRoutes } from "./faucet.ts";
 import { encodeNotice, FEED_CHANNEL, formatCursor, parseCursor } from "./feed-channel.ts";
@@ -68,6 +68,11 @@ export interface WalletAccountsPage {
   readonly query?: string;
 }
 
+/** A schedule the keeper may run: an active row and the account that holds it. */
+export interface DueScheduleRow extends ScheduleRow {
+  readonly account: Address;
+}
+
 /** Everything the routes need from the indexed tables and the chain. */
 export interface ApiDeps {
   readonly config: ApiConfig;
@@ -80,6 +85,8 @@ export interface ApiDeps {
    * first, ties by account descending. At most `page.limit` rows, all strictly after `page.after` in that order.
    */
   readonly walletAccounts: (wallet: Address, page: WalletAccountsPage) => Promise<readonly WalletAccountRow[]>;
+  /** Active schedules with `nextAt <= before`, earliest first, ties by account and id. At most `limit` rows. */
+  readonly dueSchedules: (before: bigint, limit: number) => Promise<readonly DueScheduleRow[]>;
   readonly pool: () => Promise<unknown>;
   readonly lp: (wallet: Address, asOf: AsOf) => Promise<unknown>;
   /** 0 for a wallet that is not a member, and for an address that is not a Zal account. Read at the chain head. */
@@ -135,6 +142,12 @@ const walletAccountsQuery = z.object({
 const activityQuery = z.object({
   before: cursorSchema.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+const dueSchedulesQuery = z.object({
+  chainId: z.coerce.number().int().positive().optional(),
+  /** Unix seconds. Defaults to the time of the indexed head. */
+  before: z.coerce.number().int().nonnegative().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 const verifyBody = z.strictObject({
   message: z.string().min(1).max(4_000),
@@ -269,9 +282,7 @@ export function createApp(deps: ApiDeps): Hono<Env> {
     const { wallet } = parseInput(walletQuery, c.req.query());
     const asOf = await deps.asOf();
     const rows = await deps.canvasRows(account, wallet, asOf);
-    const feed = deriveNotifications(assembleCanvas(rows), {
-      scheduled: settledByOthers(rows.feed, rows.invoices),
-    });
+    const feed = deriveNotifications(assembleCanvas(rows));
     const keys = feed.map((n) => n.key);
     const read =
       keys.length === 0 || wallet === zeroAddress
@@ -324,6 +335,33 @@ export function createApp(deps: ApiDeps): Hono<Env> {
       wallet === zeroAddress ? undefined : deps.lp(wallet, asOf),
     ]);
     return c.json(toWire({ asOf, pool, lp }) as Record<string, unknown>);
+  });
+
+  // The keeper's work list (ADR 0015). Running a schedule is permissionless, so this reveals nothing the chain
+  // does not, and needs no session.
+  app.get("/v1/schedules/due", async (c) => {
+    const query = parseInput(dueSchedulesQuery, c.req.query());
+    if (query.chainId !== undefined && query.chainId !== config.chainId) {
+      throw new ApiError("not_found", `This API indexes chain ${config.chainId}, not ${query.chainId}`);
+    }
+    const asOf = await deps.asOf();
+    const before = query.before ?? asOf.updatedAt;
+    const rows = await deps.dueSchedules(BigInt(before), query.limit);
+    return ok(c, asOf, {
+      chainId: config.chainId,
+      before,
+      schedules: rows.map((r) => ({
+        account: r.account,
+        id: r.scheduleId,
+        kind: r.kind === 0 ? "transfer" : "payInvoice",
+        recipient: r.kind === 0 ? r.recipient : null,
+        invoiceId: r.kind === 0 ? null : r.invoiceId,
+        amount: r.amount,
+        nextAt: Number(r.nextAt),
+        interval: r.interval,
+        remaining: r.remaining,
+      })),
+    });
   });
 
   app.get("/v1/stream", (c) => {

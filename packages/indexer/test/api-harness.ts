@@ -1,7 +1,7 @@
 // A /v1 app over PGlite with the real zal_app migrations, a fake chain (roles by account and wallet), and real
 // signatures from viem's local accounts.
 
-import type { ApiDeps, WalletAccountRow } from "../lib/app.ts";
+import type { ApiDeps, DueScheduleRow, WalletAccountRow } from "../lib/app.ts";
 import type { Faucet } from "../lib/faucet.ts";
 
 import { join } from "node:path";
@@ -49,7 +49,7 @@ export const TEST_IP_HEADER = "X-Test-Ip";
 
 export async function createHarness(
   roles: Record<string, Record<string, MemberFixture>> = {},
-  { faucet }: { faucet?: Faucet } = {},
+  { faucet, schedules = [] }: { faucet?: Faucet; schedules?: readonly DueScheduleRow[] } = {},
 ) {
   const pg = new PGlite();
   const db = drizzle(pg, { schema });
@@ -76,6 +76,13 @@ export async function createHarness(
           .filter((r) => page.after === undefined || compareDesc(r, page.after) > 0)
           .sort(compareDesc)
           .slice(0, page.limit),
+      ),
+    dueSchedules: (before, limit) =>
+      Promise.resolve(
+        schedules
+          .filter((r) => r.active && r.nextAt <= before)
+          .sort((a, b) => (a.nextAt === b.nextAt ? 0 : a.nextAt < b.nextAt ? -1 : 1))
+          .slice(0, limit),
       ),
     pool: () => Promise.resolve({}),
     lp: () => Promise.resolve({}),

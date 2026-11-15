@@ -11,7 +11,7 @@ import { createAppDb } from "../../lib/app-db/client.ts";
 import { createApp } from "../../lib/app.ts";
 import { type Faucet } from "../../lib/faucet.ts";
 import { config } from "./config.ts";
-import { readAsOf, readCanvasRows, readFeedPage, readLp, readPool, readWalletAccounts } from "./read.ts";
+import { readAsOf, readCanvasRows, readDueSchedules, readFeedPage, readLp, readPool, readWalletAccounts } from "./read.ts";
 import { streamFeed } from "./stream.ts";
 
 const client = publicClients.zal;
@@ -46,6 +46,7 @@ export default createApp({
   canvasRows: readCanvasRows,
   feedPage: readFeedPage,
   walletAccounts: readWalletAccounts,
+  dueSchedules: readDueSchedules,
   pool: readPool,
   lp: readLp,
   async roleOf(account, wallet) {

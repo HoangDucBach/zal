@@ -12,7 +12,7 @@ export const NOTIFICATION_KINDS = [
   "signatureNeeded",
   "paymentReceived",
   "advancePaid",
-  "keeperSettled",
+  "scheduleRan",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -27,29 +27,20 @@ export interface CanvasNotification {
   readonly blockNumber: bigint;
 }
 
-export interface NotificationContext {
-  /**
-   * Invoices that were settled by someone other than their buyer: on the live chain, a keeper or any caller
-   * paying an escrowed invoice at its due date (ZR-PAY-03). The sandbox passes its keeper's job list instead.
-   */
-  readonly scheduled: readonly bigint[];
-}
-
 /** The web's node ids (packages/web/lib/canvas/graph.ts `nodeId`). */
 const nodeId = {
   approval: "approval",
   counterparty: (relId: bigint) => `rel-${relId}`,
   invoice: (id: bigint) => `invoice-${id}`,
+  schedule: (id: bigint) => `schedule-${id}`,
 } as const;
 
 const usdcFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 const usdc = (amount: bigint) => `${usdcFormat.format(Number(formatUnits(amount, 6)))} zUSDC`;
 
-function toNotification(
-  item: ActivityItem,
-  state: CanvasState,
-  { scheduled }: NotificationContext,
-): CanvasNotification | undefined {
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+
+function toNotification(item: ActivityItem, state: CanvasState): CanvasNotification | undefined {
   const me = state.account.address;
   const { event } = item;
   const base = { key: item.key, timestamp: item.timestamp, blockNumber: item.blockNumber };
@@ -100,15 +91,23 @@ function toNotification(
           detail: `${usdc(inv.faceValue)} settled through your flow.`,
           nodeId: nodeId.invoice(inv.id),
         };
-      if (scheduled.includes(inv.id))
-        return {
-          ...base,
-          kind: "keeperSettled",
-          title: `Keeper settled invoice #${inv.id}`,
-          detail: `${usdc(inv.faceValue)} paid from escrow at the due date.`,
-          nodeId: nodeId.invoice(inv.id),
-        };
       return undefined;
+    }
+    case "ScheduleRan": {
+      // The account's own event, so this canvas is the payer. The payee hears through its own events.
+      const schedule = state.account.schedules.find((s) => s.id === event.scheduleId);
+      if (schedule === undefined) return undefined;
+      const to =
+        schedule.recipient === undefined
+          ? `invoice #${schedule.invoiceId}`
+          : (state.labels[schedule.recipient] ?? shortAddress(schedule.recipient));
+      return {
+        ...base,
+        kind: "scheduleRan",
+        title: `Schedule #${schedule.id} ran`,
+        detail: `${usdc(schedule.amount)} to ${to}`,
+        nodeId: nodeId.schedule(schedule.id),
+      };
     }
     case "Advanced": {
       const inv = state.invoices.find((i) => i.id === event.invoiceId);
@@ -130,10 +129,10 @@ function toNotification(
 }
 
 /** Newest first. */
-export function deriveNotifications(state: CanvasState, context: NotificationContext): CanvasNotification[] {
+export function deriveNotifications(state: CanvasState): CanvasNotification[] {
   return state.activity
     .flatMap((item) => {
-      const n = toNotification(item, state, context);
+      const n = toNotification(item, state);
       return n === undefined ? [] : [n];
     })
     .sort((a, b) => (a.blockNumber === b.blockNumber ? 0 : a.blockNumber > b.blockNumber ? -1 : 1));

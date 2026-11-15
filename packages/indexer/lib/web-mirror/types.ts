@@ -81,7 +81,17 @@ export type GatedCall =
     }
   | { readonly fn: "escrowInvoice"; readonly invoiceId: bigint }
   | { readonly fn: "payInvoice"; readonly invoiceId: bigint }
-  | { readonly fn: "withdraw"; readonly to: Address; readonly amount: bigint };
+  | { readonly fn: "withdraw"; readonly to: Address; readonly amount: bigint }
+  | {
+      readonly fn: "createSchedule";
+      readonly kind: ScheduleKind;
+      readonly recipient?: Address;
+      readonly invoiceId?: bigint;
+      readonly amount: bigint;
+      readonly start: number;
+      readonly interval: number;
+      readonly runs: number;
+    };
 
 export interface PendingOp {
   readonly opId: bigint;
@@ -109,6 +119,21 @@ export interface Leg {
   readonly bps: number;
 }
 
+export type ScheduleKind = "transfer" | "payInvoice";
+
+/** A payment the account approved ahead of time (ADR 0015). Anyone may run it once `nextAt` has passed. */
+export interface Schedule {
+  readonly id: bigint;
+  readonly kind: ScheduleKind;
+  readonly recipient?: Address;
+  readonly invoiceId?: bigint;
+  readonly amount: bigint;
+  readonly nextAt: number;
+  readonly interval: number;
+  readonly remaining: number;
+  readonly active: boolean;
+}
+
 export interface Member {
   readonly address: Address;
   readonly role: MemberRole;
@@ -129,6 +154,7 @@ export interface AccountState {
   /** Which budget each approved invoice was charged to, from `BudgetCharged`. Keyed by invoice id. */
   readonly budgetOfInvoice: Readonly<Record<string, bigint>>;
   readonly ops: readonly PendingOp[];
+  readonly schedules: readonly Schedule[];
   readonly vaultShares: bigint;
   readonly vaultAssets: bigint;
 }
@@ -182,7 +208,11 @@ export type ActivityEvent =
       readonly opId: bigint;
     }
   | { readonly name: "BudgetSet"; readonly budgetId: bigint }
-  | { readonly name: "RouteSet" };
+  | { readonly name: "RouteSet" }
+  | {
+      readonly name: "ScheduleCreated" | "ScheduleRan" | "ScheduleCancelled";
+      readonly scheduleId: bigint;
+    };
 
 export interface ActivityItem {
   readonly key: string;

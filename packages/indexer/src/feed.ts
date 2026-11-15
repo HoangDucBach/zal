@@ -22,6 +22,7 @@ interface FeedRefs {
   readonly invoiceId?: bigint;
   readonly opId?: bigint;
   readonly budgetId?: bigint;
+  readonly scheduleId?: bigint;
   readonly actor?: `0x${string}`;
 }
 
@@ -47,6 +48,7 @@ export async function publish(
         invoiceId: refs.invoiceId ?? null,
         opId: refs.opId ?? null,
         budgetId: refs.budgetId ?? null,
+        scheduleId: refs.scheduleId ?? null,
         actor: refs.actor ?? null,
       })
       .onConflictDoNothing();

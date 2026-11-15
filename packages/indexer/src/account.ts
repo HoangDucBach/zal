@@ -190,6 +190,44 @@ ponder.on("CanvasAccount:VaultRedeemed", async ({ event, context }) => {
   await publish(context, event, "VaultRedeemed", [event.log.address]);
 });
 
+ponder.on("CanvasAccount:ScheduleCreated", async ({ event, context }) => {
+  const account = event.log.address;
+  const { id, kind, recipient, invoiceId, amount, start, interval, runs } = event.args;
+  const isTransfer = kind === 0;
+  await context.db
+    .insert(schema.schedule)
+    .values({
+      account,
+      scheduleId: id,
+      kind,
+      recipient: isTransfer ? (recipient.toLowerCase() as `0x${string}`) : null,
+      invoiceId: isTransfer ? null : invoiceId,
+      amount,
+      nextAt: start,
+      interval,
+      remaining: runs,
+      active: true,
+    })
+    .onConflictDoNothing();
+  await publish(context, event, "ScheduleCreated", [account], { scheduleId: id });
+});
+
+ponder.on("CanvasAccount:ScheduleRan", async ({ event, context }) => {
+  const account = event.log.address;
+  const { id, remaining } = event.args;
+  await context.db
+    .update(schema.schedule, { account, scheduleId: id })
+    .set((row) => ({ nextAt: row.nextAt + BigInt(row.interval), remaining, active: remaining > 0 }));
+  await publish(context, event, "ScheduleRan", [account], { scheduleId: id, actor: event.transaction.from });
+});
+
+ponder.on("CanvasAccount:ScheduleCancelled", async ({ event, context }) => {
+  const account = event.log.address;
+  const { id, by } = event.args;
+  await context.db.update(schema.schedule, { account, scheduleId: id }).set({ active: false });
+  await publish(context, event, "ScheduleCancelled", [account], { scheduleId: id, actor: by });
+});
+
 ponder.on("ZalFactory:AllowedVaultSet", async ({ event, context }) => {
   const { vault, allowed } = event.args;
   await context.db.insert(schema.allowedVault).values({ vault, allowed }).onConflictDoUpdate({ allowed });

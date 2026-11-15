@@ -137,6 +137,33 @@ export const advance = onchainTable("advance", (t) => ({
   onCredit: t.boolean().notNull(),
 }));
 
+/**
+ * A payment an account approved ahead of time (ADR 0015). `nextAt` and `remaining` follow ScheduleRan the way
+ * `runSchedule` advances them, so the row matches `getSchedule` without a read.
+ */
+export const schedule = onchainTable(
+  "schedule",
+  (t) => ({
+    account: t.hex().notNull(),
+    scheduleId: t.bigint().notNull(),
+    /** 0 Transfer, 1 PayInvoice. */
+    kind: t.integer().notNull(),
+    /** Transfer only. */
+    recipient: t.hex(),
+    /** PayInvoice only. */
+    invoiceId: t.bigint(),
+    amount: t.bigint().notNull(),
+    nextAt: t.bigint().notNull(),
+    interval: t.integer().notNull(),
+    remaining: t.integer().notNull(),
+    active: t.boolean().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.account, table.scheduleId] }),
+    dueIdx: index().on(table.active, table.nextAt),
+  }),
+);
+
 /** The pool's credit line per buyer account (ADR 0009). */
 export const obligor = onchainTable("obligor", (t) => ({
   buyer: t.hex().primaryKey(),
@@ -218,6 +245,7 @@ export const feed = onchainTable(
     invoiceId: t.bigint(),
     opId: t.bigint(),
     budgetId: t.bigint(),
+    scheduleId: t.bigint(),
     /** Who sent it where the event says: OpSubmitted `by`, InvoicePaid `payer`. */
     actor: t.hex(),
   }),

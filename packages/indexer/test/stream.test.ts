@@ -82,6 +82,7 @@ beforeAll(async () => {
     canvasRows: () => Promise.reject(new Error("not used")),
     feedPage: () => Promise.resolve([]),
     walletAccounts: () => Promise.resolve([]),
+    dueSchedules: () => Promise.resolve([]),
     pool: () => Promise.resolve({}),
     lp: () => Promise.resolve({}),
     roleOf: () => Promise.resolve(0),

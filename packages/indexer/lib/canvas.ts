@@ -10,6 +10,7 @@ import type {
   PendingOp,
   Relationship,
   RoutedPayment,
+  Schedule,
 } from "./web-mirror/types.ts";
 
 import { decodeFunctionData, type Address, type Hex } from "viem";
@@ -62,6 +63,19 @@ export interface InvoiceRow {
   readonly owner: Address | null;
 }
 
+export interface ScheduleRow {
+  readonly scheduleId: bigint;
+  /** 0 Transfer, 1 PayInvoice. */
+  readonly kind: number;
+  readonly recipient: Address | null;
+  readonly invoiceId: bigint | null;
+  readonly amount: bigint;
+  readonly nextAt: bigint;
+  readonly interval: number;
+  readonly remaining: number;
+  readonly active: boolean;
+}
+
 export interface FeedRow {
   readonly name: string;
   readonly blockNumber: bigint;
@@ -72,6 +86,7 @@ export interface FeedRow {
   readonly invoiceId: bigint | null;
   readonly opId: bigint | null;
   readonly budgetId: bigint | null;
+  readonly scheduleId: bigint | null;
   readonly actor: Address | null;
 }
 
@@ -95,6 +110,7 @@ export interface CanvasRows {
   readonly ops: readonly OpRow[];
   /** Op ids the wallet has confirmed and not revoked. */
   readonly confirmedByWallet: ReadonlySet<bigint>;
+  readonly schedules: readonly ScheduleRow[];
   readonly relationships: readonly RelationshipRow[];
   readonly invoices: readonly InvoiceRow[];
   readonly advances: ReadonlyMap<bigint, { principal: bigint; fee: bigint; fundedAt: bigint }>;
@@ -141,6 +157,14 @@ function decodeGated(data: Hex): GatedCall {
       return { fn: "payInvoice", invoiceId: call.args[0] };
     case "withdraw":
       return { fn: "withdraw", to: call.args[0], amount: call.args[1] };
+    case "createSchedule": {
+      const [kind, recipient, invoiceId, amount, start, interval, runs] = call.args;
+      const timing = { amount, start: Number(start), interval, runs };
+      // The contract ignores `invoiceId` for a Transfer and `recipient` for a PayInvoice.
+      return kind === 0
+        ? { fn: "createSchedule", kind: "transfer", recipient, ...timing }
+        : { fn: "createSchedule", kind: "payInvoice", invoiceId, ...timing };
+    }
     default:
       throw new Error(`Unexpected gated call ${call.functionName}`);
   }
@@ -155,7 +179,11 @@ const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase(
 export function toActivity(feed: readonly FeedRow[]): ActivityItem[] {
   return [...feed].sort(byChainOrder).flatMap((row) => {
     const args: Record<string, unknown> = {};
-    const id = row.name.startsWith("Relationship") ? row.relationshipId : row.invoiceId;
+    const id = row.name.startsWith("Relationship")
+      ? row.relationshipId
+      : row.name.startsWith("Schedule")
+        ? row.scheduleId
+        : row.invoiceId;
     if (id !== null) args.id = id;
     if (row.invoiceId !== null) args.invoiceId = row.invoiceId;
     if (row.opId !== null) args.opId = row.opId;
@@ -176,14 +204,6 @@ export function toActivity(feed: readonly FeedRow[]): ActivityItem[] {
   });
 }
 
-/** Invoices paid by a caller other than their buyer: a keeper settling an escrowed invoice at its due date. */
-export const settledByOthers = (feed: readonly FeedRow[], invoices: readonly InvoiceRow[]): bigint[] =>
-  feed.flatMap((row) => {
-    if (row.name !== "InvoicePaid" || row.invoiceId === null || row.actor === null) return [];
-    const inv = invoices.find((i) => i.id === row.invoiceId);
-    return inv !== undefined && !sameAddress(inv.buyer, row.actor) ? [inv.id] : [];
-  });
-
 export function assembleCanvas(rows: CanvasRows): CanvasState {
   const { account: acc, wallet } = rows;
   const memberRole = (role: number) => MEMBER_ROLES[role] ?? "none";
@@ -198,6 +218,20 @@ export function assembleCanvas(rows: CanvasRows): CanvasState {
     stale: acc !== undefined && op.policyNonce !== acc.policyNonce,
     confirmedByMe: rows.confirmedByWallet.has(op.opId),
   }));
+
+  const schedules: Schedule[] = [...rows.schedules]
+    .sort((a, b) => (a.scheduleId < b.scheduleId ? -1 : 1))
+    .map((row) => ({
+      id: row.scheduleId,
+      ...(row.kind === 0
+        ? { kind: "transfer" as const, recipient: row.recipient ?? undefined }
+        : { kind: "payInvoice" as const, invoiceId: row.invoiceId ?? undefined }),
+      amount: row.amount,
+      nextAt: Number(row.nextAt),
+      interval: row.interval,
+      remaining: row.remaining,
+      active: row.active,
+    }));
 
   const relationships: Relationship[] = rows.relationships.map((r) => ({
     id: r.id,
@@ -280,6 +314,7 @@ export function assembleCanvas(rows: CanvasRows): CanvasState {
         })),
       budgetOfInvoice: Object.fromEntries(rows.charges.map((c) => [String(c.invoiceId), c.budgetId])),
       ops: ops.sort((a, b) => (a.opId < b.opId ? -1 : 1)),
+      schedules,
       vaultShares: rows.balances.accountVaultShares,
       vaultAssets: rows.views.vaultAssets,
     },

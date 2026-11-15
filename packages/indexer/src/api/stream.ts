@@ -184,6 +184,7 @@ export async function streamFeed(c: Context, account: Address, client: string): 
                 invoiceId: head.invoiceId?.toString() ?? null,
                 opId: head.opId?.toString() ?? null,
                 budgetId: head.budgetId?.toString() ?? null,
+                scheduleId: head.scheduleId?.toString() ?? null,
               }),
             });
             cursor = head;

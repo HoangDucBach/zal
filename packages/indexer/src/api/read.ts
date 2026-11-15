@@ -2,11 +2,11 @@
 // three share-price views read from the chain at that same block.
 
 import type { Address } from "viem";
-import type { WalletAccountRow, WalletAccountsPage } from "../../lib/app.ts";
+import type { DueScheduleRow, WalletAccountRow, WalletAccountsPage } from "../../lib/app.ts";
 import type { CanvasRows } from "../../lib/canvas.ts";
 import type { AsOf } from "../../lib/checkpoint.ts";
 
-import { and, desc, eq, gt, inArray, like, lt, or, sql } from "ponder";
+import { and, desc, eq, gt, inArray, like, lt, lte, or, sql } from "ponder";
 import { db, publicClients } from "ponder:api";
 import schema from "ponder:schema";
 
@@ -108,6 +108,16 @@ export function readFeedPage(subject: Address, before: { blockNumber: bigint; lo
     .limit(pageSize);
 }
 
+export function readDueSchedules(before: bigint, limit: number): Promise<DueScheduleRow[]> {
+  const t = schema.schedule;
+  return db
+    .select()
+    .from(t)
+    .where(and(eq(t.active, true), lte(t.nextAt, before)))
+    .orderBy(t.nextAt, t.account, t.scheduleId)
+    .limit(limit);
+}
+
 /**
  * One page of the accounts where the wallet's latest MemberSet left a role, as of the indexed head: the ones it acted
  * on first, then by its latest activity there, newest first.
@@ -138,12 +148,13 @@ export async function readCanvasRows(address: Address, wallet: Address, asOf: As
   const s = schema;
   const [account] = await db.select().from(s.account).where(eq(s.account.address, address));
 
-  const [members, budgets, charges, ops, confirmations, relationships, invoices, pool, lp, accountUsdc, vaultShares, feed, transfers, routed] =
+  const [members, budgets, charges, ops, schedules, confirmations, relationships, invoices, pool, lp, accountUsdc, vaultShares, feed, transfers, routed] =
     await Promise.all([
       db.select().from(s.member).where(eq(s.member.account, address)),
       db.select().from(s.budget).where(eq(s.budget.account, address)),
       db.select().from(s.budgetCharge).where(eq(s.budgetCharge.account, address)),
       db.select().from(s.op).where(eq(s.op.account, address)),
+      db.select().from(s.schedule).where(eq(s.schedule.account, address)),
       db
         .select()
         .from(s.opConfirmation)
@@ -192,6 +203,7 @@ export async function readCanvasRows(address: Address, wallet: Address, asOf: As
     charges,
     ops,
     confirmedByWallet: new Set(confirmations.map((c) => c.opId)),
+    schedules,
     relationships,
     invoices,
     advances: new Map(advances.map((a) => [a.invoiceId, a])),

@@ -19,6 +19,11 @@ const INVOICE_EVENTS = [
 ] as const;
 const POOL_AND_ROUTE_EVENTS = ["Advanced", "Repaid", "PaymentRouted"] as const;
 const OP_EVENTS = ["OpSubmitted", "OpExecuted"] as const;
+const SCHEDULE_EVENTS = [
+  "ScheduleCreated",
+  "ScheduleRan",
+  "ScheduleCancelled",
+] as const;
 
 const isOneOf = <T extends string>(
   list: readonly T[],
@@ -54,6 +59,13 @@ export function parseActivityEvent(
     const opId = id("opId");
 
     return opId === undefined ? undefined : { name: eventName, opId };
+  }
+  if (isOneOf(SCHEDULE_EVENTS, eventName)) {
+    const scheduleId = id("id");
+
+    return scheduleId === undefined
+      ? undefined
+      : { name: eventName, scheduleId };
   }
   if (eventName === "BudgetSet") {
     const budgetId = id("budgetId");
@@ -101,5 +113,11 @@ export function activityTitle(event: ActivityEvent): string {
       return `Operation #${event.opId} submitted for approval`;
     case "OpExecuted":
       return `Operation #${event.opId} executed`;
+    case "ScheduleCreated":
+      return `Schedule #${event.scheduleId} created`;
+    case "ScheduleRan":
+      return `Schedule #${event.scheduleId} ran`;
+    case "ScheduleCancelled":
+      return `Schedule #${event.scheduleId} cancelled`;
   }
 }

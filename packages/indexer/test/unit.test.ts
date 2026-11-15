@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { assembleCanvas, settledByOthers, toWire } from "../lib/canvas.ts";
+import { assembleCanvas, toWire } from "../lib/canvas.ts";
 import { asOfFromCheckpoint } from "../lib/checkpoint.ts";
 import { decodeNotice, encodeNotice, formatCursor, parseCursor } from "../lib/feed-channel.ts";
 import { readDeployment } from "../lib/deployment.ts";
@@ -71,6 +71,7 @@ const feedRow = (name: string, logIndex: number, refs: Partial<FeedRow> = {}): F
   invoiceId: null,
   opId: null,
   budgetId: null,
+  scheduleId: null,
   actor: null,
   ...refs,
 });
@@ -85,6 +86,7 @@ function rows(address: string, feed: readonly FeedRow[]): CanvasRows {
     charges: [],
     ops: [],
     confirmedByWallet: new Set(),
+    schedules: [],
     relationships: [],
     invoices: [invoice],
     advances: new Map([[1n, { principal: 4_000_000_000n, fee: 50_000_000n, fundedAt: 160n }]]),
@@ -113,26 +115,16 @@ describe("canvas assembly", () => {
     expect(wire.account).toMatchObject({ myRole: "admin", balance: "9" });
   });
 
-  test("a payment is news for the seller, and a keeper's settlement is news for the buyer", () => {
+  test("a payment and an advance are news for the seller, not for the buyer", () => {
     const feed = [
       feedRow("Advanced", 1, { invoiceId: 1n }),
       feedRow("InvoicePaid", 2, { invoiceId: 1n, actor: KEEPER }),
     ];
-    const forSeller = rows(SELLER, feed);
-    expect(deriveNotifications(assembleCanvas(forSeller), { scheduled: [] }).map((n) => n.kind).sort()).toEqual([
+    expect(deriveNotifications(assembleCanvas(rows(SELLER, feed))).map((n) => n.kind).sort()).toEqual([
       "advancePaid",
       "paymentReceived",
     ]);
-    const forBuyer = rows(BUYER, feed);
-    const scheduled = settledByOthers(feed, forBuyer.invoices);
-    expect(scheduled).toEqual([1n]);
-    expect(deriveNotifications(assembleCanvas(forBuyer), { scheduled })).toMatchObject([
-      { kind: "keeperSettled", key: `${TX}:2`, nodeId: "invoice-1", title: "Keeper settled invoice #1" },
-    ]);
-  });
-
-  test("the buyer paying its own invoice is not a keeper settlement", () => {
-    expect(settledByOthers([feedRow("InvoicePaid", 2, { invoiceId: 1n, actor: BUYER })], [invoice])).toEqual([]);
+    expect(deriveNotifications(assembleCanvas(rows(BUYER, feed)))).toEqual([]);
   });
 });
 
