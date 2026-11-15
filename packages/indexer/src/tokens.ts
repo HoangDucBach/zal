@@ -1,4 +1,4 @@
-// MockUSDC and ZalVault share balances, USDC cash moves, and the wallet allowance to the pool.
+// zUSDC and ZalVault share balances, USDC cash moves, and the wallet allowance to the pool.
 
 import type { Context } from "ponder:registry";
 
@@ -31,7 +31,7 @@ export async function moveBalance(
 const isAccount = async (context: Context, address: `0x${string}`) =>
   address !== zeroAddress && (await context.db.find(schema.account, { address })) !== null;
 
-ponder.on("MockUSDC:Transfer", async ({ event, context }) => {
+ponder.on("ZUSDC:Transfer", async ({ event, context }) => {
   const { from, to, value } = event.args;
   await moveBalance(context, event.log.address, from, to, value);
   await context.db.insert(schema.usdcTransfer).values({
@@ -50,7 +50,7 @@ ponder.on("MockUSDC:Transfer", async ({ event, context }) => {
   if (subjects.length > 0) await publish(context, event, "Transfer", subjects);
 });
 
-ponder.on("MockUSDC:Approval", async ({ event, context }) => {
+ponder.on("ZUSDC:Approval", async ({ event, context }) => {
   const { owner, spender, value } = event.args;
   if (spender.toLowerCase() !== context.contracts.ZalFundingPool.address.toLowerCase()) return;
   await context.db.insert(schema.poolAllowance).values({ owner, value }).onConflictDoUpdate({ value });

@@ -110,7 +110,7 @@ describe("notifications from the event stream", () => {
       ["advancePaid", "invoice-7"],
     ]);
     expect(deriveNotifications(sold, { scheduled: [] })[1]?.detail).toBe(
-      "3,950.00 USDC from the funding pool",
+      "3,950.00 zUSDC from the funding pool",
     );
 
     const bought = state({

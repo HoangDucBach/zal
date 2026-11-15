@@ -2,7 +2,7 @@
 
 // The Deposit entry (ADR 0013): bridging is onboarding, not payment, so it is a light item in the profile toolbar,
 // not a canvas node. It shows what the canvas holds on the L1 and says bridged USDC comes later. On the local anvil
-// chain it also offers the MockUSDC faucet (open mint, testnet only).
+// chain it also offers the zUSDC faucet (open mint, testnet only).
 
 import { Button, Popover, Separator } from "@heroui/react";
 import { WalletMoneyIcon } from "@solar-icons/react/linear";
@@ -35,7 +35,7 @@ export function DepositButton() {
   const { network, canvas } = useCanvasView();
   const mint = useMintTestUsdc({
     network,
-    options: feedback("Minted 1,000 testnet USDC"),
+    options: feedback("Minted 1,000 testnet zUSDC"),
   });
   const state = canvas.data;
 
@@ -70,7 +70,7 @@ export function DepositButton() {
             <p className="text-xs text-muted">
               {network.kind === "sandbox"
                 ? "Sandbox USDC · seeded, no deposit needed"
-                : "MockUSDC (testnet) on the Zal L1"}
+                : "zUSDC (testnet) on the Zal L1"}
             </p>
             <Separator />
             <p className="text-xs text-muted">
@@ -85,7 +85,7 @@ export function DepositButton() {
                   mint.mutate({ to: target, amount: FAUCET_AMOUNT })
                 }
               >
-                Mint 1,000 testnet USDC to{" "}
+                Mint 1,000 testnet zUSDC to{" "}
                 {target === "account" ? "canvas" : "wallet"}
               </Button>
             ) : null}

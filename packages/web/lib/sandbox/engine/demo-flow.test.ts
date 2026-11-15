@@ -22,7 +22,7 @@ import { canvasOf, createDemoPartner, read, seedSandbox, write } from "./seed";
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -65,7 +65,7 @@ async function canvas(chain: SandboxChain, scheduled: readonly bigint[] = []) {
 }
 
 const balance = async (chain: SandboxChain, who: Address) =>
-  (await read(chain, d.usdc, mockUsdcAbi, "balanceOf", [who])) as bigint;
+  (await read(chain, d.usdc, zusdcAbi, "balanceOf", [who])) as bigint;
 
 describe("sandbox runs the PRD demo on the real bytecode", () => {
   let chain: SandboxChain;
@@ -568,7 +568,7 @@ describe("sandbox lets the visitor buy from the print shop and lend as an LP", (
     const walletBefore = await balance(chain, USER);
 
     expect(walletBefore).toBe(usdc(5_000));
-    await write(chain, USER, d.usdc, mockUsdcAbi, "approve", [
+    await write(chain, USER, d.usdc, zusdcAbi, "approve", [
       d.pool,
       usdc(1_000),
     ]);

@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {CanvasAccount} from "../src/CanvasAccount.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {ZUSDC} from "../src/ZUSDC.sol";
 import {RelationshipRegistry} from "../src/RelationshipRegistry.sol";
 import {ZalFundingPool} from "../src/ZalFundingPool.sol";
 import {ZalInvoice} from "../src/ZalInvoice.sol";
@@ -18,7 +18,7 @@ import {ZalTestBase} from "./support/ZalTestBase.sol";
 /// a scan of its logs and of every invoice, which sets a ghost flag when an invariant is broken.
 contract ZalHandler is Test {
     struct Wiring {
-        MockUSDC usdc;
+        ZUSDC usdc;
         RelationshipRegistry registry;
         ZalInvoice invoices;
         ZalFundingPool pool;
@@ -34,7 +34,7 @@ contract ZalHandler is Test {
     uint256 internal constant CLUB = 2;
     uint256 internal constant BUDGET = 1;
 
-    MockUSDC private immutable usdc;
+    ZUSDC private immutable usdc;
     RelationshipRegistry private immutable registry;
     ZalInvoice private immutable invoices;
     ZalFundingPool private immutable pool;

@@ -5,7 +5,7 @@ Status: accepted (prototype passed 14 Nov 2026)
 Users should try Zal at once: connect a wallet, flip a Sandbox switch, and run the whole PRD demo alone, with no faucet, no gas and no network setup. Zalax built its sandbox as a TypeScript re-implementation of its contracts behind a transport switch (`frontend/src/lib/sandbox`). The transport switch worked well. The re-implementation needed differential tests to stay true to the Solidity. A shared sandbox deployment on the L1 would need a server faucet, bot accounts and gas, and it still could not move time forward for the timeline demo.
 
 ## Decision
-Keep Zalax's shape: a sandbox mode store, a `sandboxAware(http())` transport, and a sandbox wallet connector. Replace the hand-written engine with an in-browser EVM (tevm, or `@ethereumjs/vm` directly if tevm fails) that deploys the compiled artifacts from `packages/contracts/out` at load. The user still connects a real wallet. In the sandbox, the node impersonates that address, so there are no signing prompts. A seed script creates the user's `CanvasAccount`, funds it with `MockUSDC`, and creates bot counterparties (a demo club and an LP) that accept and approve on their own. The sandbox clock can be advanced, so the timeline can really reach the due date. State persists in the browser and has a reset.
+Keep Zalax's shape: a sandbox mode store, a `sandboxAware(http())` transport, and a sandbox wallet connector. Replace the hand-written engine with an in-browser EVM (tevm, or `@ethereumjs/vm` directly if tevm fails) that deploys the compiled artifacts from `packages/contracts/out` at load. The user still connects a real wallet. In the sandbox, the node impersonates that address, so there are no signing prompts. A seed script creates the user's `CanvasAccount`, funds it with `ZUSDC` (zUSDC), and creates bot counterparties (a demo club and an LP) that accept and approve on their own. The sandbox clock can be advanced, so the timeline can really reach the due date. State persists in the browser and has a reset.
 
 ## Consequences
 - No sandbox logic to keep in sync with Solidity. The sandbox is the same bytecode.
@@ -33,5 +33,5 @@ Keep Zalax's shape: a sandbox mode store, a `sandboxAware(http())` transport, an
 - **Demo print shop.** It sells to you. It proposes at seed, then issues one invoice at a time (1,200, then 800, then 450 USDC, each due in 14 days).
 - **Sandbox co-signer.** It is an approver on your account at policy 1 of 2, and signs only when asked. The Approval component raises the policy, prefilled to 2 signatures above 500 USDC.
 - **Keeper.** It settles scheduled, escrowed invoices at the due date (ADR 0010). Its job list is persisted beside the journal.
-- **Your wallet.** It gets 5,000 MockUSDC for the LP role.
+- **Your wallet.** It gets 5,000 zUSDC for the LP role.
 - **Storage.** The journal key is v2.

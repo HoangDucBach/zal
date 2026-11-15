@@ -301,7 +301,7 @@ function AccountNode({ id, data, selected }: Props<"account">) {
         <>
           <CommitmentChip commitment={commitment} />
           <Chip size="sm" variant="tertiary">
-            testnet USDC
+            testnet zUSDC
           </Chip>
         </>
       }

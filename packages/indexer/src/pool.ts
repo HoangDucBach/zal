@@ -5,7 +5,7 @@ import type { Context } from "ponder:registry";
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
 
-import { mockUsdcAbi, zalFundingPoolAbi } from "../abis/index.ts";
+import { zusdcAbi, zalFundingPoolAbi } from "../abis/index.ts";
 import { publish } from "./feed.ts";
 import { moveBalance } from "./tokens.ts";
 
@@ -87,8 +87,8 @@ ponder.on("ZalFundingPool:Deposit", async ({ event, context }) => {
   const { sender } = event.args;
   // OpenZeppelin 5 spends the allowance without an Approval event, so read what is left.
   const value = await context.client.readContract({
-    address: context.contracts.MockUSDC.address,
-    abi: mockUsdcAbi,
+    address: context.contracts.ZUSDC.address,
+    abi: zusdcAbi,
     functionName: "allowance",
     args: [sender, event.log.address],
   });

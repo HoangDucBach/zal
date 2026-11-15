@@ -25,7 +25,7 @@ flowchart LR
         I[ZalInvoice ERC-721]
         P[ZalFundingPool ERC-4626]
         V[ZalVault ERC-4626, simulated]
-        U[MockUSDC]
+        U[zUSDC]
     end
     W -- member txs --> A1
     W -- member txs --> A2

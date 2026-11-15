@@ -17,7 +17,7 @@ import {
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -151,7 +151,7 @@ async function readAccount(
 ): Promise<AccountState> {
   const balance = await client.readContract({
     address: addresses.usdc,
-    abi: mockUsdcAbi,
+    abi: zusdcAbi,
     functionName: "balanceOf",
     args: [account],
   });
@@ -350,13 +350,13 @@ async function readLp(
     }),
     client.readContract({
       address: addresses.usdc,
-      abi: mockUsdcAbi,
+      abi: zusdcAbi,
       functionName: "balanceOf",
       args: [wallet],
     }),
     client.readContract({
       address: addresses.usdc,
-      abi: mockUsdcAbi,
+      abi: zusdcAbi,
       functionName: "allowance",
       args: [wallet, addresses.pool],
     }),
@@ -489,14 +489,14 @@ export async function readCanvasState({
       client.getBlock(),
       client.getContractEvents({
         address: addresses.usdc,
-        abi: mockUsdcAbi,
+        abi: zusdcAbi,
         eventName: "Transfer",
         fromBlock: FROM,
         args: { to: account },
       }),
       client.getContractEvents({
         address: addresses.usdc,
-        abi: mockUsdcAbi,
+        abi: zusdcAbi,
         eventName: "Transfer",
         fromBlock: FROM,
         args: { from: account },

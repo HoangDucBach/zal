@@ -36,7 +36,7 @@ export interface NotificationContext {
   readonly scheduled: readonly bigint[];
 }
 
-const usdc = (amount: bigint) => `${formatUsdc(amount)} USDC`;
+const usdc = (amount: bigint) => `${formatUsdc(amount)} zUSDC`;
 
 function toNotification(
   item: ActivityItem,

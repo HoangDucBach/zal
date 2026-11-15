@@ -153,7 +153,7 @@ export const pool = onchainTable("pool", (t) => ({
   totalAssets: t.bigint().notNull(),
 }));
 
-/** ERC-20 balances of MockUSDC, pool shares and vault shares, keyed by token and holder. */
+/** ERC-20 balances of zUSDC, pool shares and vault shares, keyed by token and holder. */
 export const tokenBalance = onchainTable(
   "token_balance",
   (t) => ({
@@ -164,7 +164,7 @@ export const tokenBalance = onchainTable(
   (table) => ({ pk: primaryKey({ columns: [table.token, table.holder] }) }),
 );
 
-/** MockUSDC allowance to the pool only. OpenZeppelin 5 spends allowances without an event, so the handler
+/** zUSDC allowance to the pool only. OpenZeppelin 5 spends allowances without an event, so the handler
  * reads `allowance` after each pool deposit. */
 export const poolAllowance = onchainTable("pool_allowance", (t) => ({
   owner: t.hex().primaryKey(),

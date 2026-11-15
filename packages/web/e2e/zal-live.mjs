@@ -185,13 +185,13 @@ try {
   });
   await dShot("split-endpoint");
 
-  await step("club funds its canvas from the Deposit faucet (testnet MockUSDC)", async () => {
+  await step("club funds its canvas from the Deposit faucet (testnet zUSDC)", async () => {
     await C.button("Deposit").click();
     await club.page.getByText("coming later").waitFor();
     await cShot("deposit-popover");
     for (let i = 0; i < 6; i++) {
-      await C.button("Mint 1,000 testnet USDC to canvas").click();
-      await club.page.getByText("Minted 1,000 testnet USDC").first().waitFor({ timeout: 20_000 });
+      await C.button("Mint 1,000 testnet zUSDC to canvas").click();
+      await club.page.getByText("Minted 1,000 testnet zUSDC").first().waitFor({ timeout: 20_000 });
       await club.page.waitForTimeout(300);
     }
     await club.page.keyboard.press("Escape");
@@ -207,7 +207,7 @@ try {
     await C.deselect();
     await C.pick("approval").click();
     await C.inspector().getByLabel(/Signatures required/).fill("2");
-    await C.inspector().getByLabel("For payments above, USDC").fill("0");
+    await C.inspector().getByLabel("For payments above, zUSDC").fill("0");
     await C.button("Save policy").click();
     await C.node("approval").getByText("2 of 2 sign above 0").waitFor({ timeout: 20_000 });
     check(true, "the club's Approval node reads 2 of 2 above 0 USDC");

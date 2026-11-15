@@ -37,7 +37,7 @@ The Zal canvas client: Next.js 16 app router, HeroUI v3, xyflow (`@xyflow/react`
 ## Canvas rules from the PRD
 - Ghost (dashed, faded) means not committed. Solid means signed on-chain. Map each node's state from `docs/architecture/contracts.md`, section "Ghost and solid on-chain". Use HeroUI variants for the two states, not custom CSS.
 - Parties are `CanvasAccount` addresses. A role (buyer, seller, funder) is a label on a relationship edge, never on a user.
-- Mock values are labelled: `MockUSDC` is testnet, `ZalVault` yield is simulated.
+- Mock values are labelled: `ZUSDC` (zUSDC) is testnet, `ZalVault` yield is simulated.
 
 ## Verify
 `pnpm --filter @zal/web lint`, `typecheck`, `build`, then open the page and look at it. A screenshot of the running page is the evidence, not a passing build.

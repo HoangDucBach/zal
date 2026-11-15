@@ -109,7 +109,7 @@ export default function Landing() {
           ))}
         </dl>
         <p className="mt-3 text-center text-xs text-muted">
-          Testnet only. MockUSDC is test money and vault yield is simulated.
+          Testnet only. zUSDC is test money and vault yield is simulated.
         </p>
       </footer>
     </div>

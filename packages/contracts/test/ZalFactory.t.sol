@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Errors} from "@openzeppelin/contracts/utils/Errors.sol";
 import {CanvasAccount} from "../src/CanvasAccount.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {ZUSDC} from "../src/ZUSDC.sol";
 import {RelationshipRegistry} from "../src/RelationshipRegistry.sol";
 import {ZalFactory} from "../src/ZalFactory.sol";
 import {ZalVault} from "../src/ZalVault.sol";
@@ -103,7 +103,7 @@ contract ZalFactoryTest is ZalTestBase {
         vm.prank(stranger);
         factory.setAllowedVault(address(vault), false);
 
-        ZalVault wrongAsset = new ZalVault(IERC20(address(new MockUSDC())), owner, keeper);
+        ZalVault wrongAsset = new ZalVault(IERC20(address(new ZUSDC())), owner, keeper);
         vm.startPrank(owner);
         vm.expectRevert(ZalFactory.VaultAssetMismatch.selector);
         factory.setAllowedVault(address(wrongAsset), true);

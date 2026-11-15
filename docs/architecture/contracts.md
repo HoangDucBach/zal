@@ -8,7 +8,7 @@ Solidity 0.8.25, `evm_version = cancun` (the same pair Zalax runs on Subnet-EVM)
 
 | Contract | Kind | Owns |
 |---|---|---|
-| `MockUSDC` | ERC-20, 6 decimals | Testnet dollars. Labelled testnet in every UI |
+| `ZUSDC` (zUSDC) | ERC-20, 6 decimals | Testnet dollars. Labelled testnet in every UI |
 | `ZalFactory` | Ownable | Deploys `CanvasAccount` clones (ERC-1167). Answers `isAccount`. Holds the protocol wiring (USDC, registry, invoices, pool, allowed vaults) |
 | `CanvasAccount` | Clone, initializer | One per canvas. Holds USDC. Members and roles, approval policy, budgets, the receive route (Split), and every action the canvas takes |
 | `RelationshipRegistry` | Plain | Buyer and seller relationships between two accounts: propose, accept, reject, cancel, invite links |
@@ -230,7 +230,7 @@ The spec left these open. The code and tests follow them.
   - A repayment with zero reserve skips `receivePayment`.
   - `maxWithdraw` is computed from the share balance, capped by idle cash.
   - `setObligorLimit`: limit 0 means not enrolled, and lowering a limit below open principal blocks new advances but never repayment. The ZR-FND-07 revert is `ObligorLimitExceeded(buyer, required, limit)`. An escrowed invoice never uses the limit.
-- **Mocks.** `MockUSDC` has an open `mint`. `ZalVault` has no on-chain rate. The keeper reads `simulated_apy_bps` from config, and it stays TBD (open question 8).
+- **Mocks.** `ZUSDC` (zUSDC) has an open `mint`. `ZalVault` has no on-chain rate. The keeper reads `simulated_apy_bps` from config, and it stays TBD (open question 8).
 
 ## Out of scope for v1 contracts
 Schedule and Stream (P2). Schedule reuses the permissionless pay of an escrowed invoice after `dueDate`, triggered by a keeper. Stream needs a flow-rate token and is not built. Also out of scope: ending relationships, disputes, overdue handling, credit scoring, protocol fees, multi-asset, and upgradeability.

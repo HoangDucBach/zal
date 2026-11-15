@@ -3,7 +3,7 @@ import { getAbiItem } from "viem";
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -47,6 +47,6 @@ export default createConfig({
     ZalInvoice: { chain: "zal", abi: zalInvoiceAbi, address: addresses.invoices, startBlock },
     ZalFundingPool: { chain: "zal", abi: zalFundingPoolAbi, address: addresses.pool, startBlock },
     ZalVault: { chain: "zal", abi: zalVaultAbi, address: addresses.vault, startBlock },
-    MockUSDC: { chain: "zal", abi: mockUsdcAbi, address: addresses.usdc, startBlock },
+    ZUSDC: { chain: "zal", abi: zusdcAbi, address: addresses.usdc, startBlock },
   },
 });

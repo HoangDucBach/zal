@@ -13,7 +13,7 @@ import { watchContractEvent } from "wagmi/actions";
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -33,7 +33,7 @@ export function useZalEvents(network: ZalNetwork | undefined): void {
     const watched: ReadonlyArray<
       readonly [ZalContract, Address | undefined, Abi]
     > = [
-      ["usdc", addresses.usdc, mockUsdcAbi],
+      ["usdc", addresses.usdc, zusdcAbi],
       ["factory", addresses.factory, zalFactoryAbi],
       ["registry", addresses.registry, relationshipRegistryAbi],
       ["invoices", addresses.invoices, zalInvoiceAbi],

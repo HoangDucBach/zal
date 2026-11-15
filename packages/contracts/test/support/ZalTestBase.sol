@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CanvasAccount} from "../../src/CanvasAccount.sol";
-import {MockUSDC} from "../../src/MockUSDC.sol";
+import {ZUSDC} from "../../src/ZUSDC.sol";
 import {RelationshipRegistry} from "../../src/RelationshipRegistry.sol";
 import {ZalFactory} from "../../src/ZalFactory.sol";
 import {ZalFundingPool} from "../../src/ZalFundingPool.sol";
@@ -23,7 +23,7 @@ abstract contract ZalTestBase is Test {
     /// @dev A test fixture, not a calibration. The demo rate is open question 6.
     uint16 internal constant ANNUAL_FEE_BPS = 1_521;
 
-    MockUSDC internal usdc;
+    ZUSDC internal usdc;
     ZalFactory internal factory;
     RelationshipRegistry internal registry;
     ZalInvoice internal invoices;
@@ -58,7 +58,7 @@ abstract contract ZalTestBase is Test {
     }
 
     function _deployStack() internal {
-        usdc = new MockUSDC();
+        usdc = new ZUSDC();
         factory = new ZalFactory(owner);
         registry = new RelationshipRegistry(IZalFactory(address(factory)));
         invoices = new ZalInvoice(IZalFactory(address(factory)), IERC20(address(usdc)));

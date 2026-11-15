@@ -2,6 +2,7 @@
 // semibold and tabular, the unit after it muted and regular. test/no-inline-amounts.test.ts keeps the formatters
 // here, so a hand-formatted amount anywhere else fails the suite.
 
+import { TOKEN_SYMBOL } from "@/config/token";
 import { formatBps, formatUsdc, formatUsdcCents } from "@/lib/format";
 
 /** `exact` keeps every base unit ("5,000.000001"); `cents` rounds for display figures ("14,854.99"). */
@@ -72,7 +73,7 @@ function Money({
 
 export function Amount({
   value,
-  unit = "USDC",
+  unit = TOKEN_SYMBOL,
   precision = "exact",
   signed = false,
   size = "inline",
@@ -98,7 +99,7 @@ export function AmountsInText({ text }: { readonly text: string }) {
           key={i}
           size="inline"
           text={part.slice(0, -" USDC".length)}
-          unit="USDC"
+          unit={TOKEN_SYMBOL}
         />
       ) : (
         part
@@ -122,7 +123,7 @@ export function Bps({ value }: { readonly value: number }) {
 export function amountText(
   value: bigint,
   {
-    unit = "USDC",
+    unit = TOKEN_SYMBOL,
     precision = "exact",
     signed = false,
   }: Pick<AmountProps, "unit" | "precision" | "signed"> = {},

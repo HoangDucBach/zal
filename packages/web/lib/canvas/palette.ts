@@ -487,7 +487,7 @@ export const COMPONENT_HINTS: Record<PaletteComponent, string> = {
   escrow: "Locks face value for an approved invoice you pay",
   vault: "Idle money earns simulated yield",
   pool: "Early payment on an approved invoice you sell",
-  liquidity: "Lend wallet testnet USDC to the funding pool",
+  liquidity: "Lend wallet testnet zUSDC to the funding pool",
 };
 
 /** What a draft of each component connects to: its tooltip, "Off-chain · connects to …". */

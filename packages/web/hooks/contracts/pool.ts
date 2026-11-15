@@ -5,7 +5,7 @@ import type { MutationProps, QueryProps, QueryResult } from "@/lib/query/types";
 
 import { waitForTransactionReceipt } from "wagmi/actions";
 
-import { mockUsdcAbi, zalFundingPoolAbi } from "@/contracts/abis";
+import { zusdcAbi, zalFundingPoolAbi } from "@/contracts/abis";
 import { signerIdentity } from "@/lib/contracts/identity";
 import { useChainQuery } from "@/lib/contracts/read";
 import {
@@ -66,7 +66,7 @@ export interface LpDepositPayload {
   readonly allowance: bigint;
 }
 
-/** Deposits testnet USDC from the connected wallet into the funding pool and mints LP shares to it. */
+/** Deposits testnet zUSDC from the connected wallet into the funding pool and mints LP shares to it. */
 export function useLpDeposit({ network, options }: LpProps<LpDepositPayload>) {
   return useContractMutation<LpDepositPayload>({
     network,
@@ -77,7 +77,7 @@ export function useLpDeposit({ network, options }: LpProps<LpDepositPayload>) {
       if (allowance < amount) {
         const hash = await simulateAndWrite(config, net, {
           address: net.addresses.usdc,
-          abi: mockUsdcAbi,
+          abi: zusdcAbi,
           functionName: "approve",
           args: [net.addresses.pool, amount],
         });

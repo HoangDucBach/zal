@@ -43,7 +43,7 @@ const nodeId = {
 } as const;
 
 const usdcFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
-const usdc = (amount: bigint) => `${usdcFormat.format(Number(formatUnits(amount, 6)))} USDC`;
+const usdc = (amount: bigint) => `${usdcFormat.format(Number(formatUnits(amount, 6)))} zUSDC`;
 
 function toNotification(
   item: ActivityItem,

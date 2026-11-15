@@ -24,7 +24,7 @@ import { createSiweMessage } from "viem/siwe";
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -63,7 +63,7 @@ async function actor(): Promise<PrivateKeyAccount> {
 }
 
 const balanceOf = (who: Address) =>
-  client.readContract({ address: d.usdc, abi: mockUsdcAbi, functionName: "balanceOf", args: [who] });
+  client.readContract({ address: d.usdc, abi: zusdcAbi, functionName: "balanceOf", args: [who] });
 
 // ---- API --------------------------------------------------------------------------------------------------------
 
@@ -214,15 +214,15 @@ async function main() {
   // Seed, as the sandbox does: the seller's account with USDC, the club with two signers and an Events budget and
   // a pool credit line, and an LP deposit.
   await send(seller, d.factory, zalFactoryAbi, "createAccount", [seller.address, zeroHash]);
-  await send(OWNER, d.usdc, mockUsdcAbi, "mint", [sellerAccount, usdc(10_000)]);
+  await send(OWNER, d.usdc, zusdcAbi, "mint", [sellerAccount, usdc(10_000)]);
   await send(clubAdmin, d.factory, zalFactoryAbi, "createAccount", [clubAdmin.address, zeroHash]);
   await send(clubAdmin, club, canvasAccountAbi, "setMember", [clubTreasurer.address, 2]);
   await send(clubAdmin, club, canvasAccountAbi, "setPolicy", [2, 0n]);
   await send(clubAdmin, club, canvasAccountAbi, "setBudget", [1n, usdc(10_000), 0n]);
-  await send(OWNER, d.usdc, mockUsdcAbi, "mint", [club, usdc(20_000)]);
+  await send(OWNER, d.usdc, zusdcAbi, "mint", [club, usdc(20_000)]);
   await send(OWNER, d.pool, zalFundingPoolAbi, "setObligorLimit", [club, usdc(20_000)]);
-  await send(OWNER, d.usdc, mockUsdcAbi, "mint", [lp.address, usdc(50_000)]);
-  await send(lp, d.usdc, mockUsdcAbi, "approve", [d.pool, usdc(50_000)]);
+  await send(OWNER, d.usdc, zusdcAbi, "mint", [lp.address, usdc(50_000)]);
+  await send(lp, d.usdc, zusdcAbi, "approve", [d.pool, usdc(50_000)]);
   const poolBefore = await client.readContract({ address: d.pool, abi: zalFundingPoolAbi, functionName: "idleCash" });
   await send(lp, d.pool, zalFundingPoolAbi, "deposit", [usdc(50_000), lp.address]);
 

@@ -1,5 +1,5 @@
 // Deploys the protocol with the same wiring as packages/contracts/script/Deploy.s.sol, then seeds the demo:
-// - the visitor's CanvasAccount funded with MockUSDC, with a sandbox co-signer as its second approver;
+// - the visitor's CanvasAccount funded with zUSDC, with a sandbox co-signer as its second approver;
 // - testnet USDC in the visitor's wallet, for the LP role;
 // - a club canvas with two signers and an Events budget that buys from the visitor;
 // - a print shop canvas that sells to the visitor and has already proposed that relationship;
@@ -37,7 +37,7 @@ import {
 } from "../partners";
 
 import {
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -46,7 +46,7 @@ import {
   canvasAccountAbi,
 } from "@/contracts/abis";
 import {
-  mockUsdcBytecode,
+  zusdcBytecode,
   relationshipRegistryBytecode,
   zalFactoryBytecode,
   zalFundingPoolBytecode,
@@ -97,7 +97,7 @@ async function deploy(chain: SandboxChain, data: Hex): Promise<void> {
 export async function deployProtocol(chain: SandboxChain): Promise<void> {
   await deploy(
     chain,
-    encodeDeployData({ abi: mockUsdcAbi, bytecode: mockUsdcBytecode }),
+    encodeDeployData({ abi: zusdcAbi, bytecode: zusdcBytecode }),
   );
   await deploy(
     chain,
@@ -223,7 +223,7 @@ async function seedBuyer(
     SANDBOX_SEED.clubEventsBudget,
     0n,
   ]);
-  await write(chain, SANDBOX_OWNER, d.usdc, mockUsdcAbi, "mint", [
+  await write(chain, SANDBOX_OWNER, d.usdc, zusdcAbi, "mint", [
     account,
     SANDBOX_SEED.clubAccount,
   ]);
@@ -250,7 +250,7 @@ async function seedSeller(
   ]);
   const account = await accountOf(chain, admin);
 
-  await write(chain, SANDBOX_OWNER, d.usdc, mockUsdcAbi, "mint", [
+  await write(chain, SANDBOX_OWNER, d.usdc, zusdcAbi, "mint", [
     account,
     SANDBOX_SEED.printShopAccount,
   ]);
@@ -287,7 +287,7 @@ export async function seedSandbox(
   ]);
   const userAccount = await accountOf(chain, user);
 
-  await write(chain, SANDBOX_OWNER, d.usdc, mockUsdcAbi, "mint", [
+  await write(chain, SANDBOX_OWNER, d.usdc, zusdcAbi, "mint", [
     userAccount,
     SANDBOX_SEED.userAccount,
   ]);
@@ -296,11 +296,11 @@ export async function seedSandbox(
 
   const club = await seedBuyer(chain, clubAdmin, clubTreasurer);
 
-  await write(chain, SANDBOX_OWNER, d.usdc, mockUsdcAbi, "mint", [
+  await write(chain, SANDBOX_OWNER, d.usdc, zusdcAbi, "mint", [
     lp,
     SANDBOX_SEED.lpDeposit,
   ]);
-  await write(chain, lp, d.usdc, mockUsdcAbi, "approve", [
+  await write(chain, lp, d.usdc, zusdcAbi, "approve", [
     d.pool,
     SANDBOX_SEED.lpDeposit,
   ]);
@@ -314,7 +314,7 @@ export async function seedSandbox(
     SANDBOX_BOTS.cosigner,
     2,
   ]);
-  await write(chain, SANDBOX_OWNER, d.usdc, mockUsdcAbi, "mint", [
+  await write(chain, SANDBOX_OWNER, d.usdc, zusdcAbi, "mint", [
     user,
     SANDBOX_SEED.userWallet,
   ]);

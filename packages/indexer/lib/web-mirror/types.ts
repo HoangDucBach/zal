@@ -148,7 +148,7 @@ export interface LpPosition {
   readonly assets: bigint;
   /** Capped by the pool's idle cash (ZR-FND-05). */
   readonly maxWithdraw: bigint;
-  /** MockUSDC (testnet) in the wallet itself, available to deposit. */
+  /** zUSDC (testnet) in the wallet itself, available to deposit. */
   readonly walletUsdc: bigint;
   /** What the wallet already allows the pool to pull. */
   readonly allowance: bigint;
@@ -193,7 +193,7 @@ export interface ActivityItem {
   readonly event: ActivityEvent;
 }
 
-/** One MockUSDC transfer into or out of the canvas account, from its `Transfer` logs. */
+/** One zUSDC transfer into or out of the canvas account, from its `Transfer` logs. */
 export interface CashMove {
   readonly key: string;
   readonly timestamp: number;

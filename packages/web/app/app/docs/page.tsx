@@ -53,7 +53,7 @@ export default function DocsPage() {
             <>
               {b("Turn on Sandbox")} in the same footer. The real contracts
               start in your browser, your account is created and funded with
-              10,000 testnet USDC, and your wallet gets 5,000 for the LP role.
+              10,000 testnet zUSDC, and your wallet gets 5,000 for the LP role.
               Nothing is signed and nothing costs gas.
             </>,
             <>
@@ -152,7 +152,7 @@ export default function DocsPage() {
             Sandbox
           </Chip>
           <Chip size="sm" variant="tertiary">
-            testnet USDC
+            testnet zUSDC
           </Chip>
           <Chip color="warning" size="sm" variant="soft">
             simulated yield
@@ -161,7 +161,7 @@ export default function DocsPage() {
         <p className="text-muted">
           Every amount the sandbox seeds (balances, budgets, the club&apos;s
           credit line, the print shop&apos;s invoices, the 500 USDC approval
-          limit) is a sandbox value, not a calibration. MockUSDC is test money.
+          limit) is a sandbox value, not a calibration. zUSDC is test money.
           Vault yield is simulated. Stream is not supported by the v1 contracts.
         </p>
         <p className="text-muted">

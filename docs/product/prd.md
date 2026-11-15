@@ -94,7 +94,7 @@ Two acceptances turn ghost into solid. First the proposed party accepts the rela
 ## App shell
 - **Landing page (`/`).** What Zal does in the three steps (programmable payments, invoices as assets, assets as working capital), how the canvas works, and two calls to action: open the app, or try the sandbox.
 - **App (`/app`).** A sidebar with Overview and Canvas. Its footer has Docs and a profile toolbar: wallet, network, the Sandbox switch, theme, and disconnect.
-- **Overview.** Read-only: balance over time, cash in and out by week (MockUSDC `Transfer` logs), money routed per Split leg (`PaymentRouted` logs), items waiting for me, invoices by status, upcoming due dates, open advances, LP position, pool utilisation and obligor credit. Each row opens the canvas at its node.
+- **Overview.** Read-only: balance over time, cash in and out by week (zUSDC `Transfer` logs), money routed per Split leg (`PaymentRouted` logs), items waiting for me, invoices by status, upcoming due dates, open advances, LP position, pool utilisation and obligor credit. Each row opens the canvas at its node.
 - **Docs.** Getting started, including a step-by-step guide to the sandbox demo.
 - **Canvas.** Floating bars are translucent with a strong blur. Nodes have a right-click context menu. A minimap sits bottom-left. The sandbox clock (+1 day, +30 days, Reset) sits on the canvas, because moving time changes the chain. A palette on the left, grouped like the component catalogue, showing only what fits the selected node (C2). A floating tool bar at the bottom (select, pan, fit). The Inspector on the right. Inbox and Timeline as before.
 

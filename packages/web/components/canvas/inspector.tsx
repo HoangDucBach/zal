@@ -135,7 +135,7 @@ function AccountDetails({ network, state }: Ctx) {
   const { account } = state;
   const mint = useMintTestUsdc({
     network,
-    options: feedback("Minted 1,000 testnet USDC"),
+    options: feedback("Minted 1,000 testnet zUSDC"),
   });
   const setMember = useSetMember({
     network,
@@ -150,7 +150,7 @@ function AccountDetails({ network, state }: Ctx) {
     <div className="flex flex-col gap-2">
       <Row
         label="Balance"
-        value={<Amount unit="USDC (testnet)" value={account.balance} />}
+        value={<Amount unit="zUSDC (testnet)" value={account.balance} />}
       />
       <Row label="Your role here" value={account.myRole} />
       <Row
@@ -207,7 +207,7 @@ function AccountDetails({ network, state }: Ctx) {
           variant="secondary"
           onPress={() => mint.mutate({ to: "account", amount: 1_000_000_000n })}
         >
-          Mint 1,000 testnet USDC
+          Mint 1,000 testnet zUSDC
         </Button>
       </Section>
     </div>
@@ -347,7 +347,7 @@ function ChainInvoiceDetails({
     <div className="flex flex-col gap-2">
       <Row
         label="Face value"
-        value={<Amount unit="USDC (testnet)" value={invoice.faceValue} />}
+        value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
       />
       <Row
         label="Due"

@@ -19,7 +19,7 @@ pnpm --filter @zal/web gen:contracts  # after `forge build` or a redeploy in pac
 
 The app runs on one of two networks.
 
-- **Sandbox.** Connect any wallet, then turn on the Sandbox switch in the sidebar footer (or follow a "Try sandbox" link, `?sandbox=1`). The compiled contracts from `packages/contracts/out` run in an in-browser EVM (tevm, ADR 0007). The sandbox uses the connected address without signing prompts. It seeds your account with 10,000 MockUSDC (testnet) and a sandbox co-signer as its second approver, puts 5,000 MockUSDC in your wallet for the LP role, and adds three counterparties: a demo club that buys from you (two signers, an Events budget, enrolled with the pool), a demo print shop that sells to you (it has already proposed, and issues one invoice at a time once you accept), and an LP. A keeper settles the escrowed invoices you schedule, at their due date. Advance the clock from the canvas (+1 day, +30 days) or jump to a due date from the Timeline. Reset starts over. State is saved in the browser as a journal of transactions plus the keeper's schedule, and replayed on load. Every seeded amount is a sandbox value.
+- **Sandbox.** Connect any wallet, then turn on the Sandbox switch in the sidebar footer (or follow a "Try sandbox" link, `?sandbox=1`). The compiled contracts from `packages/contracts/out` run in an in-browser EVM (tevm, ADR 0007). The sandbox uses the connected address without signing prompts. It seeds your account with 10,000 zUSDC (testnet) and a sandbox co-signer as its second approver, puts 5,000 zUSDC in your wallet for the LP role, and adds three counterparties: a demo club that buys from you (two signers, an Events budget, enrolled with the pool), a demo print shop that sells to you (it has already proposed, and issues one invoice at a time once you accept), and an LP. A keeper settles the escrowed invoices you schedule, at their due date. Advance the clock from the canvas (+1 day, +30 days) or jump to a due date from the Timeline. Reset starts over. State is saved in the browser as a journal of transactions plus the keeper's schedule, and replayed on load. Every seeded amount is a sandbox value.
 - **Live.** The Zal L1. It is off until these variables are set and `packages/contracts/deployments/<name>.json` has a deployment for that chain id (then run `gen:contracts`):
 
 | Variable | Meaning |
@@ -41,7 +41,7 @@ A local anvil deployment (`deployments/local.json`, chain 31337) works the same 
 - **Layout.** Positions, child canvases and drafts save to `PUT /v1/accounts/:address/layout` with the revision they started from. On 409 the client reloads the layout and replays its unsaved edits on it (`lib/api/layout-sync.ts`). Chain-derived positions never trigger a save or a sign-in by themselves.
 - **Read state.** Kept in the browser as before, and also sent to `POST /v1/notifications/read` while signed in, so other browsers see it.
 - **Invite links (PRD R1).** In the Counterparty form, "Copy invite link" has the Admin sign the EIP-712 invite, stores it with `POST /v1/invites`, and copies `/app/invite/<id>`. That page shows the proposer as a ghost, creates the invitee's canvas if needed, and redeems with `acceptInvite`.
-- **Deposit (ADR 0013).** The profile toolbar's Deposit item shows the canvas and wallet balances on the L1. On chain 31337 it also mints 1,000 testnet MockUSDC.
+- **Deposit (ADR 0013).** The profile toolbar's Deposit item shows the canvas and wallet balances on the L1. On chain 31337 it also mints 1,000 testnet zUSDC.
 
 ## End-to-end proofs
 
@@ -63,7 +63,7 @@ BASE=http://localhost:3001 pnpm --filter @zal/web e2e:sandbox                 # 
 | `ZAL_ANVIL_PORT` | `8545` | Host port of anvil (`e2e:live` only). `RPC` overrides the whole URL |
 | `PLAYWRIGHT_CHROMIUM` | Playwright's own install | Path to a Chromium or `chrome-headless-shell` binary |
 
-Screenshots go to `e2e/.out` (gitignored), or to the folder given as the first argument, for example `pnpm --filter @zal/web e2e:live /tmp/zal-shots`. `e2e:live` hardcodes the factory and MockUSDC addresses of the local anvil deployment.
+Screenshots go to `e2e/.out` (gitignored), or to the folder given as the first argument, for example `pnpm --filter @zal/web e2e:live /tmp/zal-shots`. `e2e:live` hardcodes the factory and zUSDC addresses of the local anvil deployment.
 
 ## Layout
 

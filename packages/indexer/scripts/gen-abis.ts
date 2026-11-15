@@ -8,7 +8,7 @@ const OUT = join(import.meta.dirname, "..", "..", "contracts", "out");
 const TARGET = join(import.meta.dirname, "..", "abis", "index.ts");
 
 const CONTRACTS = {
-  mockUsdcAbi: "MockUSDC",
+  zusdcAbi: "ZUSDC",
   zalFactoryAbi: "ZalFactory",
   canvasAccountAbi: "CanvasAccount",
   relationshipRegistryAbi: "RelationshipRegistry",

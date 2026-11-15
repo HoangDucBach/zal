@@ -9,7 +9,7 @@ import {
 
 import {
   canvasAccountAbi,
-  mockUsdcAbi,
+  zusdcAbi,
   relationshipRegistryAbi,
   zalFactoryAbi,
   zalFundingPoolAbi,
@@ -89,7 +89,7 @@ const zalErrorAbi = [
   ...zalFundingPoolAbi,
   ...zalFactoryAbi,
   ...zalVaultAbi,
-  ...mockUsdcAbi,
+  ...zusdcAbi,
 ].filter((item) => item.type === "error");
 
 type ZalErrorName = Extract<
@@ -100,7 +100,7 @@ type ZalErrorName = Extract<
     | typeof zalFundingPoolAbi
     | typeof zalFactoryAbi
     | typeof zalVaultAbi
-    | typeof mockUsdcAbi
+    | typeof zusdcAbi
   )[number],
   { type: "error" }
 >["name"];

@@ -32,7 +32,7 @@ Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the
    ```
 
 3. Open http://localhost:3100. To use live mode, add a wallet network with RPC `http://localhost:8545` (or your `ZAL_ANVIL_PORT`) and chain id 31337. With the Sandbox switch off, the canvas reads from the API and updates over its stream.
-4. To fund a canvas, open **Deposit** in the sidebar footer and mint testnet MockUSDC. The faucet shows only on chain 31337.
+4. To fund a canvas, open **Deposit** in the sidebar footer and mint testnet zUSDC. The faucet shows only on chain 31337.
 
 Sign-in (needed only to save layout and read state) works only from an origin listed in `ZAL_WEB_ORIGIN`. It is a comma-separated allow-list and defaults to `http://localhost:3100,http://localhost:3001`: the docker web and a `next dev -p 3001` server. Each entry is an exact origin (scheme, host and port), with no wildcard. A signed message must name one entry as its URI and that same entry's host as its domain. A web server on any other origin reads and streams from the same API, but its sign-in is refused. To allow another origin, set `ZAL_WEB_ORIGIN` in `.env` with the full list, then rebuild only the indexer:
 

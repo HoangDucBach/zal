@@ -200,7 +200,7 @@ function BalanceCard({ state }: { readonly state: CanvasState }) {
         <Amount
           precision="cents"
           size="hero"
-          unit="testnet USDC"
+          unit="testnet zUSDC"
           value={shown?.balance ?? state.account.balance}
         />
         <span className="text-xs text-muted">
@@ -320,7 +320,7 @@ function SplitCard({ state }: { readonly state: CanvasState }) {
               : undefined
         }
         value={
-          <Amount precision="cents" size="figure" unit="USDC" value={total} />
+          <Amount precision="cents" size="figure" unit="zUSDC" value={total} />
         }
       />
       {parts.length === 0 ? (
@@ -433,7 +433,7 @@ function AdvancesCard({ state }: { readonly state: CanvasState }) {
           <Amount
             precision="cents"
             size="figure"
-            unit="USDC"
+            unit="zUSDC"
             value={principal}
           />
         }
@@ -489,7 +489,7 @@ function PoolCard({ state }: { readonly state: CanvasState }) {
           <Amount
             precision="cents"
             size="figure"
-            unit="USDC"
+            unit="zUSDC"
             value={state.lp.assets}
           />
         }

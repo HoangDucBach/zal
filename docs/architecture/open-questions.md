@@ -18,12 +18,12 @@ Do not fill a TBD yourself. Propose a value, mark it proposed, and ask.
 8. `ZalVault` simulated yield figure. TBD.
 
 ## Platform
-9. USDC on the Zal L1: `MockUSDC` on the L1 for v1. Bridged USDC through ICTT later, outside the payment flow (ADR 0013).
+9. USDC on the Zal L1: `ZUSDC` (zUSDC) on the L1 for v1. Bridged USDC through ICTT later, outside the payment flow (ADR 0013).
 10. Gas on the L1: a low fee config plus a native-token faucet (NativeMinter), or a gas relayer. Decide with the L1 genesis.
 11. L1 permissions: open, or `TxAllowList` like Zalax. Open makes the demo simpler. Allow-list matches a real deployment.
 
 ## Sandbox values (not calibrations)
-12. The sandbox seeds the user with 10,000 MockUSDC, the demo club with 20,000, the LP deposit with 50,000, and the club's obligor limit with 20,000. The demo club has 2 signers, policy 2 of 2, approval limit 0, and budget #1 "Events" of 10,000. The print shop invoices are 1,200, 800 and 450 USDC, the wallet gets 5,000 MockUSDC for the LP role, and the Approval form prefills 2 signatures above 500 USDC. These exist only in the in-browser sandbox (ADR 0007).
+12. The sandbox seeds the user with 10,000 zUSDC, the demo club with 20,000, the LP deposit with 50,000, and the club's obligor limit with 20,000. The demo club has 2 signers, policy 2 of 2, approval limit 0, and budget #1 "Events" of 10,000. The print shop invoices are 1,200, 800 and 450 USDC, the wallet gets 5,000 zUSDC for the LP role, and the Approval form prefills 2 signatures above 500 USDC. These exist only in the in-browser sandbox (ADR 0007).
 
 ## Known issues (accepted for v1)
 - K-1. Pool fees are recognised on repayment, not accrued. A depositor who joins just before a repayment captures part of that fee. A fix is linear fee accrual in `totalAssets`.

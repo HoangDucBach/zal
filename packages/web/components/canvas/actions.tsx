@@ -474,7 +474,7 @@ function IssueInvoiceForm({
     <div className="flex flex-col gap-2">
       <Row label="Relationship" value={`#${relationshipId}`} />
       <Field
-        label="Face value, USDC (testnet)"
+        label="Face value, zUSDC (testnet)"
         value={amount}
         onChange={setAmount}
       />
@@ -666,7 +666,7 @@ function PolicyForm({ network, state, onDone }: FormProps) {
         onChange={setThreshold}
       />
       <Field
-        label="For payments above, USDC"
+        label="For payments above, zUSDC"
         value={limit}
         onChange={setLimit}
       />
@@ -945,7 +945,7 @@ function EscrowForm({
       {invoice === undefined ? null : (
         <Row
           label="Locks"
-          value={<Amount unit="USDC (testnet)" value={invoice.faceValue} />}
+          value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
         />
       )}
       <Button
@@ -1102,7 +1102,7 @@ export function LiquidityForm({
   });
   const mint = useMintTestUsdc({
     network,
-    options: feedback("Minted 1,000 testnet USDC to your wallet"),
+    options: feedback("Minted 1,000 testnet zUSDC to your wallet"),
   });
   const [amount, setAmount] = useState("1000");
   const value = parseUsdc(amount);
@@ -1114,7 +1114,7 @@ export function LiquidityForm({
       <Row label="Your pool position" value={<Amount value={lp.assets} />} />
       <Row label="Withdrawable now" value={<Amount value={lp.maxWithdraw} />} />
       <Field
-        label="Amount, USDC (testnet)"
+        label="Amount, zUSDC (testnet)"
         value={amount}
         onChange={setAmount}
       />
@@ -1162,7 +1162,7 @@ export function LiquidityForm({
           variant="tertiary"
           onPress={() => mint.mutate({ to: "wallet", amount: 1_000_000_000n })}
         >
-          Mint 1,000 testnet USDC to my wallet
+          Mint 1,000 testnet zUSDC to my wallet
         </Button>
       ) : null}
       <Note>

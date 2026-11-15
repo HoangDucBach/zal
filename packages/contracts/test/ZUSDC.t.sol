@@ -3,11 +3,11 @@ pragma solidity 0.8.25;
 
 import {ZalTestBase} from "./support/ZalTestBase.sol";
 
-contract MockUSDCTest is ZalTestBase {
+contract ZUSDCTest is ZalTestBase {
     function test_sixDecimalsAndTestnetLabel() public view {
         assertEq(usdc.decimals(), 6);
-        assertEq(usdc.symbol(), "USDC");
-        assertEq(usdc.name(), "Mock USDC (testnet)");
+        assertEq(usdc.symbol(), "zUSDC");
+        assertEq(usdc.name(), "Zal USD Coin (testnet)");
     }
 
     function test_anyoneCanMint() public {

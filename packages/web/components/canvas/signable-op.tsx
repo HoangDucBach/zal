@@ -72,7 +72,7 @@ export function SignableOp({
       />
       <Row
         label="Amount"
-        value={<Amount unit="USDC (testnet)" value={op.amount} />}
+        value={<Amount unit="zUSDC (testnet)" value={op.amount} />}
       />
       {op.call.fn === "withdraw" ? (
         <Row label="To" value={shortAddress(op.call.to)} />
@@ -80,7 +80,7 @@ export function SignableOp({
         <>
           <Row
             label={`Invoice #${invoice.id} face value`}
-            value={<Amount unit="USDC (testnet)" value={invoice.faceValue} />}
+            value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
           />
           <Row label="Invoice status" value={invoice.status} />
           <Row label="Pays" value={recipientText(invoice, network)} />
