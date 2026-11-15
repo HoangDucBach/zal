@@ -16,6 +16,20 @@ export const deployments = {
     "vault": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
     "advanceRateBps": 8000,
     "annualFeeBps": 1521
+  },
+  "102026": {
+    "chainId": 102026,
+    "name": "l1",
+    "owner": "0x9F7c870D0347989c2aB8c3a3263467874936208f",
+    "keeper": "0x9F7c870D0347989c2aB8c3a3263467874936208f",
+    "usdc": "0x443B9429EA87faAE61c3cCb6b10477D6993E1c30",
+    "factory": "0xb6fB0bAE55C3B10A52AbFB12a954F9AD7ce10013",
+    "registry": "0x5FE372365723AAA13F59a790fB09CFC17914a191",
+    "invoices": "0xf95A169Fd0A5190F3661FFd8bcdE45f229f4D972",
+    "pool": "0xdfaE31B5d0B46595220788A81821f669f63CF11c",
+    "vault": "0x7fF89d37623f70987485deec28ACC7a38bd73F78",
+    "advanceRateBps": 8000,
+    "annualFeeBps": 1521
   }
 } as const;
 
