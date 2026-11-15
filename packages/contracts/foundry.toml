@@ -1,0 +1,41 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc_version = "0.8.25"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+fs_permissions = [
+    { access = "read", path = "./script/config" },
+    { access = "read-write", path = "./deployments" },
+]
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
+
+# Lints left out, each for a reason that holds across the codebase:
+# - block-timestamp: due dates, expiries and budget periods are time-based by design.
+# - calls-loop, require-revert-in-loop: the only loops run over a route, which has at most 8 legs.
+# - reentrancy-events: every entry that moves USDC is nonReentrant, except CanvasAccount.receivePayment, which only the
+#   guarded ZalInvoice and ZalFundingPool can call (ZR-ACC-10). Events follow the calls whose results they report.
+# - missing-events-access-control: false positives on fields that are set next to an emitted event.
+[lint]
+exclude_lints = [
+    "block-timestamp",
+    "calls-loop",
+    "require-revert-in-loop",
+    "reentrancy-events",
+    "missing-events-access-control",
+]
+
+[invariant]
+runs = 256
+depth = 64
+fail_on_revert = false
+
+[rpc_endpoints]
+local = "http://127.0.0.1:8545"

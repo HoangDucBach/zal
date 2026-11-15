@@ -1,0 +1,11 @@
+{
+  "name": "@zal/contracts",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "fmt": "forge fmt --check",
+    "sizes": "forge build --sizes",
+    "mutate": "python3 tools/mutate.py ."
+  }
+}
