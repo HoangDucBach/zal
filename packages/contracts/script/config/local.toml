@@ -1,0 +1,21 @@
+# Local anvil deployment. Values marked TBD-demo are placeholders for the demo, not calibrated and not decided.
+# Change them here, never in the contracts or the deploy script.
+
+[chain]
+id = 31337
+
+# Broadcast with the owner key. These are anvil's first two default accounts.
+[roles]
+owner = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+keeper = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+[pool]
+# Fixed by the PRD.
+advance_rate_bps = 8000
+# TBD-demo. Proposed in open question 6: about 50 USDC on a 4,000 principal over 30 days.
+annual_fee_bps = 1521
+
+[vault]
+# TBD-demo. Open question 8 has no figure yet, so this stays 0. The contract takes no rate: the keeper reads this
+# value from the deployment file and pays the matching USDC in through `simulateYield`.
+simulated_apy_bps = 0
