@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/.ponder
+**/generated
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+.git
+.claude
+.audit
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/broadcast

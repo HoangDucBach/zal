@@ -1,0 +1,105 @@
+# The whole live-mode stack on one machine (ADR 0012, docs/runbooks/local-stack.md):
+# postgres, anvil as the local stand-in for the Zal L1, a one-shot deploy, the indexer and /v1 API, and the web app.
+# Every key and password here is a local-only development value. Never reuse them on a shared network.
+name: zal
+
+x-chain-image: &chain-image
+  image: zal-chain:local
+  build:
+    context: .
+    dockerfile: packages/contracts/Dockerfile
+
+services:
+  postgres:
+    image: postgres:17.12-alpine@sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f
+    environment:
+      POSTGRES_USER: zal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zal-local-only}
+      POSTGRES_DB: zal
+    ports:
+      - "${ZAL_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "zal", "-d", "zal"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  anvil:
+    <<: *chain-image
+    # Forwards SIGTERM to anvil, which saves its state on exit; as PID 1 it would be killed without saving.
+    init: true
+    # A large state takes time to write on SIGTERM; killing it mid-write corrupts the saved state.
+    stop_grace_period: 120s
+    restart: unless-stopped
+    ports:
+      - "${ZAL_ANVIL_PORT:-8545}:8545"
+    volumes:
+      - anvil:/data
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://127.0.0.1:8545"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  deploy:
+    <<: *chain-image
+    entrypoint: ["zal-deploy"]
+    command: []
+    environment:
+      ZAL_RPC_URL: http://anvil:8545
+      # LOCAL ONLY: anvil's well-known account 0, the owner in script/config/local.toml.
+      ZAL_DEPLOYER_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    volumes:
+      - deployments:/app/contracts/deployments
+    depends_on:
+      anvil:
+        condition: service_healthy
+    restart: "no"
+
+  indexer:
+    build:
+      context: .
+      dockerfile: packages/indexer/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://zal:${POSTGRES_PASSWORD:-zal-local-only}@postgres:5432/zal
+      ZAL_CHAIN_ID: "31337"
+      ZAL_RPC_URL: http://anvil:8545
+      ZAL_DEPLOYMENT: /deployments/local.json
+      # Comma-separated. Sign-in works only from these exact origins: the docker web and a `next dev` server.
+      ZAL_WEB_ORIGIN: ${ZAL_WEB_ORIGIN:-http://localhost:3100,http://localhost:3001}
+      ZAL_POLLING_INTERVAL_MS: "500"
+    ports:
+      - "${ZAL_INDEXER_PORT:-42069}:42069"
+    volumes:
+      - deployments:/deployments:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      deploy:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+      args:
+        NEXT_PUBLIC_ZAL_CHAIN_ID: "31337"
+        # The browser calls these, so they are host addresses, not compose service names.
+        NEXT_PUBLIC_ZAL_RPC_URL: http://localhost:${ZAL_ANVIL_PORT:-8545}
+        NEXT_PUBLIC_ZAL_CHAIN_NAME: Zal local (anvil)
+        NEXT_PUBLIC_ZAL_API_URL: http://localhost:${ZAL_INDEXER_PORT:-42069}
+    restart: unless-stopped
+    ports:
+      - "${ZAL_WEB_PORT:-3100}:3000"
+    depends_on:
+      indexer:
+        condition: service_healthy
+
+volumes:
+  postgres:
+  anvil:
+  deployments:
