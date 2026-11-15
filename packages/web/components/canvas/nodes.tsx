@@ -65,6 +65,11 @@ export const GateActions = createContext<{
   readonly open: (id: GateSummary["id"]) => void;
 }>({ open: () => undefined });
 
+/** What the ghost Account's Create button does: the canvas opens the same form as the palette's Account. */
+export const AccountActions = createContext<{ readonly create: () => void }>({
+  create: () => undefined,
+});
+
 /**
  * How the canvas judges a connection from one node to another (`canConnect`), so a node card can show while a
  * connection is dragged whether it would accept it. `undefined`: that pair cannot connect at all (a gate, a port).
@@ -270,6 +275,7 @@ function Frame({
   title,
   subtitle,
   chips,
+  footer,
 }: {
   readonly id: string;
   readonly commitment: Commitment;
@@ -278,6 +284,7 @@ function Frame({
   readonly title: string;
   readonly subtitle: React.ReactNode;
   readonly chips?: React.ReactNode;
+  readonly footer?: React.ReactNode;
 }) {
   const solid = commitment === "solid";
 
@@ -303,6 +310,7 @@ function Frame({
           {chips === undefined ? null : (
             <div className="flex flex-wrap gap-1">{chips}</div>
           )}
+          {footer}
         </Card>
       )}
     </ConnectState>
@@ -311,6 +319,7 @@ function Frame({
 
 function AccountNode({ id, data, selected }: Props<"account">) {
   const { account, commitment } = data;
+  const { create } = use(AccountActions);
 
   return (
     <Frame
@@ -323,6 +332,13 @@ function AccountNode({ id, data, selected }: Props<"account">) {
         </>
       }
       commitment={commitment}
+      footer={
+        account.exists ? undefined : (
+          <Button className="nodrag" size="sm" onPress={create}>
+            Create canvas
+          </Button>
+        )
+      }
       icon={<WalletIcon {...ICON} />}
       id={id}
       selected={selected}

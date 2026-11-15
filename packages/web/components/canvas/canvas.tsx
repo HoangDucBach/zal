@@ -55,6 +55,7 @@ import { LiveBar } from "./live-bar";
 import { NodeMenu } from "./node-menu";
 import {
   CanvasNetwork,
+  AccountActions,
   ConnectRules,
   GateActions,
   NODE_ICONS,
@@ -234,7 +235,7 @@ function CanvasFlow() {
   // xyflow tags its root `.light` or `.dark`, and the HeroUI theme selects on those
   // classes, so the flow must follow the app theme or nodes render with the wrong tokens.
   const { resolvedTheme } = useTheme();
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, getNodes, screenToFlowPosition } = useReactFlow();
   const params = useSearchParams();
   const {
     wallet,
@@ -335,7 +336,7 @@ function CanvasFlow() {
   );
 
   const fit = useCallback(
-    () => void fitView({ padding, duration: 300 }),
+    () => void fitView({ padding, duration: 300, maxZoom: 1 }),
     [fitView, padding],
   );
 
@@ -346,7 +347,15 @@ function CanvasFlow() {
 
   useEffect(() => {
     if (nodeCount === 0) return;
-    const timer = window.setTimeout(() => {
+    let timer = 0;
+    // fitView skips nodes xyflow has not measured yet, so a fit that runs first does nothing; with a single node
+    // (a new wallet's ghost Account) nothing refits later and the node stays at the top-left under the palette.
+    const run = () => {
+      if (getNodes().some((n) => n.measured?.width === undefined)) {
+        timer = window.setTimeout(run, 60);
+
+        return;
+      }
       const id = pendingFly.current;
 
       if (id === undefined) {
@@ -359,10 +368,12 @@ function CanvasFlow() {
         current.map((n) => ({ ...n, selected: n.id === id })),
       );
       void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding });
-    }, 60);
+    };
+
+    timer = window.setTimeout(run, 60);
 
     return () => window.clearTimeout(timer);
-  }, [nodeCount, level, fit, fitView, padding]);
+  }, [nodeCount, level, fit, fitView, getNodes, padding]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowNode>[]) =>
@@ -973,328 +984,338 @@ function CanvasFlow() {
     [view, positions],
   );
   const gateActions = useMemo(() => ({ open: enter }), [enter]);
+  const accountActions = { create: () => direct("account") };
 
   return (
-    <GateActions value={gateActions}>
-      <ConnectRules value={rules}>
-        <ReactFlow
-          colorMode={resolvedTheme === "light" ? "light" : "dark"}
-          connectionMode={ConnectionMode.Loose}
-          connectionRadius={36}
-          deleteKeyCode={["Backspace", "Delete"]}
-          edges={edges}
-          isValidConnection={(c) => judge(c.source, c.target)?.ok === true}
-          maxZoom={1.5}
-          minZoom={0.1}
-          multiSelectionKeyCode={["Shift", "Meta", "Control"]}
-          nodeTypes={nodeTypes}
-          nodes={nodes}
-          nodesConnectable={ready && !readOnly}
-          nodesDraggable={!readOnly}
-          panOnDrag={mode === "pan" ? true : [1, 2]}
-          selectionOnDrag={mode === "select"}
-          onBeforeDelete={async ({ nodes: gone, edges: cut }) => ({
-            nodes: gone.filter((n) => isDraftId(n.id)),
-            edges: cut.filter((e) => e.deletable === true),
-          })}
-          onConnectEnd={(event, connection) => {
-            const from = connection.fromNode?.id;
+    <AccountActions value={accountActions}>
+      <GateActions value={gateActions}>
+        <ConnectRules value={rules}>
+          <ReactFlow
+            colorMode={resolvedTheme === "light" ? "light" : "dark"}
+            connectionMode={ConnectionMode.Loose}
+            connectionRadius={36}
+            deleteKeyCode={["Backspace", "Delete"]}
+            edges={edges}
+            isValidConnection={(c) => judge(c.source, c.target)?.ok === true}
+            maxZoom={1.5}
+            minZoom={0.1}
+            multiSelectionKeyCode={["Shift", "Meta", "Control"]}
+            nodeTypes={nodeTypes}
+            nodes={nodes}
+            nodesConnectable={ready && !readOnly}
+            nodesDraggable={!readOnly}
+            panOnDrag={mode === "pan" ? true : [1, 2]}
+            selectionOnDrag={mode === "select"}
+            onBeforeDelete={async ({ nodes: gone, edges: cut }) => ({
+              nodes: gone.filter((n) => isDraftId(n.id)),
+              edges: cut.filter((e) => e.deletable === true),
+            })}
+            onConnectEnd={(event, connection) => {
+              const from = connection.fromNode?.id;
 
-            if (from === undefined) return;
-            const point =
-              "changedTouches" in event ? event.changedTouches[0] : event;
-            const under =
-              point === undefined
-                ? null
-                : document
-                    .elementFromPoint(point.clientX, point.clientY)
-                    ?.closest(".react-flow__node");
-            const to =
-              connection.toNode?.id ??
-              under?.getAttribute("data-id") ??
-              undefined;
+              if (from === undefined) return;
+              const point =
+                "changedTouches" in event ? event.changedTouches[0] : event;
+              const under =
+                point === undefined
+                  ? null
+                  : document
+                      .elementFromPoint(point.clientX, point.clientY)
+                      ?.closest(".react-flow__node");
+              const to =
+                connection.toNode?.id ??
+                under?.getAttribute("data-id") ??
+                undefined;
 
-            if (to !== undefined && to !== from) connect(from, to);
-          }}
-          onDelete={({ nodes: gone, edges: cut }) =>
-            deleteDrafts([...gone.map((n) => n.id), ...cut.map((e) => e.id)])
-          }
-          onDragOver={(event) => {
-            if (event.dataTransfer.types.includes(DRAG_TYPE)) {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
+              if (to !== undefined && to !== from) connect(from, to);
+            }}
+            onDelete={({ nodes: gone, edges: cut }) =>
+              deleteDrafts([...gone.map((n) => n.id), ...cut.map((e) => e.id)])
             }
-          }}
-          onDrop={(event) => {
-            const component = event.dataTransfer.getData(DRAG_TYPE);
-
-            if (component === CHILD_CANVAS) {
-              event.preventDefault();
-              group(selectedIds);
-
-              return;
-            }
-            if (!isComponent(component)) return;
-            event.preventDefault();
-            const nodeEl =
-              event.target instanceof Element
-                ? event.target.closest(".react-flow__node")
-                : null;
-
-            drop(
-              component,
-              nodeEl?.getAttribute("data-id") ?? undefined,
-              screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-            );
-          }}
-          onNodeClick={(event, node) => {
-            if (node.data.kind === "port") {
-              open(node.data.target);
-
-              return;
-            }
-            if (event.shiftKey || event.metaKey || event.ctrlKey) return;
-            setSelected(node.id);
-            setAction(undefined);
-          }}
-          onNodeContextMenu={(event, node) => {
-            event.preventDefault();
-            const anchor =
-              event.target instanceof Element
-                ? event.target.closest(".react-flow__node")
-                : null;
-
-            if (!selectedIds.includes(node.id))
-              setNodes((current) =>
-                current.map((n) => ({ ...n, selected: n.id === node.id })),
-              );
-            if (anchor !== null) setMenu({ id: node.id, anchor });
-          }}
-          onNodeDoubleClick={(_, node) => {
-            if (isChildId(node.id)) enter(node.id);
-          }}
-          onNodeDragStop={(_, __, dragged) =>
-            updateLayout((current) =>
-              setPositions(
-                current,
-                Object.fromEntries(
-                  dragged
-                    .filter((n) => n.data.kind !== "port")
-                    .map((n) => [n.id, { x: n.position.x, y: n.position.y }]),
-                ),
-              ),
-            )
-          }
-          onNodesChange={onNodesChange}
-          onPaneClick={() => {
-            setSelected(undefined);
-            setAction(undefined);
-          }}
-        >
-          {/* The dot grid over one quiet token gradient: the page background with a faint accent at the centre. */}
-          <Background
-            bgColor="var(--background)"
-            className="bg-radial from-accent/10 via-accent/3 via-40% to-background"
-          />
-          {ready && !readOnly ? (
-            <Panel className="bottom-44 flex items-start" position="top-left">
-              <Palette
-                entries={entries}
-                scope={
-                  selectedIds.length > 1
-                    ? `${selectedIds.length} nodes`
-                    : selectedData === undefined
-                      ? (activeChild?.name ?? "canvas")
-                      : SCOPE_NAMES[selectedData.kind]
-                }
-                structure={{
-                  blockedBy: cannotGroup(selectedIds, level),
-                  onCreate: () => group(selectedIds),
-                }}
-                onPick={pick}
-              />
-            </Panel>
-          ) : null}
-          <Panel
-            className="flex flex-col items-center gap-2"
-            position="top-center"
-          >
-            {activeChild === undefined ? null : (
-              <motion.div
-                key={activeChild.id}
-                animate={{ opacity: 1, y: 0 }}
-                initial={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-              >
-                <Surface
-                  className="flex items-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 p-1 backdrop-blur-xl"
-                  data-testid="child-canvas-bar"
-                  variant="default"
-                >
-                  <Button
-                    isIconOnly
-                    aria-label="Back to the parent canvas"
-                    size="sm"
-                    variant="ghost"
-                    onPress={() => setLevel(ROOT)}
-                  >
-                    <ArrowLeftIcon aria-hidden size={16} />
-                  </Button>
-                  <Breadcrumbs
-                    onAction={(key) => {
-                      if (key === ROOT) setLevel(ROOT);
-                    }}
-                  >
-                    <Breadcrumbs.Item id={ROOT}>Canvas</Breadcrumbs.Item>
-                    <Breadcrumbs.Item id={activeChild.id}>
-                      {activeChild.name}
-                    </Breadcrumbs.Item>
-                  </Breadcrumbs>
-                  <Chip size="sm" variant="secondary">
-                    child canvas
-                  </Chip>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onPress={() => dissolveChild(activeChild.id)}
-                  >
-                    <ArchiveUpIcon aria-hidden size={14} />
-                    Dissolve
-                  </Button>
-                </Surface>
-              </motion.div>
-            )}
-            <SandboxClock />
-            <LiveBar persistence={persistence} />
-            {wallet === undefined ? (
-              <Message title="Connect a wallet">
-                Your wallet&apos;s Zal account · Sandbox runs the full demo
-              </Message>
-            ) : network === undefined ? (
-              <Message title="Live network unavailable">
-                {liveNetwork.status === "unavailable" ? liveNetwork.reason : ""}{" "}
-                Sandbox runs without it.
-              </Message>
-            ) : canvas.isPending ? (
-              <Card className="flex flex-row items-center gap-2 p-3">
-                <Spinner size="sm" />
-                <span className="text-sm">
-                  {sandbox
-                    ? "Starting the sandbox chain…"
-                    : "Reading your canvas…"}
-                </span>
-              </Card>
-            ) : canvas.isError ? (
-              <Message title="Could not read the canvas">
-                {canvas.error.message}
-              </Message>
-            ) : null}
-          </Panel>
-          {ready && graph !== undefined ? (
-            <Panel className="bottom-52 flex items-start" position="top-right">
-              <div className="-m-3 flex max-h-full flex-col gap-3 overflow-y-auto p-3">
-                <Inbox graph={graph} onOpen={open} />
-                {selectedDraft !== undefined && action === undefined ? (
-                  <DraftPanel
-                    key={selectedDraft.id}
-                    draft={selectedDraft}
-                    targets={draftTargets}
-                    onClose={closeInspector}
-                    onConnect={(id) => connect(id, selectedDraft.id)}
-                    onDelete={() => deleteDrafts([selectedDraft.id])}
-                  />
-                ) : selectedGate?.kind === "gate" && action === undefined ? (
-                  <GatePanel
-                    key={selectedGate.gate.id}
-                    gate={selectedGate.gate}
-                    onClose={closeInspector}
-                    onDissolve={() => dissolveChild(selectedGate.gate.id)}
-                    onOpen={() => enter(selectedGate.gate.id)}
-                    onRename={(name) =>
-                      updateLayout((current) =>
-                        renameChild(current, selectedGate.gate.id, name),
-                      )
-                    }
-                  />
-                ) : subject === undefined ? null : (
-                  <Inspector
-                    key={`${selected ?? ""}:${action?.kind ?? ""}`}
-                    network={network}
-                    state={canvas.data}
-                    subject={subject}
-                    onClose={closeInspector}
-                    onDone={() => {
-                      // Only the form the link opened settles it; another form may be open by now.
-                      if (
-                        pendingLink !== undefined &&
-                        pendingLink.action === action
-                      ) {
-                        const link = pendingLink.id;
-
-                        updateLayout((current) => settleLink(current, link));
-                      }
-                      setPendingLink(undefined);
-                      setAction(undefined);
-                    }}
-                  />
-                )}
-                {sandbox ? (
-                  <GuidedDemo
-                    buyer={buyerAndLpDemo(canvas.data)}
-                    compact={
-                      subject !== undefined || selectedGate !== undefined
-                    }
-                    seller={sellerDemo(canvas.data)}
-                    onFocus={open}
-                  />
-                ) : null}
-              </div>
-            </Panel>
-          ) : null}
-          <Panel
-            className="pointer-events-none flex w-full flex-col items-center gap-2 px-16 *:pointer-events-auto"
-            position="bottom-center"
-          >
-            <ToolBar
-              minimap={minimap}
-              mode={mode}
-              onFit={fit}
-              onMinimapChange={setMinimap}
-              onModeChange={setMode}
-            />
-            {ready ? <Timeline sandbox={sandbox} state={canvas.data} /> : null}
-          </Panel>
-          {minimap && ready ? (
-            <MiniMap
-              pannable
-              zoomable
-              ariaLabel="Minimap"
-              bgColor="transparent"
-              className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-xl"
-              maskColor="color-mix(in oklab, var(--background) 55%, transparent)"
-              nodeBorderRadius={8}
-              nodeColor={(node) =>
-                node.type === "gate"
-                  ? "var(--accent)"
-                  : node.type === "port"
-                    ? "color-mix(in oklab, var(--accent) 45%, transparent)"
-                    : "color-mix(in oklab, var(--foreground) 45%, transparent)"
+            onDragOver={(event) => {
+              if (event.dataTransfer.types.includes(DRAG_TYPE)) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
               }
-              nodeStrokeWidth={0}
-              position="bottom-left"
+            }}
+            onDrop={(event) => {
+              const component = event.dataTransfer.getData(DRAG_TYPE);
+
+              if (component === CHILD_CANVAS) {
+                event.preventDefault();
+                group(selectedIds);
+
+                return;
+              }
+              if (!isComponent(component)) return;
+              event.preventDefault();
+              const nodeEl =
+                event.target instanceof Element
+                  ? event.target.closest(".react-flow__node")
+                  : null;
+
+              drop(
+                component,
+                nodeEl?.getAttribute("data-id") ?? undefined,
+                screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+              );
+            }}
+            onNodeClick={(event, node) => {
+              if (node.data.kind === "port") {
+                open(node.data.target);
+
+                return;
+              }
+              if (event.shiftKey || event.metaKey || event.ctrlKey) return;
+              setSelected(node.id);
+              setAction(undefined);
+            }}
+            onNodeContextMenu={(event, node) => {
+              event.preventDefault();
+              const anchor =
+                event.target instanceof Element
+                  ? event.target.closest(".react-flow__node")
+                  : null;
+
+              if (!selectedIds.includes(node.id))
+                setNodes((current) =>
+                  current.map((n) => ({ ...n, selected: n.id === node.id })),
+                );
+              if (anchor !== null) setMenu({ id: node.id, anchor });
+            }}
+            onNodeDoubleClick={(_, node) => {
+              if (isChildId(node.id)) enter(node.id);
+            }}
+            onNodeDragStop={(_, __, dragged) =>
+              updateLayout((current) =>
+                setPositions(
+                  current,
+                  Object.fromEntries(
+                    dragged
+                      .filter((n) => n.data.kind !== "port")
+                      .map((n) => [n.id, { x: n.position.x, y: n.position.y }]),
+                  ),
+                ),
+              )
+            }
+            onNodesChange={onNodesChange}
+            onPaneClick={() => {
+              setSelected(undefined);
+              setAction(undefined);
+            }}
+          >
+            {/* The dot grid over one quiet token gradient: the page background with a faint accent at the centre. */}
+            <Background
+              bgColor="var(--background)"
+              className="bg-radial from-accent/10 via-accent/3 via-40% to-background"
             />
-          ) : null}
-        </ReactFlow>
-      </ConnectRules>
-      <NodeMenu
-        actions={menu === undefined ? [] : menuActions(menu.id)}
-        anchor={menu?.anchor}
-        onAction={(id) => {
-          if (menu !== undefined) runAction(id, menu.id);
-        }}
-        onClose={() => setMenu(undefined)}
-      />
-    </GateActions>
+            {ready && !readOnly ? (
+              <Panel className="bottom-44 flex items-start" position="top-left">
+                <Palette
+                  entries={entries}
+                  scope={
+                    selectedIds.length > 1
+                      ? `${selectedIds.length} nodes`
+                      : selectedData === undefined
+                        ? (activeChild?.name ?? "canvas")
+                        : SCOPE_NAMES[selectedData.kind]
+                  }
+                  structure={{
+                    blockedBy: cannotGroup(selectedIds, level),
+                    onCreate: () => group(selectedIds),
+                  }}
+                  onPick={pick}
+                />
+              </Panel>
+            ) : null}
+            <Panel
+              className="flex flex-col items-center gap-2"
+              position="top-center"
+            >
+              {activeChild === undefined ? null : (
+                <motion.div
+                  key={activeChild.id}
+                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
+                  <Surface
+                    className="flex items-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 p-1 backdrop-blur-xl"
+                    data-testid="child-canvas-bar"
+                    variant="default"
+                  >
+                    <Button
+                      isIconOnly
+                      aria-label="Back to the parent canvas"
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => setLevel(ROOT)}
+                    >
+                      <ArrowLeftIcon aria-hidden size={16} />
+                    </Button>
+                    <Breadcrumbs
+                      onAction={(key) => {
+                        if (key === ROOT) setLevel(ROOT);
+                      }}
+                    >
+                      <Breadcrumbs.Item id={ROOT}>Canvas</Breadcrumbs.Item>
+                      <Breadcrumbs.Item id={activeChild.id}>
+                        {activeChild.name}
+                      </Breadcrumbs.Item>
+                    </Breadcrumbs>
+                    <Chip size="sm" variant="secondary">
+                      child canvas
+                    </Chip>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => dissolveChild(activeChild.id)}
+                    >
+                      <ArchiveUpIcon aria-hidden size={14} />
+                      Dissolve
+                    </Button>
+                  </Surface>
+                </motion.div>
+              )}
+              <SandboxClock />
+              <LiveBar persistence={persistence} />
+              {wallet === undefined ? (
+                <Message title="Connect a wallet">
+                  Your wallet&apos;s Zal account · Sandbox runs the full demo
+                </Message>
+              ) : network === undefined ? (
+                <Message title="Live network unavailable">
+                  {liveNetwork.status === "unavailable"
+                    ? liveNetwork.reason
+                    : ""}{" "}
+                  Sandbox runs without it.
+                </Message>
+              ) : canvas.isPending ? (
+                <Card className="flex flex-row items-center gap-2 p-3">
+                  <Spinner size="sm" />
+                  <span className="text-sm">
+                    {sandbox
+                      ? "Starting the sandbox chain…"
+                      : "Reading your canvas…"}
+                  </span>
+                </Card>
+              ) : canvas.isError ? (
+                <Message title="Could not read the canvas">
+                  {canvas.error.message}
+                </Message>
+              ) : null}
+            </Panel>
+            {ready && graph !== undefined ? (
+              <Panel
+                className="bottom-52 flex items-start"
+                position="top-right"
+              >
+                <div className="-m-3 flex max-h-full flex-col gap-3 overflow-y-auto p-3">
+                  <Inbox graph={graph} onOpen={open} />
+                  {selectedDraft !== undefined && action === undefined ? (
+                    <DraftPanel
+                      key={selectedDraft.id}
+                      draft={selectedDraft}
+                      targets={draftTargets}
+                      onClose={closeInspector}
+                      onConnect={(id) => connect(id, selectedDraft.id)}
+                      onDelete={() => deleteDrafts([selectedDraft.id])}
+                    />
+                  ) : selectedGate?.kind === "gate" && action === undefined ? (
+                    <GatePanel
+                      key={selectedGate.gate.id}
+                      gate={selectedGate.gate}
+                      onClose={closeInspector}
+                      onDissolve={() => dissolveChild(selectedGate.gate.id)}
+                      onOpen={() => enter(selectedGate.gate.id)}
+                      onRename={(name) =>
+                        updateLayout((current) =>
+                          renameChild(current, selectedGate.gate.id, name),
+                        )
+                      }
+                    />
+                  ) : subject === undefined ? null : (
+                    <Inspector
+                      key={`${selected ?? ""}:${action?.kind ?? ""}`}
+                      network={network}
+                      state={canvas.data}
+                      subject={subject}
+                      onClose={closeInspector}
+                      onDone={() => {
+                        // Only the form the link opened settles it; another form may be open by now.
+                        if (
+                          pendingLink !== undefined &&
+                          pendingLink.action === action
+                        ) {
+                          const link = pendingLink.id;
+
+                          updateLayout((current) => settleLink(current, link));
+                        }
+                        setPendingLink(undefined);
+                        setAction(undefined);
+                      }}
+                    />
+                  )}
+                  {sandbox ? (
+                    <GuidedDemo
+                      buyer={buyerAndLpDemo(canvas.data)}
+                      compact={
+                        subject !== undefined || selectedGate !== undefined
+                      }
+                      seller={sellerDemo(canvas.data)}
+                      onFocus={open}
+                    />
+                  ) : null}
+                </div>
+              </Panel>
+            ) : null}
+            <Panel
+              className="pointer-events-none flex w-full flex-col items-center gap-2 px-16 *:pointer-events-auto"
+              position="bottom-center"
+            >
+              <ToolBar
+                minimap={minimap}
+                mode={mode}
+                onFit={fit}
+                onMinimapChange={setMinimap}
+                onModeChange={setMode}
+              />
+              {ready ? (
+                <Timeline sandbox={sandbox} state={canvas.data} />
+              ) : null}
+            </Panel>
+            {minimap && ready ? (
+              <MiniMap
+                pannable
+                zoomable
+                ariaLabel="Minimap"
+                bgColor="transparent"
+                className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-xl"
+                maskColor="color-mix(in oklab, var(--background) 55%, transparent)"
+                nodeBorderRadius={8}
+                nodeColor={(node) =>
+                  node.type === "gate"
+                    ? "var(--accent)"
+                    : node.type === "port"
+                      ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                      : "color-mix(in oklab, var(--foreground) 45%, transparent)"
+                }
+                nodeStrokeWidth={0}
+                position="bottom-left"
+              />
+            ) : null}
+          </ReactFlow>
+        </ConnectRules>
+        <NodeMenu
+          actions={menu === undefined ? [] : menuActions(menu.id)}
+          anchor={menu?.anchor}
+          onAction={(id) => {
+            if (menu !== undefined) runAction(id, menu.id);
+          }}
+          onClose={() => setMenu(undefined)}
+        />
+      </GateActions>
+    </AccountActions>
   );
 }
 
