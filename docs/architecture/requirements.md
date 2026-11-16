@@ -47,7 +47,7 @@ PRD story codes (C1, R1, I1, …) are in [../product/prd.md](../product/prd.md).
 | ZR-SCH-05 | Anyone shall run a schedule once its time has come, and it shall pay exactly the approved amount to the approved target | P4 |
 | ZR-SCH-06 | A schedule shall run at most once per due time, and at most its run count in total | P4 |
 | ZR-SCH-07 | A failed run shall revert without consuming a run | P4 |
-| ZR-VLT-01 | `ZalVault` yield shall be simulated and labelled simulated wherever it is shown | P2 |
+| ZR-VLT-01 | `ZalVault` yield shall be simulated, and the app shall state once (shell badge and Docs) that it is simulated (ADR 0017) | P2 |
 
 ## Invariants
 

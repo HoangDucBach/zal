@@ -1253,7 +1253,7 @@ The API is an untrusted read model for anything that moves money. The client bui
 | Faucet drain | Balance threshold, per-wallet and per-IP 24 h limits under an advisory lock, serial sends | `lib/faucet.ts` |
 | Secret leakage | Keys only in host `.env`; config parsers never echo key values; tokens stored as sha256 | `src/api/config.ts`, keeper `lib/config.ts`, `lib/siwe.ts` |
 | Node admin API exposure | Caddy passes only the chain `/rpc` and `/ws`; 9650 closed to the internet; `debug` namespaces off | [Caddyfile](../../deploy/l1/Caddyfile), [l1-hosting.md](../runbooks/l1-hosting.md) |
-| Testnet token mistaken for money | zUSDC labelled testnet, vault labelled simulated in every UI | rule 8, ZR-VLT-01 |
+| Testnet token mistaken for money | One testnet badge in the shell; Docs explain zUSDC and simulated yield | rule 8, ZR-VLT-01, ADR 0017 |
 
 Admins are fully trusted: one Admin can change members, policy and route alone (NatSpec on `CanvasAccount`). The threshold protects the five gated spending operations only.
 
@@ -1416,7 +1416,7 @@ Test inventory by contract file: `CanvasAccount.t.sol` 39, `CanvasAccountSchedul
 
 ## 13. Traceability
 
-PRD story codes are from the [PRD features table](../product/prd.md#features) as of 15 Nov 2026. Test files are under `packages/contracts/test/` unless a path is given.
+PRD story codes are from the [PRD features table](../product/prd.md#4-features) as of 15 Nov 2026. Test files are under `packages/contracts/test/` unless a path is given.
 
 | PRD story | Requirements | Acceptance / invariants | Tests |
 |---|---|---|---|

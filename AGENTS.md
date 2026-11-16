@@ -26,7 +26,7 @@ Zal is an on-chain payment canvas on an Avalanche L1. Every user gets the same c
 5. Rounding favours the pool. Split remainders go to the last leg.
 6. `CanvasAccount.receivePayment` trusts its caller, so only `ZalInvoice` and `ZalFundingPool` may call it.
 7. No oracles, no upgradeability, no arbitrary calls from accounts.
-8. `ZUSDC` (zUSDC) is labelled testnet and `ZalVault` yield is labelled simulated in every UI.
+8. `ZUSDC` (zUSDC) is testnet money and `ZalVault` yield is simulated. The app says so once: a "testnet" badge in the shell and in Docs, not next to every amount (ADR 0017).
 9. Do not invent calibration numbers (`annualFeeBps`, vault yield, relationship TTL). Mark them TBD and ask.
 10. Frontend: HeroUI through its CLI, default look, xyflow defaults (ADR 0006). The `heroui_cli_guard` hook enforces this.
 11. The funding pool advances only against a fully escrowed invoice or a buyer the pool owner enrolled with a credit limit (ADR 0009).

@@ -8,13 +8,13 @@ Solidity 0.8.25, `evm_version = cancun` (the same pair Zalax runs on Subnet-EVM)
 
 | Contract | Kind | Owns |
 |---|---|---|
-| `ZUSDC` (zUSDC) | ERC-20, 6 decimals | Testnet dollars. Labelled testnet in every UI |
+| `ZUSDC` (zUSDC) | ERC-20, 6 decimals | Testnet dollars. The app shows one testnet badge (ADR 0017) |
 | `ZalFactory` | Ownable | Deploys `CanvasAccount` clones (ERC-1167). Answers `isAccount`. Holds the protocol wiring (USDC, registry, invoices, pool, allowed vaults) |
 | `CanvasAccount` | Clone, initializer | One per canvas. Holds USDC. Members and roles, approval policy, budgets, the receive route (Split), and every action the canvas takes |
 | `RelationshipRegistry` | Plain | Buyer and seller relationships between two accounts: propose, accept, reject, cancel, invite links |
 | `ZalInvoice` | ERC-721 | Invoice NFTs, the invoice state machine, escrow balances, and settlement |
 | `ZalFundingPool` | ERC-4626 over USDC | LP deposits, advances against approved invoices, repayment split |
-| `ZalVault` | ERC-4626 over USDC | Simulated yield for idle cash. Labelled simulated in every UI |
+| `ZalVault` | ERC-4626 over USDC | Simulated yield for idle cash. Stated once in the shell and Docs (ADR 0017) |
 
 Parties are always `CanvasAccount` addresses, never EOAs. A person's wallet (EOA) is a member of one or more accounts. `ZalFactory.isAccount(a)` gates every party argument.
 

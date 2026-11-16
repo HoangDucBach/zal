@@ -79,6 +79,7 @@ flowchart LR
 | [0014](decisions/0014-layout-writes-need-approver.md) | Layout writes need Approver | accepted |
 | [0015](decisions/0015-on-chain-schedules-and-keeper.md) | On-chain schedules, permissionless keeper | accepted |
 | [0016](decisions/0016-rolling-daily-approval-limit.md) | Rolling 24 h approval limit | accepted |
+| [0017](decisions/0017-quieter-labels-and-canvas-motion.md) | One testnet label, structured nodes, looping canvas animations | accepted |
 
 ## Off-chain state
 Only presentation lives off-chain: node positions, child canvases and drafts on each canvas, display names, the effect of the "public or private" endpoint flag, notification read state, and unredeemed invite links. In live mode the indexer stores them in the `zal_app` schema; in the sandbox they stay in browser storage. Anything that moves or commits money is on-chain, including scheduled payments (ADR 0015).
