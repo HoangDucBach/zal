@@ -56,12 +56,16 @@ The script refuses any chain other than 102026. Then:
 2. Commit `deployments/l1.json` and the regenerated `packages/web/contracts/*`.
 
 ## Ship or update the stack
-From the repository root, on a machine with SSH access:
+SSH uses the EC2 key pair file `zalax.pem`, kept by the owner outside git (the sibling `zalax` project holds the original). Copy it to the repository root and `chmod 400` it; `*.pem` is in `.gitignore`, and the rsync below sends only git-tracked files, so the key never reaches the host or the repository. Check access with `ssh -i zalax.pem ubuntu@100.63.191.30 'echo ok'`.
+
+Run `deploy/l1/redeploy.sh` (optionally with the key path as its argument). It does the three steps below and then checks the web app answers.
+
+By hand, from the repository root:
 
 ```
 git ls-files -co --exclude-standard | grep -v '^packages/contracts/lib' > /tmp/zal-files
-rsync -az --files-from=/tmp/zal-files -e "ssh -i <key>" ./ ubuntu@100.63.191.30:zal/
-ssh -i <key> ubuntu@100.63.191.30 'cd ~/zal && docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d --build --wait'
+rsync -az --files-from=/tmp/zal-files -e "ssh -i zalax.pem" ./ ubuntu@100.63.191.30:zal/
+ssh -i zalax.pem ubuntu@100.63.191.30 'cd ~/zal && docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d --build --wait'
 ```
 
 The web image inlines the chain, RPC and API URLs and the contract addresses at build time. Rebuild it after any of these changes.
