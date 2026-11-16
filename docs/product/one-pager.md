@@ -1,74 +1,32 @@
-# Zal: a payment canvas on an Avalanche L1
+# Zal
 
-**Program where money goes: connect canvases, settle invoices through both parties' flows in one transaction, and turn approved invoices into cash today.**
+**Draw where your money goes. Get paid before the due date.**
 
-## Problem
-- Clubs, small teams and freelancers run shared money through a treasurer and a spreadsheet.
-- Splits are manual, approvals informal, spending opaque.
-- Sellers wait until the due date for working capital.
+## The problem
 
-## Solution
-- One canvas per party, the same for everyone. Roles (buyer, seller) live on relationships, not accounts.
-- Invoices are NFTs. Buyer approval is an agreement to pay the NFT holder.
-- A funding pool advances 80% of an approved invoice now (reverse factoring).
+Linh designs a poster for a student club. The club's treasurer needs two committee members to sign off, then pays by bank transfer 30 days later. When the money lands, Linh moves 10% aside for tax by hand. Linh waits a month for cash that is already agreed, and nobody on either side can see where the money is.
 
-## How it works
+## What Zal does
+
+1. **Money routes itself.** Draw your rules once, for example 10% to tax and the rest to savings. Every payment you receive follows them.
+2. **One payment settles both sides.** The club approves the invoice under its own rules (a monthly budget, two signatures above a limit) and pays in one step. The money passes through the club's rules and Linh's routing in the same transaction.
+3. **Cash today, not in 30 days.** Once the club approves, a funding pool pays Linh 80% at once. When the club pays, the pool keeps its share plus a fee and the rest goes to Linh.
+
 ```mermaid
 flowchart LR
-    S["Seller canvas"] -- "1 propose / accept" --> B["Buyer canvas"]
-    S -- "2 issue Invoice NFT" --> B
-    B -- "3 approve (budget, M of N), escrow" --> B
-    S -- "4 advance 80%" --> P["Funding pool"]
-    P -- "principal" --> S
-    B -- "5 pay, one tx" --> P
-    P -- "reserve" --> SP["Seller's Split: hold, transfer, vault"]
-    B -. "5 pay, if not funded" .-> SP
+    L["Linh"] -- "invoice" --> C["Club approves"]
+    P["Funding pool"] -- "80% now" --> L
+    C -- "pays on due date" --> P
+    P -- "the rest, minus fee" --> L
 ```
 
-## Key features
-- Canvas with drafts, ghost (proposed) and solid (committed) nodes; child canvases as gates.
-- Relationships by address or invite link.
-- Split: up to 8 legs, Hold, Transfer, Vault (simulated yield).
-- Budgets per 30 days; M-of-N above a rolling 24 h single-signature allowance.
-- Scheduled payments: pay an invoice at a time, or a transfer every ≥ 1 min, run by any keeper.
-- Escrow; anyone settles an escrowed invoice after its due date.
-- Funding pool: advance against escrow or a buyer credit limit; LPs deposit from any wallet.
-- Realtime Inbox, Timeline, Overview charts.
-- Sandbox: the real contracts in the browser, with bots for every role.
+## Why a blockchain
 
-## Why on-chain, why an L1
-| Need | How chain gives it |
-|---|---|
-| Both canvases agree | One shared state; ghost and solid derive from it |
-| Settlement through two flows at once | One atomic transaction |
-| Receivable follows the funder | NFT holder is the payment recipient |
-| Rules nobody can bypass | Budgets, M-of-N, schedules enforced in the account contract |
-| Own L1 | Own gas token and fees, own faucet, allow-list option for real deployment |
+- **Both sides see the same record.** A payment either completes on both sides or not at all.
+- **An approved invoice is a token.** Whoever holds it gets paid, so a funder is repaid without anyone chasing it.
 
-## Architecture at a glance
-| Layer | Piece |
-|---|---|
-| Chain | Zalax L1, chain 102026, gas ZAX; `CanvasAccount` per canvas, `RelationshipRegistry`, `ZalInvoice` (ERC-721), `ZalFundingPool` and `ZalVault` (ERC-4626), zUSDC |
-| Off-chain | Ponder indexer + `/v1` API + SSE; keeper (gas only); gas faucet |
-| Client | Next.js, HeroUI, xyflow; in-browser sandbox on the same bytecode |
+## Try it
 
-Details: [prd.md](prd.md), [../architecture/srd.md](../architecture/srd.md).
+Zal runs on its own Avalanche L1 with testnet dollars only, no real money. The sandbox runs the whole story in your browser with bots playing the club and the funder.
 
-## Status (15 Nov 2026)
-- Contracts deployed on the L1; testnet zUSDC only.
-- App: https://app.100-63-191-30.sslip.io · API: https://api.100-63-191-30.sslip.io
-- Live parameters: advance rate 80%, `annualFeeBps` 1521 (proposed), vault yield TBD.
-
-## Risks
-- Fee rate, vault yield and relationship TTL not decided.
-- Unescrowed financing depends on obligor limits; who sets them is open.
-- Fees recognised at repayment, not accrued; no write-down for unpaid funded invoices.
-- Open chain: gas is the only brake.
-- Success metrics not defined.
-
-## Next steps
-- Decide calibration numbers (open questions 4, 6, 8).
-- Decide the obligor-limit process (open question 2).
-- Seed live pool liquidity for advances.
-- Timeline drag through history (T1).
-- Bridged USDC via ICTT, outside payments (ADR 0013).
+App: https://app.100-63-191-30.sslip.io · Product details: [prd.md](prd.md)
