@@ -1,7 +1,7 @@
 "use client";
 
-// Explorer home (docs/plans/explorer.md, "Home layout"): search, stat tiles, Latest blocks ‖ Latest txs live over
-// SSE, then the charts row.
+// Explorer home (docs/plans/explorer.md, "Home layout"): search, a bento of stat tiles, the charts row, then
+// Latest blocks ‖ Latest txs live over SSE.
 
 import type { BlockSummary, TxSummary } from "@/lib/api/explorer-wire";
 
@@ -46,6 +46,7 @@ import {
 import { explorerHref } from "@/lib/explorer/search";
 
 const ICON = { width: 16, height: 16, "aria-hidden": true } as const;
+const HERO_ICON = { width: 18, height: 18, "aria-hidden": true } as const;
 const count = new Intl.NumberFormat("en-US");
 
 /** "2.1 s" for a running chain; minutes or hours when blocks come only on demand (a dev chain). */
@@ -56,29 +57,57 @@ function blockTime(seconds: number): string {
   return `${(seconds / 3_600).toFixed(1)} h`;
 }
 
+/** Bento tiers: one accent-tinted hero, a wide secondary tile, the rest small. */
+type StatTier = "hero" | "wide" | "tile";
+
+const STAT_CARD: Record<StatTier, string> = {
+  hero: "col-span-2 justify-between gap-6 bg-linear-to-br from-accent/20 via-surface to-transparent p-5 md:row-span-2",
+  wide: "col-span-2 justify-between gap-3 p-4",
+  tile: "justify-between gap-3 p-4",
+};
+const STAT_ICON: Record<StatTier, string> = {
+  hero: "size-9 bg-accent/15 text-accent",
+  wide: "size-7 bg-default text-muted",
+  tile: "size-7 bg-default text-muted",
+};
+const STAT_FIGURE: Record<StatTier, string> = {
+  hero: "text-5xl font-semibold tracking-tight",
+  wide: "text-2xl font-semibold",
+  tile: "text-xl font-semibold",
+};
+
 function Stat({
+  tier = "tile",
+  variant = "default",
   icon,
   label,
   children,
 }: {
+  readonly tier?: StatTier;
+  readonly variant?: "default" | "secondary";
   readonly icon: React.ReactNode;
   readonly label: string;
   readonly children: React.ReactNode;
 }) {
   return (
-    <Card className="gap-2 p-3">
+    <Card className={STAT_CARD[tier]} variant={variant}>
       <div className="flex items-center gap-2 text-muted">
-        <span className="flex size-6 items-center justify-center rounded-full bg-default">
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-full ${STAT_ICON[tier]}`}
+        >
           {icon}
         </span>
-        <span className="text-xs">{label}</span>
+        <span className={tier === "hero" ? "text-sm" : "text-xs"}>{label}</span>
       </div>
-      <div className="truncate text-lg font-semibold tabular-nums">
+      <div className={`truncate tabular-nums ${STAT_FIGURE[tier]}`}>
         {children}
       </div>
     </Card>
   );
 }
+
+// 4 columns from md: the hero takes 2×2, small tiles fill its right, the supply tile spans 2 below.
+const BENTO = "grid grid-cols-2 gap-3 md:grid-cols-4";
 
 function Stats() {
   const stats = useExplorerStats();
@@ -88,18 +117,27 @@ function Stats() {
 
   if (s === undefined)
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton key={i} className="h-20 rounded-2xl" />
+      <div className={BENTO}>
+        <Skeleton className="col-span-2 h-44 rounded-3xl md:row-span-2 md:h-auto" />
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-24 rounded-3xl" />
         ))}
+        <Skeleton className="col-span-2 h-24 rounded-3xl" />
       </div>
     );
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Stat icon={<LayersLinearIcon {...ICON} />} label="Height">
+    <div className={BENTO}>
+      <Stat
+        icon={<TransferHorizontalLinearIcon {...HERO_ICON} />}
+        label="Transactions"
+        tier="hero"
+      >
+        {count.format(s.totalTxs)}
+      </Stat>
+      <Stat icon={<LayersLinearIcon {...ICON} />} label="Latest block">
         <Link
-          className="text-lg font-semibold"
+          className="text-xl font-semibold"
           href={explorerHref.block(s.height)}
         >
           {count.format(s.height)}
@@ -108,29 +146,30 @@ function Stats() {
       <Stat icon={<ClockCircleLinearIcon {...ICON} />} label="Block time">
         {s.avgBlockTimeSec === null ? "–" : blockTime(s.avgBlockTimeSec)}
       </Stat>
-      <Stat
-        icon={<TransferHorizontalLinearIcon {...ICON} />}
-        label="Transactions"
-      >
-        {count.format(s.totalTxs)}
-      </Stat>
       <Stat icon={<UsersGroupRoundedLinearIcon {...ICON} />} label="Addresses">
         {count.format(s.totalAddresses)}
       </Stat>
-      <Stat icon={<CodeLinearIcon {...ICON} />} label="Contracts">
-        {count.format(s.totalContracts)}
-      </Stat>
-      <Stat icon={<RoutingLinearIcon {...ICON} />} label="Zal canvases">
+      <Stat icon={<RoutingLinearIcon {...ICON} />} label="Canvases">
         {count.format(s.canvases)}
-      </Stat>
-      <Stat icon={<GasStationLinearIcon {...ICON} />} label="Base fee">
-        {s.baseFeePerGas === null ? "–" : <Gwei wei={s.baseFeePerGas} />}
       </Stat>
       <Stat
         icon={<DollarLinearIcon {...ICON} />}
         label={`${TOKEN_SYMBOL} supply`}
+        tier="wide"
+        variant="secondary"
       >
-        <Amount precision="cents" unit="testnet" value={s.zusdcSupply} />
+        <Amount
+          precision="cents"
+          size="figure"
+          unit={TOKEN_SYMBOL}
+          value={s.zusdcSupply}
+        />
+      </Stat>
+      <Stat icon={<CodeLinearIcon {...ICON} />} label="Contracts">
+        {count.format(s.totalContracts)}
+      </Stat>
+      <Stat icon={<GasStationLinearIcon {...ICON} />} label="Base fee">
+        {s.baseFeePerGas === null ? "–" : <Gwei wei={s.baseFeePerGas} />}
       </Stat>
     </div>
   );
@@ -273,8 +312,8 @@ export function ExplorerHome() {
     <ExplorerPage>
       <ExplorerHeader eyebrow="Explorer" title="Zal L1" />
       <Stats />
-      <Latest stream={stream} />
       <ExplorerCharts />
+      <Latest stream={stream} />
     </ExplorerPage>
   );
 }

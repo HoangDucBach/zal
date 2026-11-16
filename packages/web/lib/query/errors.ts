@@ -126,7 +126,7 @@ const REASONS: Readonly<Record<ZalErrorName, string>> = {
   InvalidBudget: "The budget needs a limit above zero",
   BudgetNotFound: "That budget does not exist on this account",
   BudgetExceeded: "No budget room this period",
-  InvalidRoute: "Split must total 100% · at most 8 legs",
+  InvalidRoute: "Split: 100% total · ≤ 8 legs · transfer needs a recipient",
   VaultNotAllowed: "That vault is not on the Zal allow list",
   // RelationshipRegistry
   NotAccount: "Not a Zal canvas",

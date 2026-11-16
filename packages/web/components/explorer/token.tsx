@@ -21,7 +21,6 @@ import {
 import { HolderTable, TransferTable } from "./tables";
 
 import { TokenAmount } from "@/components/ui/amount";
-import { TOKEN_SYMBOL } from "@/config/token";
 import {
   PAGE_SIZE,
   useCursorStack,
@@ -97,11 +96,6 @@ function Body({ address }: { readonly address: Address }) {
             <Chip size="sm" variant="soft">
               {t.standard.toUpperCase()}
             </Chip>
-            {t.symbol === TOKEN_SYMBOL ? (
-              <Chip color="warning" size="sm" variant="soft">
-                testnet
-              </Chip>
-            ) : null}
           </>
         )}
       </ExplorerHeader>

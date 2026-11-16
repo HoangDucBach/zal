@@ -95,9 +95,9 @@ Additions to the contract above; nothing in it changed.
 - **Sidebar:** add an Explorer item. The pages render without a connected wallet.
 - **Home layout:**
   1. Search bar at the top (also on ⌘K).
-  2. A row of stat tiles from `/stats`.
-  3. The main panel: Latest blocks and Latest txs side by side, 10 rows each, live over SSE.
-  4. Right under it, the charts row with a 1D, 1W, 1M, ALL range: txs per day (area), active addresses (bar), zUSDC settled (area), tx kinds (donut).
+  2. Stat tiles from `/stats` as a bento: Transactions is the accent-tinted hero tile, zUSDC supply a wide tile, the rest small.
+  3. The charts row with a 1D, 1W, 1M, ALL range: txs per day (area), active addresses (bar), zUSDC settled (area), tx kinds (donut).
+  4. Latest blocks and Latest txs side by side, 10 rows each, live over SSE.
 - **Address page:**
   - Header: address with a copy button, a type chip, the ZAX balance (RPC), the zUSDC balance, and Open canvas when it is a Zal canvas.
   - Tabs: Transactions, Token transfers, Tokens, NFTs. An Invoice NFT shows its status chip.

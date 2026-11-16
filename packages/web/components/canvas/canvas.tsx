@@ -1,6 +1,6 @@
 "use client";
 
-import type { Edge, Node, NodeChange, XYPosition } from "@xyflow/react";
+import type { Node, NodeChange, XYPosition } from "@xyflow/react";
 import type { CanvasNodeData } from "@/lib/canvas/graph";
 import type {
   CanvasAction,
@@ -47,6 +47,7 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DraftPanel } from "./draft-panel";
+import { type FlowEdge, edgeTypes } from "./edges";
 import { GatePanel } from "./gate-panel";
 import { GuidedDemo } from "./guided-demo";
 import { Inbox } from "./inbox";
@@ -186,7 +187,8 @@ function handlesFor(
 function toFlowEdges(
   view: CanvasView,
   at: ReadonlyMap<string, XYPosition>,
-): Edge[] {
+  selectedEdge: string | undefined,
+): FlowEdge[] {
   const origin = { x: 0, y: 0 };
 
   return view.edges.map((edge) => {
@@ -194,15 +196,20 @@ function toFlowEdges(
       at.get(edge.source) ?? origin,
       at.get(edge.target) ?? origin,
     );
+    const selected = edge.id === selectedEdge;
 
     return {
       id: edge.id,
+      type: "flow",
       source: edge.source,
       target: edge.target,
       sourceHandle: edge.sourceHandle ?? auto.sourceHandle,
       targetHandle: edge.targetHandle ?? auto.targetHandle,
       label: edge.label,
-      animated: edge.ghost,
+      // xyflow's `animated` dashes every path of the edge, the selected light too: the light replaces it.
+      animated: edge.ghost && !selected,
+      selected,
+      data: { ghost: edge.ghost },
       deletable: edge.draft === true,
     };
   });
@@ -275,6 +282,9 @@ function CanvasFlow() {
   const activeChild = level === ROOT ? undefined : childOf(layout, level);
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [selected, setSelected] = useState<string | undefined>(undefined);
+  const [selectedEdge, setSelectedEdge] = useState<string | undefined>(
+    undefined,
+  );
   const [action, setAction] = useState<CanvasAction | undefined>(undefined);
   /** The draft link whose form is open: it settles when that form's transaction confirms. */
   const [pendingLink, setPendingLink] = useState<
@@ -444,8 +454,15 @@ function CanvasFlow() {
     (n) => n.id === selected && n.data.kind === "gate",
   )?.data;
   const entries = useMemo(
-    () => (canvas.data === undefined ? [] : palette(canvas.data, selectedData)),
-    [canvas.data, selectedData],
+    () =>
+      canvas.data === undefined
+        ? []
+        : palette(
+            canvas.data,
+            selectedData,
+            layout.drafts.map((d) => d.component),
+          ),
+    [canvas.data, selectedData, layout.drafts],
   );
 
   const group = useCallback(
@@ -483,7 +500,7 @@ function CanvasFlow() {
       const moved = childOf(result.layout, result.child)?.nodeIds.length ?? 0;
 
       toast(`Moved ${moved} node${moved === 1 ? "" : "s"} into ${name}`, {
-        description: "Layout only · nothing on-chain changed",
+        description: "Layout only",
         actionProps: {
           children: "Open",
           onPress: () => enter(result.child),
@@ -966,7 +983,8 @@ function CanvasFlow() {
   const subject: InspectorSubject | undefined =
     action !== undefined
       ? { kind: "action", action }
-      : selectedData !== undefined
+      : // The Account card holds its own details (ADR 0017): selecting it opens no Inspector.
+        selectedData !== undefined && selectedData.kind !== "account"
         ? { kind: "node", data: selectedData }
         : undefined;
   const closeInspector = () => {
@@ -980,8 +998,9 @@ function CanvasFlow() {
     [nodes],
   );
   const edges = useMemo(
-    () => (view === undefined ? [] : toFlowEdges(view, positions)),
-    [view, positions],
+    () =>
+      view === undefined ? [] : toFlowEdges(view, positions, selectedEdge),
+    [view, positions, selectedEdge],
   );
   const gateActions = useMemo(() => ({ open: enter }), [enter]);
   const accountActions = { create: () => direct("account") };
@@ -995,6 +1014,7 @@ function CanvasFlow() {
             connectionMode={ConnectionMode.Loose}
             connectionRadius={36}
             deleteKeyCode={["Backspace", "Delete"]}
+            edgeTypes={edgeTypes}
             edges={edges}
             isValidConnection={(c) => judge(c.source, c.target)?.ok === true}
             maxZoom={1.5}
@@ -1060,7 +1080,9 @@ function CanvasFlow() {
                 screenToFlowPosition({ x: event.clientX, y: event.clientY }),
               );
             }}
+            onEdgeClick={(_, edge) => setSelectedEdge(edge.id)}
             onNodeClick={(event, node) => {
+              setSelectedEdge(undefined);
               if (node.data.kind === "port") {
                 open(node.data.target);
 
@@ -1101,6 +1123,7 @@ function CanvasFlow() {
             onNodesChange={onNodesChange}
             onPaneClick={() => {
               setSelected(undefined);
+              setSelectedEdge(undefined);
               setAction(undefined);
             }}
           >
@@ -1210,7 +1233,8 @@ function CanvasFlow() {
                 className="bottom-52 flex items-start"
                 position="top-right"
               >
-                <div className="-m-3 flex max-h-full flex-col gap-3 overflow-y-auto p-3">
+                {/* The column never scrolls: it fits the panel, and the Inspector body scrolls inside it. */}
+                <div className="flex max-h-full min-h-0 flex-col gap-3">
                   <Inbox graph={graph} onOpen={open} />
                   {selectedDraft !== undefined && action === undefined ? (
                     <DraftPanel

@@ -3,14 +3,25 @@ import type { ActivityEvent, ActivityItem, CanvasState } from "./types";
 import { describe, expect, test } from "vitest";
 
 import { activityTitle } from "./activity";
+import { buildCanvasGraph } from "./graph";
 import {
   arrivals,
   deriveNotifications,
+  inboxDetails,
   notificationsStorageKey,
   parseReadKeys,
   serializeReadKeys,
 } from "./notifications";
-import { CLUB, ME, POOL, account, invoice, rel, state } from "./test-fixtures";
+import {
+  CLUB,
+  ME,
+  POOL,
+  VAULT,
+  account,
+  invoice,
+  rel,
+  state,
+} from "./test-fixtures";
 
 let block = 0n;
 const item = (event: ActivityEvent): ActivityItem => {
@@ -208,5 +219,60 @@ describe("read state per wallet", () => {
     expect(
       parseReadKeys(JSON.stringify({ version: 9, read: [key] })).size,
     ).toBe(0);
+  });
+});
+
+describe("inbox details", () => {
+  const dataOf = (s: CanvasState, id: string) =>
+    buildCanvasGraph(s, { vault: VAULT }).nodes.find((n) => n.id === id)?.data;
+
+  test("an invoice issued to me names the seller, the face value, the due date and the approval it needs", () => {
+    const s = state({
+      relationships: [rel({ buyer: ME, seller: CLUB, status: "active" })],
+      invoices: [invoice({ buyer: ME, seller: CLUB })],
+    });
+
+    expect(inboxDetails("invoiceIssued", dataOf(s, "invoice-7"))).toEqual({
+      counterparty: CLUB,
+      amount: 5_000_000_000n,
+      invoiceId: 7n,
+      dueDate: 100,
+      action: "Approve or reject",
+    });
+  });
+
+  test("an advance shows what reached the seller, and asks for nothing", () => {
+    const s = state({
+      relationships: [rel({ status: "active" })],
+      invoices: [
+        invoice({
+          status: "approved",
+          owner: POOL,
+          advance: { principal: 4_000_000_000n, fee: 40_000_000n, fundedAt: 1 },
+        }),
+      ],
+    });
+    const details = inboxDetails("advancePaid", dataOf(s, "invoice-7"));
+
+    expect(details.counterparty).toBe(CLUB);
+    expect(details.amount).toBe(3_960_000_000n);
+    expect(details.action).toBe("None");
+  });
+
+  test("a proposal from the club names it and waits for my answer", () => {
+    const s = state({
+      relationships: [rel({ proposer: CLUB, buyer: CLUB, seller: ME })],
+      labels: { [CLUB]: "Demo club" },
+    });
+    const details = inboxDetails("proposalReceived", dataOf(s, "rel-1"));
+
+    expect(details.counterparty).toBe(CLUB);
+    expect(details.action).toBe("Accept or reject");
+  });
+
+  test("a signature request without a node still says what it needs", () => {
+    expect(inboxDetails("signatureNeeded", undefined)).toEqual({
+      action: "Sign",
+    });
   });
 });

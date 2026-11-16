@@ -165,7 +165,7 @@ export function Palette({
           <span className="px-2 text-xs text-muted">Structure</span>
           <Item
             disabledReason={structure.blockedBy}
-            hint="Selection → gate · layout only, nothing on-chain"
+            hint="Selection → gate · layout only"
             icon={<LayersMinimalisticIcon {...ICON} />}
             id={CHILD_CANVAS}
             title="Child canvas"

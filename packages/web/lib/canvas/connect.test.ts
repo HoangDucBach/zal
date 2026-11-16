@@ -337,7 +337,8 @@ describe("palette offers drafts with nothing selected", () => {
 
     expect(status).toMatchObject({
       counterparty: "ready",
-      split: "ready",
+      // The route is already set: the Split node edits it, so the palette offers no second Split.
+      split: "unsupported",
       invoice: "draft",
       escrow: "draft",
       pool: "draft",

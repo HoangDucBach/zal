@@ -12,22 +12,30 @@ import { Button, Chip } from "@heroui/react";
 import { useState } from "react";
 import { isAddressEqual } from "viem";
 
-import { Note, Row, attempt, feedback } from "./form-parts";
+import { AddressValue, Note, Row, attempt, feedback } from "./form-parts";
 
 import { Amount } from "@/components/ui/amount";
 import { useConfirmOp, useRevokeOp } from "@/hooks/contracts/canvas-account";
 import { opLabel } from "@/lib/canvas/ops";
 import { cadenceText } from "@/lib/canvas/schedules";
-import { formatDateTime, shortAddress } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { cosignSandbox } from "@/lib/sandbox/session";
 
 /** `ownerOf`, the address a payment of this invoice goes to (INV-06). */
-export function recipientText(invoice: Invoice, network: ZalNetwork): string {
+export function Recipient({
+  invoice,
+  network,
+}: {
+  readonly invoice: Invoice;
+  readonly network: ZalNetwork;
+}) {
   if (invoice.owner === undefined) return "burned";
 
-  return isAddressEqual(invoice.owner, network.addresses.pool)
-    ? "Funding pool"
-    : shortAddress(invoice.owner);
+  return isAddressEqual(invoice.owner, network.addresses.pool) ? (
+    "Funding pool"
+  ) : (
+    <AddressValue address={invoice.owner} />
+  );
 }
 
 /** Names the fields where the API differs from the chain; the chain's values are the ones shown. */
@@ -73,12 +81,15 @@ export function SignableOp({
       />
       <Row
         label={op.call.fn === "createSchedule" ? "Commits" : "Amount"}
-        value={<Amount unit="zUSDC (testnet)" value={op.amount} />}
+        value={<Amount value={op.amount} />}
       />
       {op.call.fn === "createSchedule" ? (
         <>
           {op.call.recipient === undefined ? null : (
-            <Row label="To" value={shortAddress(op.call.recipient)} />
+            <Row
+              label="To"
+              value={<AddressValue address={op.call.recipient} />}
+            />
           )}
           <Row label="First run" value={formatDateTime(op.call.start)} />
           <Row
@@ -88,15 +99,18 @@ export function SignableOp({
         </>
       ) : null}
       {op.call.fn === "withdraw" ? (
-        <Row label="To" value={shortAddress(op.call.to)} />
+        <Row label="To" value={<AddressValue address={op.call.to} />} />
       ) : invoice === undefined ? null : (
         <>
           <Row
             label={`Invoice #${invoice.id} face value`}
-            value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
+            value={<Amount value={invoice.faceValue} />}
           />
           <Row label="Invoice status" value={invoice.status} />
-          <Row label="Pays" value={recipientText(invoice, network)} />
+          <Row
+            label="Pays"
+            value={<Recipient invoice={invoice} network={network} />}
+          />
         </>
       )}
       <ApiDiffers fields={differs} />

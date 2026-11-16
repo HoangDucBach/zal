@@ -1,7 +1,7 @@
 "use client";
 
-// The profile toolbar in the sidebar footer: the wallet, the network, the Sandbox switch, the theme, and
-// disconnect. It changes how the app connects, never the chain, so it lives in the shell (PRD principle 1).
+// The profile toolbar in the sidebar footer: the wallet (a popover with the canvas account and the wallet), the
+// Sandbox switch, the theme, and disconnect. It changes how the app connects, never the chain, so it lives in the shell (PRD principle 1).
 
 import {
   LogoutIcon,
@@ -9,7 +9,7 @@ import {
   PlugIcon,
   SunIcon,
 } from "@solar-icons/react/linear";
-import { Avatar, Button, Chip, Switch, Tooltip, toast } from "@heroui/react";
+import { Button, Switch, toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -23,19 +23,15 @@ import {
 } from "wagmi";
 
 import { DepositButton } from "./deposit";
+import { WalletPopover } from "./wallet";
 
 import { liveNetwork } from "@/config/chains";
 import { apiSessions } from "@/lib/api/session";
-import { shortAddress } from "@/lib/format";
 import { toAppError } from "@/lib/query/errors";
 import { queryKeys } from "@/lib/query/keys";
 import { SANDBOX_CONNECTOR_ID } from "@/lib/sandbox/connector";
 import { useSandboxMode } from "@/lib/sandbox/mode";
-import {
-  enterSandbox,
-  exitSandbox,
-  useSandboxSession,
-} from "@/lib/sandbox/session";
+import { enterSandbox, exitSandbox } from "@/lib/sandbox/session";
 
 const ICON = { size: 16, "aria-hidden": true } as const;
 
@@ -46,35 +42,19 @@ export function useRealWallet() {
   return connections.find((c) => c.connector.id !== SANDBOX_CONNECTOR_ID);
 }
 
-function NetworkChip() {
-  const mode = useSandboxMode();
-  const session = useSandboxSession();
+/** Leaves the sandbox, ends the API session, then disconnects the wallet. */
+function useDisconnectWallet(): () => Promise<void> {
+  const config = useConfig();
+  const wallet = useRealWallet();
+  const disconnect = useDisconnect();
 
-  if (mode.enabled) {
-    return (
-      <Chip color="warning" size="sm" variant="soft">
-        {session.phase === "loading" ? "Sandbox starting…" : "Sandbox"}
-      </Chip>
-    );
-  }
-  if (liveNetwork.status === "ready") {
-    return (
-      <Chip color="success" size="sm" variant="soft">
-        {liveNetwork.chain.name}
-      </Chip>
-    );
-  }
-
-  return (
-    <Tooltip delay={0}>
-      <Button aria-label="Live network unavailable" size="sm" variant="ghost">
-        Live unavailable
-      </Button>
-      <Tooltip.Content>
-        <p>{liveNetwork.reason}</p>
-      </Tooltip.Content>
-    </Tooltip>
-  );
+  return async () => {
+    if (wallet === undefined) return;
+    await exitSandbox(config);
+    if (liveNetwork.status === "ready")
+      await apiSessions.signOut(liveNetwork.chain.id);
+    disconnect.mutate({ connector: wallet.connector });
+  };
 }
 
 function ThemeToggle() {
@@ -167,11 +147,10 @@ export function SandboxAutostart() {
 }
 
 export function ProfileToolbar() {
-  const config = useConfig();
   const wallet = useRealWallet();
   const connectors = useConnectors();
   const connect = useConnect();
-  const disconnect = useDisconnect();
+  const disconnect = useDisconnectWallet();
   const injected = connectors.find((c) => c.type === "injected");
 
   if (wallet === undefined) {
@@ -201,22 +180,13 @@ export function ProfileToolbar() {
       </div>
     );
   }
-  const address = wallet.accounts[0];
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <Avatar color="accent" size="sm" variant="soft">
-          <Avatar.Fallback>{address.slice(2, 4).toUpperCase()}</Avatar.Fallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-xs font-medium">
-            {shortAddress(address)}
-          </span>
-          <span className="text-xs text-muted">Wallet</span>
-        </div>
-        <NetworkChip />
-      </div>
+      <WalletPopover
+        wallet={wallet.accounts[0]}
+        onDisconnect={() => void disconnect()}
+      />
       <DepositButton />
       <div className="flex items-center justify-between gap-1">
         <SandboxSwitch />
@@ -227,12 +197,7 @@ export function ProfileToolbar() {
             aria-label="Disconnect wallet"
             size="sm"
             variant="ghost"
-            onPress={async () => {
-              await exitSandbox(config);
-              if (liveNetwork.status === "ready")
-                await apiSessions.signOut(liveNetwork.chain.id);
-              disconnect.mutate({ connector: wallet.connector });
-            }}
+            onPress={() => void disconnect()}
           >
             <LogoutIcon {...ICON} />
           </Button>

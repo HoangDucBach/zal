@@ -13,7 +13,7 @@ import { createContext, use, useState } from "react";
 import { getAddress, isAddress, type Address } from "viem";
 
 import { SignaturesNote } from "./approval-parts";
-import { Field, Note, Row, feedback } from "./form-parts";
+import { AddressValue, Field, Note, Row, feedback } from "./form-parts";
 
 import { Amount } from "@/components/ui/amount";
 import {
@@ -150,7 +150,7 @@ function SubmitSchedule({
                 ? `Commits = amount × ${terms.call.runs}`
                 : "Commits = face value"
             }
-            value={<Amount unit="zUSDC (testnet)" value={terms.policyAmount} />}
+            value={<Amount value={terms.policyAmount} />}
           />
           <SignaturesNote
             account={state.account}
@@ -187,10 +187,7 @@ export function SchedulePaymentForm({
   return (
     <div className="flex flex-col gap-2">
       <Row label="Invoice" value={`#${invoice.id}`} />
-      <Row
-        label="Pays"
-        value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
-      />
+      <Row label="Pays" value={<Amount value={invoice.faceValue} />} />
       <DurationField
         count={count}
         label="Pay in"
@@ -248,11 +245,13 @@ export function ScheduleTransferForm({
       ) : (
         <Row
           label="To"
-          value={props.state.labels[preset] ?? shortAddress(preset)}
+          value={
+            <AddressValue address={preset} label={props.state.labels[preset]} />
+          }
         />
       )}
       <Field
-        label="Amount per run, zUSDC (testnet)"
+        label="Amount per run, zUSDC"
         value={amount}
         onChange={setAmount}
       />
@@ -362,7 +361,13 @@ export function ScheduleDetails({
       </div>
       <Row
         label={view.kind === "payInvoice" ? "Pays" : "To"}
-        value={recipientText(view, label)}
+        value={
+          view.kind !== "payInvoice" && view.recipient !== undefined ? (
+            <AddressValue address={view.recipient} label={label} />
+          ) : (
+            recipientText(view, label)
+          )
+        }
       />
       <Row label="Per run" value={<Amount value={view.amount} />} />
       <Row label="Cadence" value={cadenceText(view.interval)} />

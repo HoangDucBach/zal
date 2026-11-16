@@ -1,7 +1,9 @@
 // The notification feed: the events in a canvas's activity that are news for this account, each pointing at the
 // node it is about. Derived from chain events (ADR 0003), so it needs no storage beyond what has been read.
 
+import type { CanvasNodeData } from "./graph";
 import type { ActivityItem, CanvasState } from "./types";
+import type { Address } from "viem";
 
 import { isAddressEqual } from "viem";
 
@@ -163,6 +165,75 @@ export function deriveNotifications(state: CanvasState): CanvasNotification[] {
           ? -1
           : 1,
     );
+}
+
+// ---- Details for the Inbox hover card -------------------------------------------------------------------------
+
+export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
+  proposalReceived: "Relationship proposed",
+  invoiceIssued: "Invoice issued",
+  signatureNeeded: "Signature needed",
+  paymentReceived: "Payment received",
+  advancePaid: "Advance paid",
+  scheduleRan: "Schedule ran",
+};
+
+export interface InboxDetails {
+  readonly counterparty?: Address;
+  /** The counterparty's display name, when the app knows it. */
+  readonly counterpartyLabel?: string;
+  readonly amount?: bigint;
+  readonly invoiceId?: bigint;
+  readonly dueDate?: number;
+  /** What the item needs from this canvas now, read from the node's current state. */
+  readonly action: string;
+}
+
+const NO_ACTION = "None";
+
+/**
+ * The full details of an inbox item, from the node it points at. Reads the node rather than the notification, so
+ * the API feed and the chain-derived feed show the same thing, and the action reflects the node as it is now.
+ */
+export function inboxDetails(
+  kind: NotificationKind | undefined,
+  data: CanvasNodeData | undefined,
+): InboxDetails {
+  const signature = kind === "signatureNeeded" ? "Sign" : NO_ACTION;
+
+  switch (data?.kind) {
+    case "counterparty":
+      return {
+        counterparty: data.counterparty,
+        counterpartyLabel: data.label,
+        action: data.awaitingMe ? "Accept or reject" : NO_ACTION,
+      };
+    case "invoice": {
+      const { invoice } = data;
+      const advance = invoice.advance;
+
+      return {
+        counterparty: data.myRole === "seller" ? invoice.buyer : invoice.seller,
+        amount:
+          kind === "advancePaid" && advance !== undefined
+            ? advance.principal - advance.fee
+            : invoice.faceValue,
+        invoiceId: invoice.id,
+        dueDate: invoice.dueDate,
+        action: data.awaitingMe ? "Approve or reject" : signature,
+      };
+    }
+    case "schedule":
+      return {
+        counterparty: data.schedule.recipient,
+        counterpartyLabel: data.label,
+        amount: data.schedule.amount,
+        invoiceId: data.schedule.invoiceId,
+        action: signature,
+      };
+    default:
+      return { action: signature };
+  }
 }
 
 // ---- Read state, per wallet -----------------------------------------------------------------------------------

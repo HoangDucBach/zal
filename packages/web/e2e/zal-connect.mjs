@@ -86,14 +86,14 @@ try {
   check(Math.abs(d.x + d.width / 2 - spot.x) < 30 && Math.abs(d.y + d.height / 2 - spot.y) < 30, `draft lands where it was dropped (${Math.round(d.x)},${Math.round(d.y)} vs ${Math.round(spot.x)},${Math.round(spot.y)})`);
   check((await node("draft").first().getByText("Draft").count()) === 1, "draft is labelled Draft");
   await node("draft").first().hover();
-  await page.getByText(/Off-chain · connects to your Account/).waitFor({ timeout: 4000 }).then(
+  await page.getByText(/connects to your Account/i).waitFor({ timeout: 4000 }).then(
     () => check(true, "draft tooltip says what it connects to"),
     () => check(false, "draft tooltip says what it connects to"),
   );  await shot("draft-placed");
   await node("draft").first().click();
   const panel = page.getByTestId("draft-panel");
   await panel.waitFor();
-  check((await panel.getByText("Off-chain · connects to your Account").count()) === 1, "draft panel says what it connects to");
+  check((await panel.getByText("connects to your Account").count()) === 1, "draft panel says what it connects to");
   await shot("draft-panel");
   await panel.getByRole("button", { name: "Close" }).click();
   await panel.waitFor({ state: "detached" });
@@ -110,7 +110,7 @@ try {
     await shot("dragging-invalid");
   });
   check((await draftLinks().count()) === 0, "invalid drop adds no connection");
-  check((await inspector().getByText("Add a counterparty").count()) === 0, "invalid drop opens no form");
+  check((await inspector().getByText("New counterparty").count()) === 0, "invalid drop opens no form");
   check((await page.getByText(/Counterparty attaches to the Account/).count()) >= 1, "invalid drop toasts the reason");
   await shot("invalid-toast");
 
@@ -120,13 +120,13 @@ try {
     check(hint !== null && hint.startsWith("Connect: Propose"), `valid hover tooltip says what it does (${hint})`);
     await shot("dragging-valid");
   });
-  await inspector().getByText("Add a counterparty").waitFor();
+  await inspector().getByText("New counterparty").waitFor();
   check(true, "valid drop opens the prefilled Propose form");
   check((await draftLinks().count()) === 1, "a dashed draft link joins the two");
   await shot("valid-form");
 
   console.log("seller demo by connections");
-  await button("Use the demo club").click();
+  await button("Use demo club").click();
   await button("Propose relationship").click();
   await node("counterparty", "Demo club").waitFor();
   await node("draft").first().waitFor({ state: "detached" }).then(
@@ -154,7 +154,7 @@ try {
   await page.mouse.click(1000, 615);
   await dropAt("invoice", await pane(-150, 260));
   await connect(node("counterparty", "Demo club"), node("draft").first());
-  await button("Issue invoice NFT").click();
+  await button("Issue invoice").click();
   await node("invoice", "Invoice #1").waitFor();
   await node("invoice", "Invoice #1").getByText("escrow-backed").waitFor({ timeout: 90_000 });
   await button("Fit view").click();

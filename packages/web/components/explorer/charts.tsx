@@ -394,7 +394,7 @@ export function ExplorerCharts() {
               <Amount
                 precision="cents"
                 size="figure"
-                unit={`testnet ${TOKEN_SYMBOL}`}
+                unit={TOKEN_SYMBOL}
                 value={settled}
               />
             }

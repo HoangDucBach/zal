@@ -18,7 +18,7 @@ import type { ChainVerified } from "@/lib/contracts/chain-verified";
 import { Button, Card, Chip, ScrollShadow, Spinner } from "@heroui/react";
 import { CloseIcon } from "@solar-icons/react/linear";
 import { useState } from "react";
-import { getAddress, isAddress, isAddressEqual } from "viem";
+import { isAddressEqual } from "viem";
 
 import {
   ACTION_TITLES,
@@ -30,16 +30,22 @@ import {
   EndpointForm,
 } from "./actions";
 import { PolicyText, SignaturesNote, WindowUsage } from "./approval-parts";
-import { Field, Note, Row, Section, attempt, feedback } from "./form-parts";
+import {
+  AddressValue,
+  Note,
+  Row,
+  Section,
+  attempt,
+  feedback,
+} from "./form-parts";
 import { ScheduleDetails } from "./schedule-parts";
-import { ApiDiffers, recipientText, SignableOp } from "./signable-op";
+import { ApiDiffers, Recipient, SignableOp } from "./signable-op";
 
 import {
   useAcceptRelationship,
   useCancelInvoice,
   useCancelRelationship,
   useRejectRelationship,
-  useSetMember,
   useSubmitOp,
 } from "@/hooks/contracts/canvas-account";
 import { useChainInvoice, useChainOp } from "@/hooks/contracts/chain-op";
@@ -52,9 +58,8 @@ import {
   opLabel,
 } from "@/lib/canvas/ops";
 import { allows } from "@/lib/canvas/roles";
-import { useMintTestUsdc } from "@/hooks/contracts/usdc";
 import { Amount, Bps } from "@/components/ui/amount";
-import { formatDate, formatDaysFrom, shortAddress } from "@/lib/format";
+import { formatDate, formatDaysFrom } from "@/lib/format";
 import { askSandboxToPay } from "@/lib/sandbox/session";
 
 export type InspectorSubject =
@@ -138,87 +143,6 @@ function OpList({ network, state, ops }: Ctx & { ops: readonly PendingOp[] }) {
   );
 }
 
-function AccountDetails({ network, state }: Ctx) {
-  const { account } = state;
-  const mint = useMintTestUsdc({
-    network,
-    options: feedback("Minted 1,000 testnet zUSDC"),
-  });
-  const setMember = useSetMember({
-    network,
-    options: feedback("Member added"),
-  });
-  const [member, setMemberAddress] = useState("");
-
-  if (!account.exists)
-    return <Note>Not created · palette → Root → Account</Note>;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <Row
-        label="Balance"
-        value={<Amount unit="zUSDC (testnet)" value={account.balance} />}
-      />
-      <Row label="Your role here" value={account.myRole} />
-      <Row label="Policy" value={<PolicyText account={account} />} />
-      {account.threshold > 1 ? (
-        <Row
-          label="Allowance"
-          value={<WindowUsage account={account} network={network} />}
-        />
-      ) : null}
-      {account.vaultAssets > 0n ? (
-        <Row
-          label="In vault (simulated)"
-          value={<Amount value={account.vaultAssets} />}
-        />
-      ) : null}
-      <Section title="Members">
-        {account.members.map((m) => (
-          <Row
-            key={m.address}
-            label={state.labels[m.address] ?? shortAddress(m.address)}
-            value={m.role}
-          />
-        ))}
-        {allows(account.myRole, "admin") ? (
-          <>
-            <Field
-              label="Add an approver"
-              placeholder="0x…"
-              value={member}
-              onChange={setMemberAddress}
-            />
-            <Button
-              isDisabled={!isAddress(member, { strict: false })}
-              isPending={setMember.isPending}
-              size="sm"
-              variant="secondary"
-              onPress={() =>
-                setMember.mutate({
-                  args: [getAddress(member), 2],
-                })
-              }
-            >
-              Add approver
-            </Button>
-          </>
-        ) : null}
-      </Section>
-      <Section title="Testnet faucet">
-        <Button
-          isPending={mint.isPending}
-          size="sm"
-          variant="secondary"
-          onPress={() => mint.mutate({ to: "account", amount: 1_000_000_000n })}
-        >
-          Mint 1,000 testnet zUSDC
-        </Button>
-      </Section>
-    </div>
-  );
-}
-
 function CounterpartyDetails({
   network,
   state,
@@ -243,7 +167,7 @@ function CounterpartyDetails({
 
   return (
     <div className="flex flex-col gap-2">
-      <Row label="Account" value={shortAddress(counterparty)} />
+      <Row label="Account" value={<AddressValue address={counterparty} />} />
       {label === undefined ? null : <Row label="Name" value={label} />}
       <Row label="Their role" value={theirRole} />
       <Row label="Status" value={relationship.status} />
@@ -347,10 +271,7 @@ function ChainInvoiceDetails({
 
   return (
     <div className="flex flex-col gap-2">
-      <Row
-        label="Face value"
-        value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
-      />
+      <Row label="Face value" value={<Amount value={invoice.faceValue} />} />
       <Row
         label="Due"
         value={`${formatDate(invoice.dueDate)}, ${formatDaysFrom(state.now, invoice.dueDate)}`}
@@ -363,7 +284,10 @@ function ChainInvoiceDetails({
           escrowBacked ? "backed" : invoice.escrowed > 0n ? "partial" : "none"
         }
       />
-      <Row label="Payment recipient" value={recipientText(invoice, network)} />
+      <Row
+        label="Payment recipient"
+        value={<Recipient invoice={invoice} network={network} />}
+      />
       <ApiDiffers fields={differs} />
       {invoice.advance === undefined ? null : (
         <>
@@ -457,7 +381,7 @@ function ChainInvoiceDetails({
           variant="secondary"
           onPress={() => settle.mutate({ id: invoice.id })}
         >
-          Settle from escrow (due date passed)
+          Settle from escrow
         </Button>
       ) : null}
       {network.kind === "sandbox" &&
@@ -476,7 +400,7 @@ function ChainInvoiceDetails({
             setAsking(false);
           }}
         >
-          Ask the demo club to pay now (sandbox)
+          Ask buyer to pay
         </Button>
       ) : null}
     </div>
@@ -527,7 +451,7 @@ const NODE_TITLES: Record<CanvasNodeData["kind"], string> = {
   invoice: "Invoice",
   budget: "Budget",
   approval: "Approval",
-  split: "Split and payee endpoint",
+  split: "Split",
   escrow: "Escrow",
   schedule: "Schedule",
   vault: "Vault",
@@ -537,7 +461,8 @@ const NODE_TITLES: Record<CanvasNodeData["kind"], string> = {
 function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
   switch (data.kind) {
     case "account":
-      return <AccountDetails network={network} state={state} />;
+      // The Account card holds its own details (ADR 0017); the canvas opens no Inspector for it.
+      return null;
     case "split":
       return allows(state.account.myRole, "admin") ? (
         <>
@@ -553,12 +478,21 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
               key={`${leg.kind}-${i}`}
               label={
                 leg.kind === "transfer"
-                  ? shortAddress(leg.target)
+                  ? "Transfer"
                   : leg.kind === "vault"
                     ? "Vault"
                     : "Hold"
               }
-              value={<Bps value={leg.bps} />}
+              value={
+                leg.kind === "transfer" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <AddressValue address={leg.target} />
+                    <Bps value={leg.bps} />
+                  </span>
+                ) : (
+                  <Bps value={leg.bps} />
+                )
+              }
             />
           ))}
           <Row
@@ -627,7 +561,7 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
         <VaultForm network={network} state={state} />
       ) : (
         <Row
-          label="In vault (simulated)"
+          label="In vault"
           value={<Amount value={state.account.vaultAssets} />}
         />
       );
@@ -644,7 +578,7 @@ export function Inspector({
   onDone,
 }: InspectorProps) {
   return (
-    <Card className="w-80 gap-3 border border-border bg-surface/75 p-3 shadow-md backdrop-blur-2xl">
+    <Card className="min-h-0 w-80 gap-3 border border-border bg-surface/75 p-3 shadow-md backdrop-blur-2xl">
       <Card.Header className="flex flex-row items-center justify-between gap-2 border-b border-separator pb-2">
         <Card.Title className="text-sm">
           {subject.kind === "node"
@@ -668,8 +602,8 @@ export function Inspector({
           </Button>
         </div>
       </Card.Header>
-      <Card.Content>
-        <ScrollShadow className="flex max-h-120 flex-col gap-2 overflow-y-auto">
+      <Card.Content className="min-h-0">
+        <ScrollShadow className="flex min-h-0 flex-col gap-2 overflow-y-auto">
           {subject.kind === "node" ? (
             <NodeDetails data={subject.data} network={network} state={state} />
           ) : (

@@ -13,6 +13,7 @@ import { WalletMoneyIcon } from "@solar-icons/react/linear";
 
 import { feedback } from "@/components/canvas/form-parts";
 import { Amount, NativeAmount } from "@/components/ui/amount";
+import { CopyButton, shortHex } from "@/components/ui/copy-button";
 import {
   useDripGas,
   useGasFaucet,
@@ -34,6 +35,22 @@ function Line({
     <div className="flex items-center justify-between gap-4 text-xs">
       <span className="text-muted">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/** A muted address under its balance line, with a copy button. */
+function AddressLine({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: Address;
+}) {
+  return (
+    <div className="-mt-1 flex items-center justify-end gap-1 text-xs text-muted">
+      {shortHex(value)}
+      <CopyButton label={`Copy ${label} address`} value={value} />
     </div>
   );
 }
@@ -97,7 +114,7 @@ export function DepositButton() {
   const { network, canvas, wallet } = useCanvasView();
   const mint = useMintTestUsdc({
     network,
-    options: feedback("Minted 1,000 testnet zUSDC"),
+    options: feedback("Minted 1,000 zUSDC"),
   });
   const state = canvas.data;
 
@@ -110,7 +127,7 @@ export function DepositButton() {
       variant="secondary"
       onPress={() => mint.mutate({ to: target, amount: FAUCET_AMOUNT })}
     >
-      Mint 1,000 testnet zUSDC to {target === "account" ? "canvas" : "wallet"}
+      Mint 1,000 zUSDC
     </Button>
   );
 
@@ -134,18 +151,24 @@ export function DepositButton() {
                 )
               }
             />
+            {state.account.exists ? (
+              <AddressLine label="canvas" value={state.account.address} />
+            ) : null}
             <Line
               label="Wallet"
               value={<Amount value={state.lp.walletUsdc} />}
             />
+            {wallet === undefined ? null : (
+              <AddressLine label="wallet" value={wallet} />
+            )}
             <p className="text-xs text-muted">
               {network.kind === "sandbox"
-                ? "Sandbox USDC · seeded, no deposit needed"
-                : "zUSDC (testnet) on the Zal L1"}
+                ? "Sandbox · seeded, no deposit needed"
+                : `Mints to your ${target === "account" ? "canvas" : "wallet"} on the Zal L1`}
             </p>
             <Separator />
             <p className="text-xs text-muted">
-              Bridged USDC from C-Chain (ICTT) · coming later
+              Bridged USDC from C-Chain · coming later
             </p>
             {network.kind === "live" && wallet !== undefined ? (
               <Gas network={network} wallet={wallet}>

@@ -24,6 +24,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { isAddressEqual } from "viem";
 
+import { CopyButton, shortHex } from "@/components/ui/copy-button";
 import { useMemberships, useOwnCanvas } from "@/hooks/contracts/memberships";
 import { useCanvasView } from "@/hooks/use-canvas-view";
 import { hrefFor } from "@/hooks/use-selected-account";
@@ -198,6 +199,15 @@ export function CanvasSwitcher() {
       </Button>
       <Popover.Content className="w-72">
         <Popover.Dialog aria-label="Canvases" className="flex flex-col gap-2">
+          {shown === undefined ? null : (
+            <div className="flex items-center justify-between gap-2 px-1 text-xs">
+              <span className="text-muted">Open</span>
+              <span className="flex items-center gap-1">
+                {shortHex(shown.address)}
+                <CopyButton label="Copy canvas address" value={shown.address} />
+              </span>
+            </div>
+          )}
           <SearchField
             aria-label="Search canvases"
             value={search}

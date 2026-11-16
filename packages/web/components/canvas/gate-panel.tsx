@@ -89,7 +89,7 @@ export function GatePanel({
             </Chip>
           ))}
         </div>
-        <Note>Layout only · same account · nothing on-chain changes</Note>
+        <Note>Layout only · same account</Note>
         <div className="flex gap-2">
           <Button size="sm" variant="primary" onPress={onOpen}>
             <FolderOpenIcon {...ICON} />

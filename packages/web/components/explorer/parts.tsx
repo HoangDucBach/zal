@@ -6,10 +6,8 @@
 import type { AppError } from "@/lib/query/errors";
 import type { TokenRef, TxKind, TxStatus } from "@/lib/api/explorer-wire";
 
-import { CheckReadLinearIcon, CopyLinearIcon } from "@solar-icons/react";
 import {
   Alert,
-  Button,
   Card,
   Chip,
   Link,
@@ -20,55 +18,11 @@ import {
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 
+import { CopyButton, shortHex } from "@/components/ui/copy-button";
 import { explorerHref } from "@/lib/explorer/search";
 import { formatDateTime, formatTimeFrom } from "@/lib/format";
 
-const ICON = { width: 14, height: 14, "aria-hidden": true } as const;
-
-/** `0x1234…abcd`, or the first and last 6 hex digits of a hash. */
-export function shortHex(value: string, head = 6, tail = 4): string {
-  return value.length <= head + tail + 2
-    ? value
-    : `${value.slice(0, head)}…${value.slice(-tail)}`;
-}
-
-export function CopyButton({
-  value,
-  label,
-}: {
-  readonly value: string;
-  readonly label: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1_500);
-
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  return (
-    <Button
-      isIconOnly
-      aria-label={copied ? "Copied" : label}
-      size="sm"
-      variant="ghost"
-      onPress={() => {
-        void navigator.clipboard
-          .writeText(value)
-          .then(() => setCopied(true))
-          .catch(() => setCopied(false));
-      }}
-    >
-      {copied ? (
-        <CheckReadLinearIcon {...ICON} />
-      ) : (
-        <CopyLinearIcon {...ICON} />
-      )}
-    </Button>
-  );
-}
+export { CopyButton, shortHex };
 
 /** A link with the full value in a tooltip and a copy button after it. */
 function HexLink({

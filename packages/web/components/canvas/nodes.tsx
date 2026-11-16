@@ -1,10 +1,11 @@
 "use client";
 
 // One xyflow node type per PRD catalogue component, plus the gate of a child canvas, its ports (ADR 0011) and drafts.
-// Each is a compact HeroUI Card: an icon tile, a title and a one-line subtitle, then status chips. Solid nodes use
-// the `default` variant; ghost and ended nodes the `transparent` one with a dashed outline (ADR 0003); drafts, not
-// on-chain at all, the `secondary` one with an accent dashed outline. While a connection is dragged, every node
-// shows whether it would accept it: valid ones ring in success, the rest dim with a not-allowed cursor.
+// Each is a HeroUI Card with a structured head (icon tile, muted kind label, title, one status chip) and one row per
+// fact (ADR 0017). Solid nodes use the `default` variant; ghost and ended nodes the `transparent` one with a dashed
+// outline (ADR 0003); drafts, not on-chain at all, the `secondary` one with an accent dashed outline. While a
+// connection is dragged, every node shows whether it would accept it: valid ones ring in success, the rest dim with
+// a not-allowed cursor.
 
 import type { Node, NodeProps, NodeTypes } from "@xyflow/react";
 import type { CanvasNodeData, Commitment } from "@/lib/canvas/graph";
@@ -29,9 +30,11 @@ import {
   WalletIcon,
 } from "@solar-icons/react/linear";
 import { Handle, Position, useConnection } from "@xyflow/react";
-import { Fragment, createContext, use, useRef, useState } from "react";
+import { createContext, use, useRef, useState } from "react";
 
-import { UsageText, approverCount, useAccountWindow } from "./approval-parts";
+import { AccountDetails } from "./account-node";
+import { useAccountWindow } from "./approval-parts";
+import { NodeAddress, NodeRow, NodeRows, policySummary } from "./node-parts";
 import { COMPONENT_ICONS } from "./palette";
 import {
   RunScheduleButton,
@@ -40,16 +43,13 @@ import {
   useScheduleClock,
 } from "./schedule-parts";
 
+import { AuroraGlow } from "@/components/ui/aurora-glow";
 import { HANDLE, PORT_LABELS } from "@/lib/canvas/layout";
 import { CATALOGUE, DRAFT_TARGETS, describeAction } from "@/lib/canvas/palette";
 import { Amount, Bps } from "@/components/ui/amount";
+import { shortHex } from "@/components/ui/copy-button";
 import { cadenceText, committed } from "@/lib/canvas/schedules";
-import {
-  formatDateTime,
-  formatDaysFrom,
-  formatTimeFrom,
-  shortAddress,
-} from "@/lib/format";
+import { formatDateTime, formatDaysFrom, formatTimeFrom } from "@/lib/format";
 
 type Data<K extends CanvasNodeData["kind"]> = Extract<
   CanvasNodeData,
@@ -177,26 +177,6 @@ const TILE: Record<Commitment | "gate", string> = {
   gate: "bg-accent text-accent-foreground",
 };
 
-function CommitmentChip({
-  commitment,
-  ended,
-}: {
-  readonly commitment: Commitment;
-  readonly ended?: string;
-}) {
-  if (commitment === "solid") return null;
-
-  return (
-    <Chip
-      color={commitment === "ended" ? "danger" : "warning"}
-      size="sm"
-      variant="soft"
-    >
-      {commitment === "ended" ? (ended ?? "ended") : "ghost"}
-    </Chip>
-  );
-}
-
 /** Shown while the pointer is on the card, so the edge you drag a connection from is there when you need it. */
 const HOVER_HANDLE = "opacity-0 group-hover:opacity-100";
 
@@ -267,23 +247,59 @@ function PortHandles() {
   );
 }
 
+/** The card's head: icon tile, the muted kind label over the title, and at most one status chip. */
+function Header({
+  tile,
+  icon,
+  kind,
+  title,
+  status,
+}: {
+  readonly tile: string;
+  readonly icon: React.ReactNode;
+  readonly kind: string;
+  readonly title: React.ReactNode;
+  readonly status?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span
+        className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tile}`}
+      >
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-xs text-muted">{kind}</span>
+        <span className="text-sm font-semibold break-words">{title}</span>
+      </div>
+      {status}
+    </div>
+  );
+}
+
+/**
+ * A node card (ADR 0017): header, then one row per fact. Solid nodes use the `default` variant; ghost and ended
+ * nodes the `transparent` one with a dashed outline (ADR 0003).
+ */
 function Frame({
   id,
   commitment,
   selected,
   icon,
+  kind,
   title,
-  subtitle,
-  chips,
+  status,
+  rows,
   footer,
 }: {
   readonly id: string;
   readonly commitment: Commitment;
   readonly selected: boolean;
   readonly icon: React.ReactNode;
-  readonly title: string;
-  readonly subtitle: React.ReactNode;
-  readonly chips?: React.ReactNode;
+  readonly kind: string;
+  readonly title: React.ReactNode;
+  readonly status?: React.ReactNode;
+  readonly rows?: React.ReactNode;
   readonly footer?: React.ReactNode;
 }) {
   const solid = commitment === "solid";
@@ -292,24 +308,18 @@ function Frame({
     <ConnectState id={id}>
       {(connect) => (
         <Card
-          className={`group w-56 gap-2 p-2.5 ${solid ? "border border-border" : "border border-dashed border-muted/60"} ${selected ? "ring-2 ring-accent" : ""} ${connect}`}
+          className={`group w-64 gap-2.5 p-3 ${solid ? "border border-border" : "border border-dashed border-muted/60"} transition-colors hover:border-accent hover:ring-1 hover:ring-accent/60 ${selected ? "ring-2 ring-accent" : ""} ${connect}`}
           variant={solid ? "default" : "transparent"}
         >
           <DirectionalHandles />
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TILE[commitment]}`}
-            >
-              {icon}
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium">{title}</span>
-              <span className="truncate text-xs text-muted">{subtitle}</span>
-            </div>
-          </div>
-          {chips === undefined ? null : (
-            <div className="flex flex-wrap gap-1">{chips}</div>
-          )}
+          <Header
+            icon={icon}
+            kind={kind}
+            status={status}
+            tile={TILE[commitment]}
+            title={title}
+          />
+          {rows === undefined ? null : <NodeRows>{rows}</NodeRows>}
           {footer}
         </Card>
       )}
@@ -317,42 +327,73 @@ function Frame({
   );
 }
 
+/**
+ * The root of every flow and the largest card: balance first, then the details that used to sit in the Inspector.
+ * A light runs once around its border about every 3 s.
+ */
 function AccountNode({ id, data, selected }: Props<"account">) {
-  const { account, commitment } = data;
+  const { account, commitment, labels } = data;
   const { create } = use(AccountActions);
+  const network = use(CanvasNetwork);
+  const solid = commitment === "solid";
 
   return (
-    <Frame
-      chips={
-        <>
-          <CommitmentChip commitment={commitment} />
-          <Chip size="sm" variant="tertiary">
-            testnet zUSDC
-          </Chip>
-        </>
-      }
-      commitment={commitment}
-      footer={
-        account.exists ? undefined : (
-          <Button className="nodrag" size="sm" onPress={create}>
-            Create canvas
-          </Button>
-        )
-      }
-      icon={<WalletIcon {...ICON} />}
-      id={id}
-      selected={selected}
-      subtitle={
-        account.exists ? (
-          <>
-            <Amount value={account.balance} /> · {shortAddress(account.address)}
-          </>
-        ) : (
-          "Not created yet"
-        )
-      }
-      title="Account"
-    />
+    <ConnectState id={id}>
+      {(connect) => (
+        <Card
+          className={`group w-80 gap-0 p-0 ${solid ? "dark isolate bg-background text-foreground shadow-md" : "border border-dashed border-muted/60 transition-colors hover:border-accent hover:ring-1 hover:ring-accent/60"} ${selected ? "ring-2 ring-accent" : ""} ${connect}`}
+          variant={solid ? "default" : "transparent"}
+        >
+          {solid ? (
+            // The Card does not clip, so the connection handles on its edges stay whole; the light is clipped here.
+            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-3xl">
+              <AuroraGlow orientation="tall" />
+            </div>
+          ) : null}
+          <DirectionalHandles />
+          <div className="flex items-center gap-3 p-4 pb-6">
+            <span
+              className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${solid ? "bg-surface/60 text-accent backdrop-blur-sm" : TILE.ghost}`}
+            >
+              <WalletIcon {...ICON} />
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <span className="text-xs font-medium text-foreground/80">
+                Account
+              </span>
+              {solid ? (
+                <Amount
+                  precision="cents"
+                  size="figure"
+                  value={account.balance}
+                />
+              ) : (
+                <span className="text-sm font-semibold">Not created</span>
+              )}
+            </div>
+          </div>
+          <div
+            className={
+              solid
+                ? "m-2 mt-0 rounded-xl bg-surface/45 p-3 backdrop-blur-2xl"
+                : "p-4 pt-0"
+            }
+          >
+            {solid ? (
+              <AccountDetails
+                account={account}
+                labels={labels}
+                network={network}
+              />
+            ) : (
+              <Button className="nodrag" size="sm" onPress={create}>
+                Create canvas
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+    </ConnectState>
   );
 }
 
@@ -365,87 +406,98 @@ function CounterpartyNode({ id, data, selected }: Props<"counterparty">) {
     awaitingMe,
     commitment,
   } = data;
+  const status = awaitingMe
+    ? "needs your answer"
+    : relationship.status === "proposed"
+      ? "waiting for acceptance"
+      : relationship.status === "active"
+        ? undefined
+        : relationship.status;
 
   return (
     <Frame
-      chips={
-        <>
-          <Chip size="sm" variant="secondary">
-            {theirRole}
-          </Chip>
-          <CommitmentChip commitment={commitment} ended={relationship.status} />
-          {awaitingMe ? (
-            <Chip color="accent" size="sm" variant="soft">
-              needs your answer
-            </Chip>
-          ) : relationship.status === "proposed" ? (
-            <Chip size="sm" variant="soft">
-              waiting for acceptance
-            </Chip>
-          ) : null}
-        </>
-      }
       commitment={commitment}
       icon={<UserRoundedIcon {...ICON} />}
       id={id}
+      kind="Counterparty"
+      rows={
+        <>
+          <NodeRow
+            label="Address"
+            value={
+              <NodeAddress
+                label="Copy counterparty address"
+                value={counterparty}
+              />
+            }
+          />
+          <NodeRow label="Relationship" value={`#${relationship.id}`} />
+          {status === undefined ? null : (
+            <NodeRow
+              label="Status"
+              value={
+                <span className={awaitingMe ? "text-accent" : undefined}>
+                  {status}
+                </span>
+              }
+            />
+          )}
+        </>
+      }
       selected={selected}
-      subtitle={`${shortAddress(counterparty)} · relationship #${relationship.id}`}
-      title={label ?? "Counterparty"}
+      status={
+        <Chip size="sm" variant="secondary">
+          {theirRole}
+        </Chip>
+      }
+      title={label ?? shortHex(counterparty)}
     />
   );
 }
+
+const INVOICE_CHIP: Record<string, "success" | "accent" | "danger"> = {
+  paid: "success",
+  approved: "accent",
+  rejected: "danger",
+  cancelled: "danger",
+};
 
 function InvoiceNode({ id, data, selected }: Props<"invoice">) {
   const { invoice, commitment, funded, escrowBacked, awaitingMe, now } = data;
 
   return (
     <Frame
-      chips={
-        <>
-          <Chip
-            color={
-              invoice.status === "paid"
-                ? "success"
-                : invoice.status === "approved"
-                  ? "accent"
-                  : "default"
-            }
-            size="sm"
-            variant="soft"
-          >
-            {invoice.status}
-          </Chip>
-          <CommitmentChip commitment={commitment} ended={invoice.status} />
-          {escrowBacked ? (
-            <Chip color="success" size="sm" variant="soft">
-              escrow-backed
-            </Chip>
-          ) : null}
-          {funded ? (
-            <Chip color="warning" size="sm" variant="soft">
-              financed
-            </Chip>
-          ) : null}
-          {awaitingMe ? (
-            <Chip color="accent" size="sm" variant="soft">
-              needs approval
-            </Chip>
-          ) : null}
-        </>
-      }
       commitment={commitment}
       icon={<BillListIcon {...ICON} />}
       id={id}
-      selected={selected}
-      subtitle={
+      kind="Invoice"
+      rows={
         <>
-          <Amount value={invoice.faceValue} /> ·{" "}
-          {invoice.status === "paid"
-            ? "settled"
-            : `due ${formatDaysFrom(now, invoice.dueDate)}`}
+          <NodeRow label="Face" value={<Amount value={invoice.faceValue} />} />
+          {invoice.status === "paid" ? null : (
+            <NodeRow label="Due" value={formatDaysFrom(now, invoice.dueDate)} />
+          )}
+          {escrowBacked ? <NodeRow label="Backed by" value="Escrow" /> : null}
+          {funded ? <NodeRow label="Financed by" value="Pool" /> : null}
+          {awaitingMe ? (
+            <NodeRow
+              label="Next"
+              value={<span className="text-accent">your approval</span>}
+            />
+          ) : null}
         </>
       }
-      title={`Invoice #${invoice.id}`}
+      selected={selected}
+      status={
+        <Chip
+          color={INVOICE_CHIP[invoice.status] ?? "default"}
+          size="sm"
+          variant="soft"
+        >
+          {invoice.status}
+        </Chip>
+      }
+      title={`#${invoice.id}`}
     />
   );
 }
@@ -458,15 +510,19 @@ function BudgetNode({ id, data, selected }: Props<"budget">) {
       commitment="solid"
       icon={<CaseMinimalisticIcon {...ICON} />}
       id={id}
-      selected={selected}
-      subtitle={
+      kind="Budget"
+      rows={
         <>
-          <Amount unit={null} value={budget.used} /> of{" "}
-          <Amount value={budget.limit} /> ·{" "}
-          {Math.round(budget.periodLength / 86_400)} days
+          <NodeRow label="Limit" value={<Amount value={budget.limit} />} />
+          <NodeRow label="Used" value={<Amount value={budget.used} />} />
+          <NodeRow
+            label="Period"
+            value={`${Math.round(budget.periodLength / 86_400)} days`}
+          />
         </>
       }
-      title={`Budget #${budget.id}`}
+      selected={selected}
+      title={`#${budget.id}`}
     />
   );
 }
@@ -478,69 +534,77 @@ function ApprovalNode({ id, data, selected }: Props<"approval">) {
 
   return (
     <Frame
-      chips={
-        <>
-          {account.threshold < 2 || window.data === undefined ? null : (
-            <Chip size="sm" variant="tertiary">
-              <UsageText
-                account={account}
-                spent={window.data.spent}
-                unit={null}
-              />
-            </Chip>
-          )}
-          {pending > 0 ? (
-            <Chip color="accent" size="sm" variant="soft">
-              {pending} waiting
-            </Chip>
-          ) : null}
-        </>
-      }
       commitment="solid"
       icon={<ShieldCheckIcon {...ICON} />}
       id={id}
-      selected={selected}
-      subtitle={
-        <>
-          {account.threshold} of {approverCount(account)} above{" "}
-          <Amount unit={null} value={account.approvalLimit} />
-        </>
+      kind="Approval"
+      rows={
+        account.threshold < 2 ? undefined : (
+          <>
+            <NodeRow
+              label="One signature up to"
+              value={<Amount value={account.approvalLimit} />}
+            />
+            <NodeRow label="Window" value="24 h" />
+            {window.data === undefined ? null : (
+              <NodeRow
+                label="Used"
+                value={<Amount value={window.data.spent} />}
+              />
+            )}
+          </>
+        )
       }
-      title="Approval"
+      selected={selected}
+      status={
+        pending > 0 ? (
+          <Chip color="accent" size="sm" variant="soft">
+            {pending} waiting
+          </Chip>
+        ) : undefined
+      }
+      title={policySummary(account)}
     />
   );
 }
 
 function SplitNode({ id, data, selected }: Props<"split">) {
   const { account, commitment } = data;
-  const legs = account.route.map((leg, i) => (
-    <Fragment key={i}>
-      {i > 0 ? " · " : null}
-      {leg.kind === "transfer"
-        ? shortAddress(leg.target)
-        : leg.kind === "vault"
-          ? "Vault"
-          : "Hold"}{" "}
-      <Bps value={leg.bps} />
-    </Fragment>
-  ));
+  const legs = account.route;
 
   return (
     <Frame
-      chips={
-        <>
-          <CommitmentChip commitment={commitment} />
-          <Chip size="sm" variant="secondary">
-            endpoint {account.endpointPublic ? "public" : "private"}
-          </Chip>
-        </>
-      }
       commitment={commitment}
       icon={<RoutingIcon {...ICON} />}
       id={id}
+      kind="Split"
+      rows={
+        legs.length === 0 ? (
+          <NodeRow label="Route" value="Hold all" />
+        ) : (
+          legs.map((leg, i) => (
+            <NodeRow
+              key={i}
+              label={
+                leg.kind === "transfer" ? (
+                  <NodeAddress label="Copy payee address" value={leg.target} />
+                ) : leg.kind === "vault" ? (
+                  "Vault"
+                ) : (
+                  "Hold"
+                )
+              }
+              value={<Bps value={leg.bps} />}
+            />
+          ))
+        )
+      }
       selected={selected}
-      subtitle={legs.length === 0 ? "No route · money is held" : legs}
-      title="Split"
+      title={
+        legs.length === 0
+          ? "No route"
+          : `${legs.length} leg${legs.length === 1 ? "" : "s"}`
+      }
     />
   );
 }
@@ -551,14 +615,15 @@ function EscrowNode({ id, data, selected }: Props<"escrow">) {
       commitment="solid"
       icon={<LockIcon {...ICON} />}
       id={id}
-      selected={selected}
-      subtitle={
-        <>
-          <Amount value={data.invoice.escrowed} /> locked for #
-          {String(data.invoice.id)}
-        </>
+      kind="Escrow"
+      rows={
+        <NodeRow
+          label="Locked"
+          value={<Amount value={data.invoice.escrowed} />}
+        />
       }
-      title="Escrow"
+      selected={selected}
+      title={`Invoice #${data.invoice.id}`}
     />
   );
 }
@@ -571,46 +636,54 @@ function ScheduleNode({ id, data, selected }: Props<"schedule">) {
 
   return (
     <Frame
-      chips={
+      // A schedule that ran all its runs is done, not refused: faded, without the danger tile of a cancel.
+      commitment={view.status === "ended" ? "ghost" : commitment}
+      footer={
+        network === undefined ? null : (
+          <RunScheduleButton network={network} view={view} />
+        )
+      }
+      icon={<ClockCircleIcon {...ICON} />}
+      id={id}
+      kind="Schedule"
+      rows={
         <>
-          <ScheduleStatusChip view={view} />
+          <NodeRow label="Amount" value={<Amount value={view.amount} />} />
+          <NodeRow label="To" value={recipientText(view, label)} />
+          <NodeRow label="Every" value={cadenceText(view.interval)} />
           {live ? (
             <>
-              <Chip size="sm" variant="secondary">
-                {view.remaining} left
-              </Chip>
-              <Chip size="sm" variant="secondary">
-                <Amount precision="cents" unit={null} value={committed(view)} />{" "}
-                committed
-              </Chip>
-              <span className="w-full text-xs text-muted">
-                Next {formatTimeFrom(now, view.nextAt)} ·{" "}
-                {formatDateTime(view.nextAt)}
-              </span>
+              <NodeRow label="Runs left" value={view.remaining} />
+              <NodeRow
+                label="Committed"
+                value={<Amount precision="cents" value={committed(view)} />}
+              />
+              <NodeRow
+                label="Next"
+                value={
+                  <span className="flex flex-col items-end">
+                    <span>{formatTimeFrom(now, view.nextAt)}</span>
+                    <span className="font-normal text-muted">
+                      {formatDateTime(view.nextAt)}
+                    </span>
+                  </span>
+                }
+              />
             </>
           ) : null}
           {view.status === "active" && keeper === "offline" ? (
-            <Chip color="warning" size="sm" variant="soft">
-              Keeper offline · run manually
-            </Chip>
+            <NodeRow
+              label="Keeper"
+              value={
+                <span className="text-warning">offline, run manually</span>
+              }
+            />
           ) : null}
-          {network === undefined ? null : (
-            <RunScheduleButton network={network} view={view} />
-          )}
         </>
       }
-      // A schedule that ran all its runs is done, not refused: faded, without the danger tile of a cancel.
-      commitment={view.status === "ended" ? "ghost" : commitment}
-      icon={<ClockCircleIcon {...ICON} />}
-      id={id}
       selected={selected}
-      subtitle={
-        <>
-          <Amount value={view.amount} /> → {recipientText(view, label)} ·{" "}
-          {cadenceText(view.interval)}
-        </>
-      }
-      title={view.id === undefined ? "Schedule" : `Schedule #${view.id}`}
+      status={<ScheduleStatusChip view={view} />}
+      title={view.id === undefined ? "New" : `#${view.id}`}
     />
   );
 }
@@ -618,16 +691,17 @@ function ScheduleNode({ id, data, selected }: Props<"schedule">) {
 function VaultNode({ id, data, selected }: Props<"vault">) {
   return (
     <Frame
-      chips={
-        <Chip color="warning" size="sm" variant="soft">
-          simulated yield
-        </Chip>
-      }
       commitment="solid"
       icon={<SafeSquareIcon {...ICON} />}
       id={id}
+      kind="Vault"
+      rows={
+        <NodeRow
+          label="Assets"
+          value={<Amount value={data.account.vaultAssets} />}
+        />
+      }
       selected={selected}
-      subtitle={<Amount value={data.account.vaultAssets} />}
       title="Vault"
     />
   );
@@ -638,33 +712,32 @@ function PoolNode({ id, data, selected }: Props<"pool">) {
 
   return (
     <Frame
-      chips={
-        financed.length > 0 || data.lpAssets > 0n ? (
-          <>
-            {financed.length > 0 ? (
-              <Chip color="warning" size="sm" variant="soft">
-                {financed.length} financed
-              </Chip>
-            ) : null}
-            {data.lpAssets > 0n ? (
-              <Chip size="sm" variant="secondary">
-                your LP{" "}
-                <Amount precision="cents" unit={null} value={data.lpAssets} />
-              </Chip>
-            ) : null}
-          </>
-        ) : undefined
-      }
       commitment="solid"
       icon={<DatabaseIcon {...ICON} />}
       id={id}
-      selected={selected}
-      subtitle={
+      kind="Pool"
+      rows={
         <>
-          <Bps value={pool.advanceRateBps} /> advance ·{" "}
-          <Amount precision="cents" unit={null} value={pool.idleCash} /> idle
+          <NodeRow
+            label="Advance rate"
+            value={<Bps value={pool.advanceRateBps} />}
+          />
+          <NodeRow
+            label="Idle"
+            value={<Amount precision="cents" value={pool.idleCash} />}
+          />
+          {financed.length > 0 ? (
+            <NodeRow label="Financed" value={financed.length} />
+          ) : null}
+          {data.lpAssets > 0n ? (
+            <NodeRow
+              label="Your LP"
+              value={<Amount precision="cents" value={data.lpAssets} />}
+            />
+          ) : null}
         </>
       }
+      selected={selected}
       title="Funding pool"
     />
   );
@@ -679,7 +752,7 @@ function GateNode({
 
   return (
     <Card
-      className={`w-72 gap-2.5 border border-accent/40 bg-linear-to-br from-accent/15 via-surface to-surface p-3 ${selected ? "ring-2 ring-accent" : ""}`}
+      className={`w-72 gap-2.5 border border-accent/40 transition-colors hover:border-accent hover:ring-1 hover:ring-accent/60 bg-linear-to-br from-accent/15 via-surface to-surface p-3 ${selected ? "ring-2 ring-accent" : ""}`}
       variant="default"
     >
       <PortHandles />
@@ -691,10 +764,12 @@ function GateNode({
         </span>
         <Tooltip delay={TIP_DELAY}>
           <Tooltip.Trigger className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-semibold">{gate.name}</span>
+            <span className="text-xs text-muted">Child canvas</span>
+            <span className="text-sm font-semibold break-words">
+              {gate.name}
+            </span>
             <span className="text-xs text-muted">
-              {gate.nodeCount} node{gate.nodeCount === 1 ? "" : "s"} · child
-              canvas
+              {gate.nodeCount} node{gate.nodeCount === 1 ? "" : "s"}
             </span>
           </Tooltip.Trigger>
           <Tooltip.Content showArrow className="max-w-64" placement="top">
@@ -804,32 +879,24 @@ function DraftNode({
     CATALOGUE.find((c) => c.component === component)?.title ?? "Draft";
 
   return (
-    <ConnectState
-      id={id}
-      idleHint={`Off-chain · connects to ${DRAFT_TARGETS[component]}`}
-    >
+    <ConnectState id={id} idleHint={`Connects to ${DRAFT_TARGETS[component]}`}>
       {(connect) => (
         <Card
-          className={`group w-56 gap-2 border border-dashed border-accent/60 p-2.5 ${selected ? "ring-2 ring-accent" : ""} ${connect}`}
+          className={`group w-64 gap-2.5 border border-dashed border-accent/60 transition-colors hover:border-accent hover:ring-1 hover:ring-accent/60 p-3 ${selected ? "ring-2 ring-accent" : ""} ${connect}`}
           variant="secondary"
         >
           <DirectionalHandles />
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-              {COMPONENT_ICONS[component]}
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium">{title}</span>
-              <span className="truncate text-xs text-muted">
-                Not on-chain yet
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <Chip color="accent" size="sm" variant="soft">
-              Draft
-            </Chip>
-          </div>
+          <Header
+            icon={COMPONENT_ICONS[component]}
+            kind="New"
+            status={
+              <Chip color="accent" size="sm" variant="soft">
+                Draft
+              </Chip>
+            }
+            tile="bg-accent/10 text-accent"
+            title={title}
+          />
         </Card>
       )}
     </ConnectState>

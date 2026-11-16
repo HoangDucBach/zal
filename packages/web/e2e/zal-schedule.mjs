@@ -82,7 +82,7 @@ try {
   await deselect();
   await node("invoice", "Invoice #1").click();
   await pick("schedule").click();
-  await inspector().getByText("Schedule the payment").waitFor();
+  await inspector().getByText("Scheduled payment").waitFor();
   await field("Pay in").fill("2");
   await shot("payment-form", await clip(inspector()));
   await button("Schedule payment").click();

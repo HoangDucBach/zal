@@ -58,7 +58,7 @@ export function DraftPanel({
           <CloseIcon aria-hidden size={16} />
         </Button>
       </Card.Header>
-      <Note>Off-chain · connects to {DRAFT_TARGETS[draft.component]}</Note>
+      <Note>Connects to {DRAFT_TARGETS[draft.component]}</Note>
       {targets.length === 0 ? (
         <Note>No node here fits it</Note>
       ) : (

@@ -115,13 +115,13 @@ try {
   await node("split").getByText("endpoint public").waitFor();
   await deselect();
   await page.dragAndDrop("[data-component=counterparty]", ".react-flow__node-account");
-  await button("Use the demo club").click();
+  await button("Use demo club").click();
   await button("Propose relationship").click();
   await node("counterparty", "Demo club").getByText("waiting for acceptance").waitFor();
   await node("counterparty", "Demo club").getByText("waiting for acceptance").waitFor({ state: "detached", timeout: 40_000 });
   await node("counterparty", "Demo club").click();
   await pick("invoice").click();
-  await button("Issue invoice NFT").click();
+  await button("Issue invoice").click();
   await node("invoice", "Invoice #1").waitFor();
   await node("invoice", "Invoice #1").getByText("escrow-backed").waitFor({ timeout: 60_000 });
   await deselect();

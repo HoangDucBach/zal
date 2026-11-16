@@ -185,13 +185,14 @@ try {
   });
   await dShot("split-endpoint");
 
-  await step("club funds its canvas from the Deposit faucet (testnet zUSDC)", async () => {
+  await step("club funds its canvas from the Deposit faucet", async () => {
     await C.button("Deposit").click();
     await club.page.getByText("coming later").waitFor();
     await cShot("deposit-popover");
     for (let i = 0; i < 6; i++) {
-      await C.button("Mint 1,000 testnet zUSDC to canvas").click();
-      await club.page.getByText("Minted 1,000 testnet zUSDC").first().waitFor({ timeout: 20_000 });
+      // The Account node has a Mint button too; use the one in the Deposit popover.
+      await club.page.getByRole("dialog").getByRole("button", { name: "Mint 1,000 zUSDC" }).click();
+      await club.page.getByText("Minted 1,000 zUSDC").first().waitFor({ timeout: 20_000 });
       await club.page.waitForTimeout(300);
     }
     await club.page.keyboard.press("Escape");
@@ -265,7 +266,7 @@ try {
   await step("demo 4: designer issues a 5,000 USDC invoice; a ghost invoice appears on both", async () => {
     await D.node("counterparty").click();
     await D.pick("invoice").click();
-    await D.button("Issue invoice NFT").click();
+    await D.button("Issue invoice").click();
     await D.node("invoice", "Invoice #").waitFor({ timeout: 20_000 });
     const ms = await within(C.node("invoice", "Invoice #"));
     check(true, `club sees the invoice ${ms} ms later`);

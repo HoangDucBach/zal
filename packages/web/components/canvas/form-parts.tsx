@@ -1,7 +1,11 @@
 "use client";
 
+import type { Address } from "viem";
+
 import { Input, Label, Separator, TextField, toast } from "@heroui/react";
 
+import { CopyButton } from "@/components/ui/copy-button";
+import { shortAddress } from "@/lib/format";
 import { toAppError } from "@/lib/query/errors";
 
 /** Toasts for every write: the receipt confirms, the error explains. */
@@ -80,5 +84,21 @@ export function Field({
       <Label className="text-xs">{label}</Label>
       <Input placeholder={placeholder} variant="secondary" />
     </TextField>
+  );
+}
+
+/** A short address, or `label` when known, with a button that copies the full address. */
+export function AddressValue({
+  address,
+  label,
+}: {
+  readonly address: Address;
+  readonly label?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label ?? shortAddress(address)}
+      <CopyButton label="Copy address" value={address} />
+    </span>
   );
 }

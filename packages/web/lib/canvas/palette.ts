@@ -51,7 +51,8 @@ export type CanvasAction =
 
 /**
  * `ready`: offered, and starts `action`. `blocked`: does not fit this selection or state; hidden from the palette,
- * and a drop explains `reason`. `unsupported`: fits, but this network or v1 cannot do it; shown disabled. `draft`:
+ * and a drop explains `reason`. `unsupported`: fits, but v1 cannot do it, or the canvas already has its one node of
+ * this kind (`singletonTaken`); shown disabled. `draft`:
  * fits no node on its own yet, so the palette offers it as a draft to place and connect (`reason` says to what).
  */
 export type Availability =
@@ -447,7 +448,7 @@ export function describeAction(action: CanvasAction): string {
     case "escrow":
       return `Escrow invoice #${action.invoiceId}`;
     case "vaultDeposit":
-      return "Deposit into the Vault (simulated yield)";
+      return "Deposit into the Vault";
     case "advance":
       return `Advance on invoice #${action.invoiceId}`;
     case "provideLiquidity":
@@ -485,16 +486,16 @@ export const COMPONENT_HINTS: Record<PaletteComponent, string> = {
   invoice: "Invoice NFT · on a counterparty you sell to",
   budget: "Spend cap per 30 days",
   approval: "m of n signatures above a limit",
-  schedule: "On-chain · pay at a time, or every ≥ 1 min",
+  schedule: "Pay at a time, or every ≥ 1 min",
   stream: "Continuous payout · not in v1",
   split: "Incoming money → hold · transfer · Vault",
   escrow: "Locks face value for an approved invoice you pay",
-  vault: "Idle money earns simulated yield",
+  vault: "Idle money earns yield",
   pool: "Early payment on an approved invoice you sell",
-  liquidity: "Lend wallet testnet zUSDC to the funding pool",
+  liquidity: "Lend wallet zUSDC to the funding pool",
 };
 
-/** What a draft of each component connects to: its tooltip, "Off-chain · connects to …". */
+/** What a draft of each component connects to: its note, "Connects to …". */
 export const DRAFT_TARGETS: Record<PaletteComponent, string> = {
   account: "nothing · it creates your canvas",
   counterparty: "your Account",
@@ -511,9 +512,63 @@ export const DRAFT_TARGETS: Record<PaletteComponent, string> = {
   liquidity: "your Account or the funding pool",
 };
 
-export function palette(state: CanvasState, target: Target): PaletteEntry[] {
+/**
+ * Components the canvas holds once, because each stands for one piece of account state: the Split is the single
+ * route (`setRoute` overwrites it), the Vault node is the one Zal vault, the Approval node the one policy. Once the
+ * node is on-chain it is edited from the node itself; once a draft is placed, a second draft would overwrite the
+ * first. The Approval node is drawn as soon as there are two members and its policy is set from the palette, so
+ * only a placed draft takes it. The Account is guarded by `precondition`.
+ */
+const SINGLETONS: Partial<
+  Record<PaletteComponent, (state: CanvasState) => boolean>
+> = {
+  split: (state) => state.account.route.length > 0,
+  vault: (state) =>
+    state.account.route.some((leg) => leg.kind === "vault") ||
+    state.account.vaultShares > 0n,
+  approval: () => false,
+};
+
+/** Why `component` is not offered again, when the canvas already has its one node or draft. */
+export function singletonTaken(
+  component: PaletteComponent,
+  state: CanvasState,
+  placed: readonly PaletteComponent[],
+): string | undefined {
+  const onChain = SINGLETONS[component];
+
+  if (onChain === undefined) return undefined;
+  if (!onChain(state) && !placed.includes(component)) return undefined;
+  const title = CATALOGUE.find((c) => c.component === component)?.title;
+
+  return `One ${title ?? component} per canvas`;
+}
+
+/**
+ * The palette for a selection. `placed` lists the components of the drafts already on the canvas, so a singleton
+ * with a draft is shown disabled.
+ */
+export function palette(
+  state: CanvasState,
+  target: Target,
+  placed: readonly PaletteComponent[] = [],
+): PaletteEntry[] {
   return CATALOGUE.map(({ component, group, title }) => {
     const availability = evaluate(component, state, target);
+    const taken = singletonTaken(component, state, placed);
+
+    // A singleton that would not fit this selection anyway stays hidden; otherwise it shows, disabled.
+    if (
+      taken !== undefined &&
+      state.account.exists &&
+      (availability.status !== "blocked" || target === undefined)
+    )
+      return {
+        component,
+        group,
+        title,
+        availability: { status: "unsupported", reason: taken },
+      };
 
     // With nothing selected, a component that needs a node becomes a draft to place and connect.
     return {

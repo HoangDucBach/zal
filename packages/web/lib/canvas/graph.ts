@@ -71,6 +71,8 @@ export type CanvasNodeData =
       readonly kind: "account";
       readonly commitment: Commitment;
       readonly account: AccountState;
+      /** Display names for known addresses, for the members listed on the card. */
+      readonly labels: Readonly<Record<string, string>>;
     }
   | {
       readonly kind: "counterparty";
@@ -180,15 +182,16 @@ export const nodeId = {
 } as const;
 
 /**
- * Columns, left to right: the account (Approval above it, budgets below), its Split (the Vault above), the
- * counterparties with their invoices stacked under each, then each invoice's Escrow and Schedules on its row (the
- * pool above them, so an invoice's edge to it never runs through the counterparty stack). One card is 224 px wide, so a 270 px column leaves a gutter for the edges, and the seeded canvas
- * fits a 1280 px laptop screen at a readable zoom with the palette and Inspector open.
+ * Columns, left to right: the account on its own (it is the largest card), then Approval above budgets, its Split
+ * (the Vault above), the counterparties with their invoices stacked under each, then each invoice's Escrow and
+ * Schedules on its row (the pool above them, so an invoice's edge to it never runs through the counterparty stack).
+ * A card is 256 px wide, so a 300 px column leaves a gutter for the edges; the Account card is 320 px wide.
  */
-const COLUMN = 270;
-const ROW = 150;
+const COLUMN = 300;
+const ACCOUNT_X = -380;
+const ROW = 200;
 /** One footprint: cards this far apart vertically never overlap. */
-const BELOW = 130;
+const BELOW = 190;
 /** Space between one counterparty's stack and the next. */
 const STACK_GAP = 30;
 
@@ -236,11 +239,12 @@ export function buildCanvasGraph(
 
   nodes.push({
     id: nodeId.account,
-    position: { x: 0, y: 0 },
+    position: { x: ACCOUNT_X, y: -ROW },
     data: {
       kind: "account",
       commitment: state.account.exists ? "solid" : "ghost",
       account: state.account,
+      labels: state.labels,
     },
   });
   if (!state.account.exists) return { nodes, edges, inbox };

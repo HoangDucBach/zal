@@ -181,10 +181,7 @@ function Body({ address }: { readonly address: Address }) {
                 key: "zusdc",
                 label: `${TOKEN_SYMBOL} balance`,
                 value: (
-                  <Amount
-                    unit={`testnet ${TOKEN_SYMBOL}`}
-                    value={zusdc?.balance ?? 0n}
-                  />
+                  <Amount unit={TOKEN_SYMBOL} value={zusdc?.balance ?? 0n} />
                 ),
               },
               {

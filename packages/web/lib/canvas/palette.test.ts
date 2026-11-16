@@ -288,3 +288,75 @@ describe("palette rules (story C2)", () => {
     });
   });
 });
+
+describe("one Split, Vault and Approval per canvas", () => {
+  const entryOf = (
+    component: PaletteComponent,
+    s: CanvasState,
+    target?: CanvasNodeData,
+    placed: readonly PaletteComponent[] = [],
+  ) => palette(s, target, placed).find((e) => e.component === component);
+
+  test("Split is offered while the route is empty and no Split draft is placed", () => {
+    expect(entryOf("split", state())?.availability.status).toBe("ready");
+  });
+
+  test("a set route shows Split disabled: the Split node edits it", () => {
+    const s = state({
+      account: account({
+        route: [{ kind: "hold", target: ME, bps: 10_000 }],
+      }),
+    });
+
+    expect(entryOf("split", s)?.availability).toEqual({
+      status: "unsupported",
+      reason: "One Split per canvas",
+    });
+  });
+
+  test("a placed Split draft shows Split disabled", () => {
+    expect(
+      entryOf("split", state(), undefined, ["split"])?.availability,
+    ).toEqual({ status: "unsupported", reason: "One Split per canvas" });
+  });
+
+  test("a Vault node (shares held) shows Vault disabled", () => {
+    const s = state({ account: account({ vaultShares: 1n }) });
+
+    expect(entryOf("vault", s)?.availability).toEqual({
+      status: "unsupported",
+      reason: "One Vault per canvas",
+    });
+  });
+
+  test("a placed Approval draft shows Approval disabled", () => {
+    const s = state({
+      account: account({
+        members: [
+          { address: ME, role: "admin" },
+          { address: CLUB, role: "approver" },
+        ],
+      }),
+    });
+
+    expect(entryOf("approval", s)?.availability.status).toBe("ready");
+    expect(
+      entryOf("approval", s, undefined, ["approval"])?.availability,
+    ).toEqual({ status: "unsupported", reason: "One Approval per canvas" });
+  });
+
+  test("a singleton that does not fit the selection stays hidden", () => {
+    const s = state({
+      invoices: [boughtInvoice],
+      relationships: [buying],
+      account: account({
+        route: [{ kind: "hold", target: ME, bps: 10_000 }],
+      }),
+    });
+
+    expect(
+      entryOf("split", s, select(s, nodeId.invoice(boughtInvoice.id)))
+        ?.availability.status,
+    ).toBe("blocked");
+  });
+});

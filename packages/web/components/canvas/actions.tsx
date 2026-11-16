@@ -13,6 +13,7 @@ import {
   Alert,
   Button,
   Chip,
+  FieldError,
   Input,
   Label,
   ListBox,
@@ -36,7 +37,15 @@ import {
 } from "viem";
 
 import { SignaturesNote } from "./approval-parts";
-import { Field, Note, Row, Section, attempt, feedback } from "./form-parts";
+import {
+  AddressValue,
+  Field,
+  Note,
+  Row,
+  Section,
+  attempt,
+  feedback,
+} from "./form-parts";
 import { SchedulePaymentForm, ScheduleTransferForm } from "./schedule-parts";
 
 import {
@@ -70,6 +79,14 @@ import {
   newInvite,
 } from "@/lib/api/invite";
 import { advanceEligibility } from "@/lib/canvas/advance";
+import {
+  type DraftLeg,
+  MAX_SPLIT_LEGS,
+  legBps,
+  legProblem,
+  splitProblem,
+  withKind,
+} from "@/lib/canvas/split";
 import { Amount, Bps, amountText, bpsText } from "@/components/ui/amount";
 import { parseUsdc, shortAddress } from "@/lib/format";
 import { SANDBOX_NAMES } from "@/lib/sandbox/config";
@@ -87,19 +104,19 @@ interface FormProps {
 }
 
 export const ACTION_TITLES: Record<CanvasAction["kind"], string> = {
-  createAccount: "Create your canvas",
-  proposeRelationship: "Add a counterparty",
+  createAccount: "New canvas",
+  proposeRelationship: "New counterparty",
   publishEndpoint: "Payee endpoint",
-  issueInvoice: "Issue an invoice",
-  addBudget: "Add a budget",
-  approveInvoice: "Approve against a budget",
+  issueInvoice: "New invoice",
+  addBudget: "New budget",
+  approveInvoice: "Approval",
   setPolicy: "Approval policy",
-  schedulePayment: "Schedule the payment",
+  schedulePayment: "Scheduled payment",
   scheduleTransfer: "Scheduled transfer",
   setRoute: "Split",
-  escrow: "Escrow the invoice",
+  escrow: "Escrow",
   vaultDeposit: "Vault",
-  advance: "Advance from the funding pool",
+  advance: "Advance",
   provideLiquidity: "Pool liquidity",
 };
 
@@ -111,10 +128,11 @@ function CreateAccountForm({ network, state, onDone }: FormProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Note>
-        CanvasAccount {shortAddress(state.account.address)} · owned by your
-        wallet
-      </Note>
+      <Row
+        label="CanvasAccount"
+        value={<AddressValue address={state.account.address} />}
+      />
+      <Note>Owned by your wallet</Note>
       <Button
         isPending={create.isPending}
         size="sm"
@@ -179,7 +197,7 @@ function DemoCounterparty({
   };
 
   return (
-    <Section title="Demo counterparty (sandbox)">
+    <Section title="Demo counterparty">
       <div className="flex gap-2">
         <Button
           className="flex-1"
@@ -189,7 +207,7 @@ function DemoCounterparty({
           variant="secondary"
           onPress={() => create("buyer")}
         >
-          It buys from you
+          Add buyer
         </Button>
         <Button
           className="flex-1"
@@ -199,10 +217,10 @@ function DemoCounterparty({
           variant="secondary"
           onPress={() => create("seller")}
         >
-          It sells to you
+          Add seller
         </Button>
       </div>
-      <Note>A bot accepts and trades, like the demo club or print shop</Note>
+      <Note>Bot · accepts and trades</Note>
     </Section>
   );
 }
@@ -263,7 +281,7 @@ function InviteLink({
   };
 
   return (
-    <Section title="No canvas yet? Invite by link">
+    <Section title="Invite by link">
       <Button
         isDisabled={!isAdmin}
         isPending={busy}
@@ -388,7 +406,7 @@ function ProposeForm({ network, state, onDone }: FormProps) {
           variant="tertiary"
           onPress={() => setCounterparty(address)}
         >
-          Use the {name.toLowerCase()} (sandbox)
+          Use {name.toLowerCase()}
         </Button>
       ))}
       <RoleSelect value={myRole} onChange={setMyRole} />
@@ -473,11 +491,7 @@ function IssueInvoiceForm({
   return (
     <div className="flex flex-col gap-2">
       <Row label="Relationship" value={`#${relationshipId}`} />
-      <Field
-        label="Face value, zUSDC (testnet)"
-        value={amount}
-        onChange={setAmount}
-      />
+      <Field label="Face value, zUSDC" value={amount} onChange={setAmount} />
       <Field label="Due in days" value={days} onChange={setDays} />
       <Button
         isDisabled={face === undefined || face === 0n || !validDays}
@@ -497,9 +511,9 @@ function IssueInvoiceForm({
           })
         }
       >
-        Issue invoice NFT
+        Issue invoice
       </Button>
-      <Note>NFT minted to you · ghost until the buyer approves</Note>
+      <Note>Ghost until the buyer approves</Note>
     </div>
   );
 }
@@ -655,8 +669,10 @@ function PolicyForm({ network, state, onDone }: FormProps) {
       {approvers.map((m) => (
         <Row
           key={m.address}
-          label={state.labels[m.address] ?? shortAddress(m.address)}
-          value={m.role}
+          label={m.role}
+          value={
+            <AddressValue address={m.address} label={state.labels[m.address]} />
+          }
         />
       ))}
       <Field
@@ -693,12 +709,6 @@ function PolicyForm({ network, state, onDone }: FormProps) {
       <Note>Saving cancels operations awaiting signatures</Note>
     </div>
   );
-}
-
-interface DraftLeg {
-  readonly kind: "hold" | "transfer" | "vault";
-  readonly target: string;
-  readonly percent: string;
 }
 
 /** A leg to the Vault, 10% taken from the largest leg that has it. */
@@ -751,15 +761,13 @@ export function SplitForm({
 
     return vaultLeg ? withVaultLeg(current, network.addresses.vault) : current;
   });
-  const bps = legs.map((leg) => Math.round(Number(leg.percent) * 100));
+  const bps = legs.map((leg) => legBps(leg) ?? 0);
   const total = bps.reduce((a, b) => a + b, 0);
-  const valid =
-    total === 10_000 &&
-    bps.every((b) => Number.isFinite(b) && b >= 0) &&
-    legs.every(
-      (leg) =>
-        leg.kind !== "transfer" || isAddress(leg.target, { strict: false }),
-    );
+  const problem = splitProblem(legs);
+  // A recipient problem is already under its field.
+  const shownInline = legs.some(
+    (leg) => leg.kind === "transfer" && legProblem(leg) === problem,
+  );
   const update = (index: number, patch: Partial<DraftLeg>) =>
     setLegs((current) =>
       current.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)),
@@ -767,7 +775,7 @@ export function SplitForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <Note>leg = amount × % · last leg takes remainder · Vault simulated</Note>
+      <Note>leg = amount × % · last leg takes remainder</Note>
       {legs.map((leg, index) => (
         <div key={index} className="flex flex-col gap-1">
           <div className="flex items-end gap-2">
@@ -776,20 +784,19 @@ export function SplitForm({
               className="flex-1"
               value={leg.kind}
               onChange={(value) =>
-                update(index, {
-                  kind:
-                    value === "vault"
-                      ? "vault"
-                      : value === "transfer"
-                        ? "transfer"
-                        : "hold",
-                  target:
-                    value === "vault"
-                      ? network.addresses.vault
-                      : leg.kind === "vault"
-                        ? ""
-                        : leg.target,
-                })
+                setLegs((current) =>
+                  current.map((l, i) =>
+                    i === index
+                      ? withKind(
+                          l,
+                          value === "vault" || value === "transfer"
+                            ? value
+                            : "hold",
+                          network.addresses.vault,
+                        )
+                      : l,
+                  ),
+                )
               }
             >
               <Select.Trigger>
@@ -799,15 +806,15 @@ export function SplitForm({
               <Select.Popover>
                 <ListBox>
                   <ListBox.Item id="hold" textValue="Hold">
-                    Hold in account
+                    Hold
                     <ListBox.ItemIndicator />
                   </ListBox.Item>
                   <ListBox.Item id="vault" textValue="Vault">
-                    Vault (simulated)
+                    Vault
                     <ListBox.ItemIndicator />
                   </ListBox.Item>
                   <ListBox.Item id="transfer" textValue="Transfer">
-                    Transfer to address
+                    Transfer
                     <ListBox.ItemIndicator />
                   </ListBox.Item>
                 </ListBox>
@@ -834,18 +841,22 @@ export function SplitForm({
             </Button>
           </div>
           {leg.kind === "transfer" ? (
-            <Field
-              label="Recipient"
-              placeholder="0x…"
+            <TextField
+              className="flex flex-col gap-1"
+              isInvalid={legProblem(leg) !== undefined}
               value={leg.target}
               onChange={(target) => update(index, { target })}
-            />
+            >
+              <Label className="text-xs">Recipient</Label>
+              <Input placeholder="0x…" variant="secondary" />
+              <FieldError>{legProblem(leg)}</FieldError>
+            </TextField>
           ) : null}
         </div>
       ))}
       <div className="flex items-center justify-between gap-2">
         <Button
-          isDisabled={legs.length >= 8}
+          isDisabled={legs.length >= MAX_SPLIT_LEGS}
           size="sm"
           variant="tertiary"
           onPress={() =>
@@ -865,8 +876,9 @@ export function SplitForm({
           total {bpsText(total)}
         </Chip>
       </div>
+      {problem === undefined || shownInline ? null : <Note>{problem}</Note>}
       <Button
-        isDisabled={!valid}
+        isDisabled={problem !== undefined}
         isPending={setRoute.isPending}
         size="sm"
         onPress={() =>
@@ -882,7 +894,7 @@ export function SplitForm({
           })
         }
       >
-        Save Split
+        Save
       </Button>
     </div>
   );
@@ -903,10 +915,7 @@ function EscrowForm({
   return (
     <div className="flex flex-col gap-2">
       {invoice === undefined ? null : (
-        <Row
-          label="Locks"
-          value={<Amount unit="zUSDC (testnet)" value={invoice.faceValue} />}
-        />
+        <Row label="Locks" value={<Amount value={invoice.faceValue} />} />
       )}
       <Button
         isPending={submit.isPending}
@@ -950,9 +959,6 @@ export function VaultForm({
 
   return (
     <div className="flex flex-col gap-2">
-      <Chip color="warning" size="sm" variant="soft">
-        Yield is simulated
-      </Chip>
       <Row label="In vault" value={<Amount value={account.vaultAssets} />} />
       <Field label="Deposit, USDC" value={amount} onChange={setAmount} />
       <div className="flex gap-2">
@@ -1067,7 +1073,7 @@ export function LiquidityForm({
   });
   const mint = useMintTestUsdc({
     network,
-    options: feedback("Minted 1,000 testnet zUSDC to your wallet"),
+    options: feedback("Minted 1,000 zUSDC"),
   });
   const [amount, setAmount] = useState("1000");
   const value = parseUsdc(amount);
@@ -1078,11 +1084,7 @@ export function LiquidityForm({
       <Row label="Your wallet" value={<Amount value={lp.walletUsdc} />} />
       <Row label="Your pool position" value={<Amount value={lp.assets} />} />
       <Row label="Withdrawable now" value={<Amount value={lp.maxWithdraw} />} />
-      <Field
-        label="Amount, zUSDC (testnet)"
-        value={amount}
-        onChange={setAmount}
-      />
+      <Field label="Amount, zUSDC" value={amount} onChange={setAmount} />
       <div className="flex gap-2">
         <Button
           isDisabled={
@@ -1127,7 +1129,7 @@ export function LiquidityForm({
           variant="tertiary"
           onPress={() => mint.mutate({ to: "wallet", amount: 1_000_000_000n })}
         >
-          Mint 1,000 testnet zUSDC to my wallet
+          Mint 1,000 zUSDC
         </Button>
       ) : null}
       <Note>

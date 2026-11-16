@@ -51,7 +51,7 @@ try {
   }
 
   await openPropose();
-  await button("Use the demo club").click();
+  await button("Use demo club").click();
   await button("Propose relationship").click();
   await node("counterparty", "Demo club").first().waitFor({ timeout: 30_000 });
   await accepted("Demo club");
@@ -65,9 +65,9 @@ try {
   await shot("both-bots-related");
 
   await openPropose();
-  check((await inspector().getByRole("button", { name: /^Use the demo/ }).count()) === 0, "no suggestions left once both bots are related");
+  check((await inspector().getByRole("button", { name: /^Use demo/ }).count()) === 0, "no suggestions left once both bots are related");
   await shot("no-suggestions");
-  await button("It buys from you").click();
+  await button("Add buyer").click();
   await page.waitForFunction(() => {
     const input = document.querySelector('input[placeholder="0x…"]');
     return input !== null && /^0x[0-9a-fA-F]{40}$/.test(input.value);

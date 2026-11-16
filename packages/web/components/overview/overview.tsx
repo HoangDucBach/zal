@@ -200,7 +200,7 @@ function BalanceCard({ state }: { readonly state: CanvasState }) {
         <Amount
           precision="cents"
           size="hero"
-          unit="testnet zUSDC"
+          unit="zUSDC"
           value={shown?.balance ?? state.account.balance}
         />
         <span className="text-xs text-muted">
@@ -277,7 +277,7 @@ function legName(
     case "hold":
       return "Kept in your canvas";
     case "vault":
-      return "Vault (simulated yield)";
+      return "Vault";
     case "transfer":
       return target === undefined ? "Transfer" : `To ${nameOf(state, target)}`;
     default:
