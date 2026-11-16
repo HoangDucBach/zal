@@ -196,8 +196,8 @@ export function Inbox({
           />
         ) : null}
       </AnimatePresence>
-      <Card className="w-80 gap-2 border border-accent/40 bg-linear-to-b from-accent/20 via-surface/70 to-surface/70 p-3 backdrop-blur-2xl">
-        <Card.Header className="flex flex-row items-center gap-2">
+      <Card className="w-full gap-2 border border-accent/40 bg-linear-to-b from-accent/20 via-surface/70 to-surface/70 p-3 backdrop-blur-2xl">
+        <Card.Header className="flex flex-row flex-wrap items-center gap-2">
           <Badge.Anchor>
             <span className="flex size-7 items-center justify-center rounded-lg bg-accent/20 text-accent">
               <InboxIcon aria-hidden size={16} />
@@ -242,7 +242,7 @@ export function Inbox({
                     }
                   >
                     <Button
-                      className="justify-start"
+                      className="w-full min-w-0 justify-start"
                       size="sm"
                       variant="secondary"
                       onPress={() => onOpen(id)}

@@ -29,7 +29,7 @@ const shot = async (name) => {
 };
 const button = (name) => page.getByRole("button", { name, exact: false });
 const node = (kind, text) => page.locator(`.react-flow__node-${kind}`).filter({ hasText: text });
-const inspector = () => page.locator(".react-flow__panel.top.right");
+const inspector = () => page.locator('[data-canvas-panel="column"]');
 const deselect = () => page.locator(".react-flow__pane").click({ position: { x: 1000, y: 120 } });
 const field = () => inspector().getByLabel("Their canvas (account) address");
 const openPropose = async () => {

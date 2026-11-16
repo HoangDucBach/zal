@@ -42,7 +42,7 @@ export function SandboxClock() {
 
   return (
     <Surface
-      className="flex items-center gap-2 rounded-2xl border border-border/60 bg-surface/65 px-2 py-1 backdrop-blur-xl"
+      className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-border/60 bg-surface/65 px-2 py-1 backdrop-blur-xl"
       variant="default"
     >
       <Chip color="warning" size="sm" variant="soft">

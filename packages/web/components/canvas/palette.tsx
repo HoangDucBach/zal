@@ -7,7 +7,14 @@
 
 import type { PaletteComponent, PaletteEntry } from "@/lib/canvas/palette";
 
-import { Button, Card, Chip, ScrollShadow, Tooltip } from "@heroui/react";
+import {
+  Button,
+  Card,
+  Chip,
+  ScrollShadow,
+  Separator,
+  Tooltip,
+} from "@heroui/react";
 import {
   BillListIcon,
   CaseMinimalisticIcon,
@@ -56,6 +63,7 @@ function Item({
   title,
   hint,
   disabledReason,
+  compact,
   onPick,
 }: {
   readonly id: string;
@@ -65,6 +73,8 @@ function Item({
   readonly hint: string;
   /** Shown disabled, with this reason under it. */
   readonly disabledReason?: string;
+  /** Icon only; the title and any blocked reason move into the tooltip. */
+  readonly compact: boolean;
   readonly onPick: () => void;
 }) {
   const disabled = disabledReason !== undefined;
@@ -81,25 +91,43 @@ function Item({
     >
       <Tooltip delay={500}>
         <Tooltip.Trigger className="flex">
-          <Button
-            fullWidth
-            className="justify-start gap-2"
-            isDisabled={disabled}
-            size="sm"
-            variant="ghost"
-            onPress={onPick}
-          >
-            <span className="text-muted">{icon}</span>
-            <span className="flex-1 text-start">{title}</span>
-            <GripVerticalIcon aria-hidden className="text-muted" size={14} />
-          </Button>
+          {compact ? (
+            <Button
+              isIconOnly
+              aria-label={title}
+              isDisabled={disabled}
+              size="sm"
+              variant="ghost"
+              onPress={onPick}
+            >
+              <span className="text-muted">{icon}</span>
+            </Button>
+          ) : (
+            <Button
+              fullWidth
+              className="justify-start gap-2"
+              isDisabled={disabled}
+              size="sm"
+              variant="ghost"
+              onPress={onPick}
+            >
+              <span className="text-muted">{icon}</span>
+              <span className="flex-1 text-start">{title}</span>
+              <GripVerticalIcon aria-hidden className="text-muted" size={14} />
+            </Button>
+          )}
         </Tooltip.Trigger>
         <Tooltip.Content showArrow className="max-w-64" placement="right">
           <Tooltip.Arrow />
-          <span className="text-xs break-normal">{hint}</span>
+          {compact ? (
+            <span className="block text-xs font-semibold">{title}</span>
+          ) : null}
+          <span className="text-xs break-normal">
+            {compact && disabled ? disabledReason : hint}
+          </span>
         </Tooltip.Content>
       </Tooltip>
-      {disabled ? (
+      {disabled && !compact ? (
         <span className="px-2 pb-1 text-xs text-muted">{disabledReason}</span>
       ) : null}
     </div>
@@ -116,36 +144,56 @@ export function Palette({
   entries,
   scope,
   structure,
+  compact = false,
   onPick,
 }: {
   readonly entries: readonly PaletteEntry[];
   /** What the palette is filtered for: "Canvas" or the selected node. */
   readonly scope: string;
   readonly structure: StructureEntry;
+  /** A column of icons, for a narrow canvas. */
+  readonly compact?: boolean;
   readonly onPick: (component: PaletteComponent) => void;
 }) {
   const shown = entries.filter((e) => e.availability.status !== "blocked");
+  const groups = PALETTE_GROUPS.map((group) => ({
+    group,
+    items: shown.filter((e) => e.group === group),
+  })).filter(({ items }) => items.length > 0);
 
   return (
-    <Card className="flex max-h-full w-56 flex-col gap-2 border border-border/60 bg-surface/65 p-2 backdrop-blur-xl">
-      <Card.Header className="flex flex-row items-center justify-between gap-1 px-1">
-        <Card.Title className="text-sm">Components</Card.Title>
-        <Chip className="px-2 py-0.5" size="sm" variant="secondary">
-          for {scope}
-        </Chip>
-      </Card.Header>
-      <ScrollShadow className="flex min-h-0 flex-col gap-2 overflow-y-auto">
-        {PALETTE_GROUPS.map((group) => {
-          const items = shown.filter((e) => e.group === group);
-
-          if (items.length === 0) return null;
-
+    <Card
+      aria-label={compact ? `Components for ${scope}` : undefined}
+      className={`flex max-h-full flex-col gap-2 border border-border/60 bg-surface/65 backdrop-blur-xl ${
+        compact ? "p-1" : "w-56 p-2"
+      }`}
+    >
+      {compact ? null : (
+        <Card.Header className="flex flex-row items-center justify-between gap-1 px-1">
+          <Card.Title className="text-sm">Components</Card.Title>
+          <Chip className="px-2 py-0.5" size="sm" variant="secondary">
+            for {scope}
+          </Chip>
+        </Card.Header>
+      )}
+      <ScrollShadow
+        className={`flex min-h-0 flex-col overflow-y-auto ${compact ? "gap-1" : "gap-2"}`}
+        hideScrollBar={compact}
+      >
+        {groups.map(({ group, items }, index) => {
           return (
             <div key={group} className="flex flex-col gap-0.5">
-              <span className="px-2 text-xs text-muted">{group}</span>
+              {compact ? (
+                index === 0 ? null : (
+                  <Separator />
+                )
+              ) : (
+                <span className="px-2 text-xs text-muted">{group}</span>
+              )}
               {items.map((entry) => (
                 <Item
                   key={entry.component}
+                  compact={compact}
                   disabledReason={
                     entry.availability.status === "unsupported"
                       ? entry.availability.reason
@@ -162,8 +210,13 @@ export function Palette({
           );
         })}
         <div className="flex flex-col gap-0.5">
-          <span className="px-2 text-xs text-muted">Structure</span>
+          {compact ? (
+            <Separator />
+          ) : (
+            <span className="px-2 text-xs text-muted">Structure</span>
+          )}
           <Item
+            compact={compact}
             disabledReason={structure.blockedBy}
             hint="Selection → gate · layout only"
             icon={<LayersMinimalisticIcon {...ICON} />}

@@ -32,7 +32,7 @@ const node = (kind, text) => {
   return text === undefined ? l : l.filter({ hasText: text });
 };
 const pick = (component) => page.locator(`[data-component=${component}] button`);
-const inspector = () => page.locator(".react-flow__panel.top.right");
+const inspector = () => page.locator('[data-canvas-panel="column"]');
 const deselect = () => page.locator(".react-flow__pane").click({ position: { x: 900, y: 140 } });
 
 /** The layout invariants the owner saw broken: absolute panels, a dot grid, no panel on top of another. */
@@ -40,7 +40,9 @@ async function assertCanvas(label) {
   await page.locator(".react-flow__panel").first().waitFor();
   await page.waitForTimeout(600);
   const probe = await page.evaluate(() => {
-    const panels = [...document.querySelectorAll(".react-flow__panel")].map((p) => {
+    // The floating panels share one xyflow Panel; each region in it is tagged `data-canvas-panel`.
+    const absolute = [...document.querySelectorAll(".react-flow__panel")].every((p) => getComputedStyle(p).position === "absolute");
+    const panels = [...document.querySelectorAll("[data-canvas-panel]")].map((p) => {
       const r = p.getBoundingClientRect();
       // A panel's own box can be wider than what it shows (the bottom bar is full width); measure its content.
       const kids = [...p.children].map((c) => c.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
@@ -48,12 +50,13 @@ async function assertCanvas(label) {
         left: Math.min(...kids.map((b) => b.left)), top: Math.min(...kids.map((b) => b.top)),
         right: Math.max(...kids.map((b) => b.right)), bottom: Math.max(...kids.map((b) => b.bottom)),
       };
-      return { cls: p.className.replace("react-flow__panel", "").trim(), position: getComputedStyle(p).position, box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom } };
+      return { cls: p.dataset.canvasPanel, box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom } };
     });
     const pattern = document.querySelector(".react-flow__background pattern circle, .react-flow__background-pattern.dots");
     const bg = document.querySelector(".react-flow__background");
     const rf = document.querySelector(".react-flow");
     return {
+      absolute,
       panels,
       pattern: pattern !== null,
       bgImage: bg ? getComputedStyle(bg).backgroundImage : "none",
@@ -62,7 +65,7 @@ async function assertCanvas(label) {
       nodes: document.querySelectorAll(".react-flow__node").length,
     };
   });
-  check(probe.panels.length > 0 && probe.panels.every((p) => p.position === "absolute"), `${label}: every .react-flow__panel is position:absolute (${probe.panels.map((p) => `${p.cls}=${p.position}`).join(", ")})`);
+  check(probe.panels.length > 0 && probe.absolute, `${label}: every .react-flow__panel is position:absolute`);
   check(probe.pattern, `${label}: background dot pattern exists`);
   check(probe.bgImage.includes("radial-gradient"), `${label}: radial token gradient behind the grid`);
   check(probe.theme === probe.htmlTheme, `${label}: xyflow colorMode follows the app theme (${probe.theme})`);

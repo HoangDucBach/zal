@@ -29,12 +29,15 @@ export function ToolBar({
   onModeChange,
   onFit,
   minimap,
+  minimapFits,
   onMinimapChange,
 }: {
   readonly mode: PointerMode;
   readonly onModeChange: (mode: PointerMode) => void;
   readonly onFit: () => void;
   readonly minimap: boolean;
+  /** False while the canvas is too small for the minimap. */
+  readonly minimapFits: boolean;
   readonly onMinimapChange: (shown: boolean) => void;
 }) {
   const { zoomIn, zoomOut } = useReactFlow();
@@ -99,7 +102,8 @@ export function ToolBar({
       <ToggleButton
         isIconOnly
         aria-label="Minimap"
-        isSelected={minimap}
+        isDisabled={!minimapFits}
+        isSelected={minimap && minimapFits}
         size="sm"
         onChange={onMinimapChange}
       >

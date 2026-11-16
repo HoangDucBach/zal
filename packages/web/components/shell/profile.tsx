@@ -23,6 +23,7 @@ import {
 } from "wagmi";
 
 import { DepositButton } from "./deposit";
+import { RailTooltip } from "./rail-tooltip";
 import { WalletPopover } from "./wallet";
 
 import { liveNetwork } from "@/config/chains";
@@ -57,24 +58,27 @@ function useDisconnectWallet(): () => Promise<void> {
   };
 }
 
-function ThemeToggle() {
+function ThemeToggle({ compact }: { readonly compact: boolean }) {
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme !== "light";
+  const label = dark ? "Switch to light theme" : "Switch to dark theme";
 
   return (
-    <Button
-      isIconOnly
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      size="sm"
-      variant="ghost"
-      onPress={() => setTheme(dark ? "light" : "dark")}
-    >
-      {dark ? <SunIcon {...ICON} /> : <MoonIcon {...ICON} />}
-    </Button>
+    <RailTooltip label={label} shown={compact}>
+      <Button
+        isIconOnly
+        aria-label={label}
+        size="sm"
+        variant="ghost"
+        onPress={() => setTheme(dark ? "light" : "dark")}
+      >
+        {dark ? <SunIcon {...ICON} /> : <MoonIcon {...ICON} />}
+      </Button>
+    </RailTooltip>
   );
 }
 
-function SandboxSwitch() {
+function SandboxSwitch({ compact }: { readonly compact: boolean }) {
   const config = useConfig();
   const queryClient = useQueryClient();
   const wallet = useRealWallet();
@@ -96,19 +100,22 @@ function SandboxSwitch() {
   };
 
   return (
-    <Switch
-      isDisabled={wallet === undefined || busy}
-      isSelected={mode.enabled}
-      size="sm"
-      onChange={(on) => void toggle(on)}
-    >
-      <Switch.Content>
-        <Switch.Control>
-          <Switch.Thumb />
-        </Switch.Control>
-        Sandbox
-      </Switch.Content>
-    </Switch>
+    <RailTooltip label="Sandbox" shown={compact}>
+      <Switch
+        aria-label={compact ? "Sandbox" : undefined}
+        isDisabled={wallet === undefined || busy}
+        isSelected={mode.enabled}
+        size="sm"
+        onChange={(on) => void toggle(on)}
+      >
+        <Switch.Content>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          {compact ? null : "Sandbox"}
+        </Switch.Content>
+      </Switch>
+    </RailTooltip>
   );
 }
 
@@ -146,36 +153,83 @@ export function SandboxAutostart() {
   return null;
 }
 
-export function ProfileToolbar() {
+export function ProfileToolbar({
+  compact = false,
+}: {
+  /** The collapsed sidebar: icons in one column, labels in tooltips. */
+  readonly compact?: boolean;
+}) {
   const wallet = useRealWallet();
   const connectors = useConnectors();
   const connect = useConnect();
   const disconnect = useDisconnectWallet();
   const injected = connectors.find((c) => c.type === "injected");
 
+  const connectButton = (
+    <Button
+      aria-label="Connect wallet"
+      fullWidth={!compact}
+      isDisabled={injected === undefined}
+      isIconOnly={compact}
+      isPending={connect.isPending}
+      size="sm"
+      variant="primary"
+      onPress={() =>
+        injected !== undefined &&
+        connect.mutate(
+          { connector: injected },
+          { onError: (error) => toast.danger(toAppError(error).message) },
+        )
+      }
+    >
+      <PlugIcon {...ICON} />
+      {compact ? null : "Connect wallet"}
+    </Button>
+  );
+  const disconnectButton = (
+    <RailTooltip label="Disconnect wallet" shown={compact}>
+      <Button
+        isIconOnly
+        aria-label="Disconnect wallet"
+        size="sm"
+        variant="ghost"
+        onPress={() => void disconnect()}
+      >
+        <LogoutIcon {...ICON} />
+      </Button>
+    </RailTooltip>
+  );
+
+  if (compact)
+    return (
+      <div className="flex flex-col items-center gap-2">
+        {wallet === undefined ? (
+          <RailTooltip shown label="Connect wallet">
+            {connectButton}
+          </RailTooltip>
+        ) : (
+          <>
+            <WalletPopover
+              compact
+              wallet={wallet.accounts[0]}
+              onDisconnect={() => void disconnect()}
+            />
+            <DepositButton compact />
+          </>
+        )}
+        <SandboxSwitch compact />
+        <ThemeToggle compact />
+        {wallet === undefined ? null : disconnectButton}
+      </div>
+    );
+
   if (wallet === undefined) {
     return (
       <div className="flex flex-col gap-2">
-        <Button
-          fullWidth
-          isDisabled={injected === undefined}
-          isPending={connect.isPending}
-          size="sm"
-          variant="primary"
-          onPress={() =>
-            injected !== undefined &&
-            connect.mutate(
-              { connector: injected },
-              { onError: (error) => toast.danger(toAppError(error).message) },
-            )
-          }
-        >
-          <PlugIcon {...ICON} />
-          Connect wallet
-        </Button>
+        {connectButton}
         <div className="flex items-center justify-between gap-2">
-          <SandboxSwitch />
-          <ThemeToggle />
+          <SandboxSwitch compact={false} />
+          <ThemeToggle compact={false} />
         </div>
       </div>
     );
@@ -189,18 +243,10 @@ export function ProfileToolbar() {
       />
       <DepositButton />
       <div className="flex items-center justify-between gap-1">
-        <SandboxSwitch />
+        <SandboxSwitch compact={false} />
         <div className="flex items-center">
-          <ThemeToggle />
-          <Button
-            isIconOnly
-            aria-label="Disconnect wallet"
-            size="sm"
-            variant="ghost"
-            onPress={() => void disconnect()}
-          >
-            <LogoutIcon {...ICON} />
-          </Button>
+          <ThemeToggle compact={false} />
+          {disconnectButton}
         </div>
       </div>
     </div>

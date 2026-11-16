@@ -118,35 +118,56 @@ function WalletLine({ wallet }: { readonly wallet: Address }) {
 /** The sidebar's wallet row; opens the canvas account, the wallet and the network. */
 export function WalletPopover({
   wallet,
+  compact = false,
   onDisconnect,
 }: {
   readonly wallet: Address;
+  /** The collapsed sidebar: the avatar only. */
+  readonly compact?: boolean;
   readonly onDisconnect: () => void;
 }) {
   const network = useNetworkStatus();
 
   return (
     <Popover>
-      <Button
-        fullWidth
-        aria-label="Wallet details"
-        className="h-auto justify-start gap-2 py-1.5 text-start"
-        size="sm"
-        variant="ghost"
-      >
-        <Avatar color="accent" size="sm" variant="soft">
-          <Avatar.Fallback>{wallet.slice(2, 4).toUpperCase()}</Avatar.Fallback>
-        </Avatar>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-xs font-medium">
-            {shortHex(wallet)}
+      {compact ? (
+        <Button
+          isIconOnly
+          aria-label="Wallet details"
+          className="size-auto p-0.5"
+          size="sm"
+          variant="ghost"
+        >
+          <Avatar color="accent" size="sm" variant="soft">
+            <Avatar.Fallback>
+              {wallet.slice(2, 4).toUpperCase()}
+            </Avatar.Fallback>
+          </Avatar>
+        </Button>
+      ) : (
+        <Button
+          fullWidth
+          aria-label="Wallet details"
+          className="h-auto justify-start gap-2 py-1.5 text-start"
+          size="sm"
+          variant="ghost"
+        >
+          <Avatar color="accent" size="sm" variant="soft">
+            <Avatar.Fallback>
+              {wallet.slice(2, 4).toUpperCase()}
+            </Avatar.Fallback>
+          </Avatar>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-medium">
+              {shortHex(wallet)}
+            </span>
+            <span className="text-xs text-muted">Wallet</span>
           </span>
-          <span className="text-xs text-muted">Wallet</span>
-        </span>
-        <Chip color={network.color} size="sm" variant="soft">
-          {network.label}
-        </Chip>
-      </Button>
+          <Chip color={network.color} size="sm" variant="soft">
+            {network.label}
+          </Chip>
+        </Button>
+      )}
       <Popover.Content className="w-80" placement="right bottom">
         <Popover.Dialog aria-label="Wallet" className="flex flex-col gap-3">
           <CanvasCard />

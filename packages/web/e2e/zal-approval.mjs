@@ -30,7 +30,7 @@ const shot = async (name, opts = {}) => {
 const button = (name) => page.getByRole("button", { name, exact: false });
 const node = (kind, text) => page.locator(`.react-flow__node-${kind}`).filter({ hasText: text });
 const pick = (component) => page.locator(`[data-component=${component}] button`);
-const inspector = () => page.locator(".react-flow__panel.top.right");
+const inspector = () => page.locator('[data-canvas-panel="column"]');
 const deselect = () => page.locator(".react-flow__pane").click({ position: { x: 1000, y: 120 } });
 const field = (label) => inspector().getByLabel(label, { exact: true });
 const clip = async (locator, pad = 24) => {

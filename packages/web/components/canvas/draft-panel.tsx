@@ -38,7 +38,7 @@ export function DraftPanel({
 
   return (
     <Card
-      className="w-80 gap-3 border border-dashed border-accent/60 bg-surface/75 p-3 backdrop-blur-xl"
+      className="w-full gap-3 border border-dashed border-accent/60 bg-surface/75 p-3 backdrop-blur-xl"
       data-testid="draft-panel"
     >
       <Card.Header className="flex flex-row items-center justify-between gap-2">

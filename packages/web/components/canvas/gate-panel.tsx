@@ -36,7 +36,7 @@ export function GatePanel({
   const [name, setName] = useState(gate.name);
 
   return (
-    <Card className="w-80 gap-3 border border-border bg-surface/75 p-3 shadow-md backdrop-blur-2xl">
+    <Card className="w-full gap-3 border border-border bg-surface/75 p-3 shadow-md backdrop-blur-2xl">
       <Card.Header className="flex flex-row items-center justify-between gap-2 border-b border-separator pb-2">
         <Card.Title className="text-sm">Child canvas</Card.Title>
         <Button

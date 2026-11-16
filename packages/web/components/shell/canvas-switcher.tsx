@@ -19,7 +19,7 @@ import {
   SearchField,
   Spinner,
 } from "@heroui/react";
-import { AltArrowDownIcon } from "@solar-icons/react/linear";
+import { AltArrowDownIcon, WidgetIcon } from "@solar-icons/react/linear";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { isAddressEqual } from "viem";
@@ -112,7 +112,12 @@ function ShowMore({
   );
 }
 
-export function CanvasSwitcher() {
+export function CanvasSwitcher({
+  compact = false,
+}: {
+  /** The collapsed sidebar: an icon trigger, the same popover. */
+  readonly compact?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { wallet, network, canvas } = useCanvasView();
@@ -177,27 +182,42 @@ export function CanvasSwitcher() {
 
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
-      <Button
-        fullWidth
-        aria-label="Switch canvas"
-        className="justify-between"
-        data-testid="canvas-switcher"
-        size="sm"
-        variant="secondary"
+      {compact ? (
+        <Button
+          isIconOnly
+          aria-label="Switch canvas"
+          data-testid="canvas-switcher"
+          size="sm"
+          variant="secondary"
+        >
+          <WidgetIcon aria-hidden size={16} />
+        </Button>
+      ) : (
+        <Button
+          fullWidth
+          aria-label="Switch canvas"
+          className="justify-between"
+          data-testid="canvas-switcher"
+          size="sm"
+          variant="secondary"
+        >
+          <span className="truncate">
+            {current === undefined ? "Canvas" : nameOf(current, labels)}
+          </span>
+          <span className="flex items-center gap-1">
+            {current === undefined ? null : (
+              <Chip size="sm" variant="soft">
+                {roleText(current)}
+              </Chip>
+            )}
+            <AltArrowDownIcon aria-hidden size={14} />
+          </span>
+        </Button>
+      )}
+      <Popover.Content
+        className="w-72"
+        placement={compact ? "right top" : undefined}
       >
-        <span className="truncate">
-          {current === undefined ? "Canvas" : nameOf(current, labels)}
-        </span>
-        <span className="flex items-center gap-1">
-          {current === undefined ? null : (
-            <Chip size="sm" variant="soft">
-              {roleText(current)}
-            </Chip>
-          )}
-          <AltArrowDownIcon aria-hidden size={14} />
-        </span>
-      </Button>
-      <Popover.Content className="w-72">
         <Popover.Dialog aria-label="Canvases" className="flex flex-col gap-2">
           {shown === undefined ? null : (
             <div className="flex items-center justify-between gap-2 px-1 text-xs">

@@ -22,7 +22,7 @@ const node = (kind, text) => {
   const l = page.locator(`.react-flow__node-${kind}`);
   return text === undefined ? l : l.filter({ hasText: text });
 };
-const inspector = () => page.locator(".react-flow__panel.top.right");
+const inspector = () => page.locator('[data-canvas-panel="column"]');
 const draftLinks = () => page.locator('[data-testid^="rf__edge-link:"]');
 const centre = async (loc) => {
   const b = await loc.boundingBox();

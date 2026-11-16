@@ -32,7 +32,7 @@ const node = (kind, text) => {
   return text === undefined ? l : l.filter({ hasText: text });
 };
 const pick = (component) => page.locator(`[data-component=${component}] button`);
-const inspector = () => page.locator(".react-flow__panel.top.right");
+const inspector = () => page.locator('[data-canvas-panel="column"]');
 const deselect = () => page.locator(".react-flow__pane").click({ position: { x: 700, y: 400 } });
 const menuItem = (name) => page.getByRole("menuitem", { name });
 
@@ -42,16 +42,19 @@ async function probePanels() {
       const b = el.getBoundingClientRect();
       return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width, height: b.height };
     };
-    const panels = [...document.querySelectorAll(".react-flow__panel")].map((p) => {
+    // The floating panels share one xyflow Panel; each region in it is tagged `data-canvas-panel`.
+    const absolute = [...document.querySelectorAll(".react-flow__panel")].every((p) => getComputedStyle(p).position === "absolute");
+    const panels = [...document.querySelectorAll("[data-canvas-panel]")].map((p) => {
       const kids = [...p.children].map(boxOf).filter((b) => b.width > 0 && b.height > 0);
       const box = kids.length === 0 ? boxOf(p) : {
         left: Math.min(...kids.map((b) => b.left)), top: Math.min(...kids.map((b) => b.top)),
         right: Math.max(...kids.map((b) => b.right)), bottom: Math.max(...kids.map((b) => b.bottom)),
       };
-      return { cls: p.className.replace("react-flow__panel", "").trim(), position: getComputedStyle(p).position, box, kids };
+      return { cls: p.dataset.canvasPanel, box, kids };
     });
     const nodes = [...document.querySelectorAll(".react-flow__node")].map((el) => ({ id: el.getAttribute("data-id"), box: boxOf(el) }));
     return {
+      absolute,
       panels,
       nodes,
       pattern: document.querySelector(".react-flow__background pattern circle, .react-flow__background-pattern.dots") !== null,
@@ -66,7 +69,7 @@ async function assertCanvas(label) {
   await page.locator(".react-flow__panel").first().waitFor();
   await page.waitForTimeout(500);
   const probe = await probePanels();
-  check(probe.panels.every((p) => p.position === "absolute"), `${label}: every panel is position:absolute`);
+  check(probe.absolute, `${label}: every .react-flow__panel is position:absolute`);
   check(probe.pattern, `${label}: background dot pattern exists`);
   check(probe.bgImage.includes("radial-gradient"), `${label}: radial token gradient behind the grid`);
   const overlaps = [];
@@ -219,7 +222,7 @@ try {
     await page.mouse.move(pal.x + 60, pal.y + 30, { steps: 15 });
     await page.mouse.up({ button: "middle" });
     await page.waitForTimeout(300);
-    const palette = await page.locator(".react-flow__panel.top.left").boundingBox();
+    const palette = await page.locator('[data-canvas-panel="palette"]').boundingBox();
     await shot("glass-over-node", { clip: { x: palette.x - 20, y: palette.y, width: palette.width + 220, height: 260 } });
     await button("Fit view").click();
     await page.waitForTimeout(500);

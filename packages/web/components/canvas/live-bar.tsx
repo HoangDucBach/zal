@@ -26,7 +26,7 @@ export function LiveBar({
     return null;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex max-w-full flex-col items-center gap-2">
       {live === "polling" ? (
         <Chip data-testid="live-paused" size="sm" variant="secondary">
           Live updates paused · polling the chain
@@ -34,7 +34,7 @@ export function LiveBar({
       ) : null}
       {persistence.kind === "signIn" ? (
         <Surface
-          className="flex items-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 py-1 pr-1 pl-3 backdrop-blur-xl"
+          className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 py-1 pr-1 pl-3 backdrop-blur-xl"
           data-testid="layout-sign-in"
           variant="default"
         >

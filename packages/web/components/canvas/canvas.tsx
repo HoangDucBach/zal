@@ -72,6 +72,7 @@ import { useNotifications } from "@/components/shell/notifications";
 import { liveNetwork } from "@/config/chains";
 import { useCanvasLayout, type UpdateLayout } from "@/hooks/use-canvas-layout";
 import { useCanvasView } from "@/hooks/use-canvas-view";
+import { useElementSize } from "@/hooks/use-element-size";
 import { useChainClock, useKeeperStatus } from "@/hooks/use-schedules";
 import { useSelectedAccount } from "@/hooks/use-selected-account";
 import { type LayoutChange } from "@/lib/api/layout-sync";
@@ -107,6 +108,7 @@ import {
   type ViewNodeData,
 } from "@/lib/canvas/layout";
 import { canWriteLayout } from "@/lib/canvas/layout-access";
+import { panelLayout } from "@/lib/canvas/panel-layout";
 import {
   CATALOGUE,
   canConnect,
@@ -292,6 +294,9 @@ function CanvasFlow() {
   >(undefined);
   const [mode, setMode] = useState<PointerMode>("select");
   const [minimap, setMinimap] = useState(true);
+  const panelArea = useRef<HTMLDivElement>(null);
+  const area = useElementSize(panelArea);
+  const panels = panelLayout(area.width, area.height);
   const [menu, setMenu] = useState<
     { readonly id: string; readonly anchor: Element } | undefined
   >(undefined);
@@ -993,6 +998,7 @@ function CanvasFlow() {
   };
   const sandbox = network?.kind === "sandbox";
   const ready = canvas.data !== undefined && network !== undefined;
+  const showMinimap = minimap && ready && panels.minimap !== "hidden";
   const positions = useMemo(
     () => new Map(nodes.map((n) => [n.id, n.position])),
     [nodes],
@@ -1132,202 +1138,233 @@ function CanvasFlow() {
               bgColor="var(--background)"
               className="bg-radial from-accent/10 via-accent/3 via-40% to-background"
             />
-            {ready && !readOnly ? (
-              <Panel className="bottom-44 flex items-start" position="top-left">
-                <Palette
-                  entries={entries}
-                  scope={
-                    selectedIds.length > 1
-                      ? `${selectedIds.length} nodes`
-                      : selectedData === undefined
-                        ? (activeChild?.name ?? "canvas")
-                        : SCOPE_NAMES[selectedData.kind]
-                  }
-                  structure={{
-                    blockedBy: cannotGroup(selectedIds, level),
-                    onCreate: () => group(selectedIds),
-                  }}
-                  onPick={pick}
-                />
-              </Panel>
-            ) : null}
+            {/* One layout for every floating panel, so none can cover another: a top row (palette, status,
+                Inbox and Inspector) above a bottom row (minimap, tool bar, timeline). Panels cap their height to
+                their row and scroll inside; the layout itself lets pointer events through to the canvas. */}
             <Panel
-              className="flex flex-col items-center gap-2"
-              position="top-center"
+              ref={panelArea}
+              className="pointer-events-none right-0 bottom-0 flex flex-col gap-3"
+              position="top-left"
             >
-              {activeChild === undefined ? null : (
-                <motion.div
-                  key={activeChild.id}
-                  animate={{ opacity: 1, y: 0 }}
-                  initial={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                >
-                  <Surface
-                    className="flex items-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 p-1 backdrop-blur-xl"
-                    data-testid="child-canvas-bar"
-                    variant="default"
+              <div className="flex min-h-0 flex-1 items-start gap-3">
+                {ready && !readOnly ? (
+                  <div
+                    className="pointer-events-auto flex max-h-full min-h-0 shrink-0"
+                    data-canvas-panel="palette"
                   >
-                    <Button
-                      isIconOnly
-                      aria-label="Back to the parent canvas"
-                      size="sm"
-                      variant="ghost"
-                      onPress={() => setLevel(ROOT)}
-                    >
-                      <ArrowLeftIcon aria-hidden size={16} />
-                    </Button>
-                    <Breadcrumbs
-                      onAction={(key) => {
-                        if (key === ROOT) setLevel(ROOT);
-                      }}
-                    >
-                      <Breadcrumbs.Item id={ROOT}>Canvas</Breadcrumbs.Item>
-                      <Breadcrumbs.Item id={activeChild.id}>
-                        {activeChild.name}
-                      </Breadcrumbs.Item>
-                    </Breadcrumbs>
-                    <Chip size="sm" variant="secondary">
-                      child canvas
-                    </Chip>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onPress={() => dissolveChild(activeChild.id)}
-                    >
-                      <ArchiveUpIcon aria-hidden size={14} />
-                      Dissolve
-                    </Button>
-                  </Surface>
-                </motion.div>
-              )}
-              <SandboxClock />
-              <LiveBar persistence={persistence} />
-              {wallet === undefined ? (
-                <Message title="Connect a wallet">
-                  Your wallet&apos;s Zal account · Sandbox runs the full demo
-                </Message>
-              ) : network === undefined ? (
-                <Message title="Live network unavailable">
-                  {liveNetwork.status === "unavailable"
-                    ? liveNetwork.reason
-                    : ""}{" "}
-                  Sandbox runs without it.
-                </Message>
-              ) : canvas.isPending ? (
-                <Card className="flex flex-row items-center gap-2 p-3">
-                  <Spinner size="sm" />
-                  <span className="text-sm">
-                    {sandbox
-                      ? "Starting the sandbox chain…"
-                      : "Reading your canvas…"}
-                  </span>
-                </Card>
-              ) : canvas.isError ? (
-                <Message title="Could not read the canvas">
-                  {canvas.error.message}
-                </Message>
-              ) : null}
-            </Panel>
-            {ready && graph !== undefined ? (
-              <Panel
-                className="bottom-52 flex items-start"
-                position="top-right"
-              >
-                {/* The column never scrolls: it fits the panel, and the Inspector body scrolls inside it. */}
-                <div className="flex max-h-full min-h-0 flex-col gap-3">
-                  <Inbox graph={graph} onOpen={open} />
-                  {selectedDraft !== undefined && action === undefined ? (
-                    <DraftPanel
-                      key={selectedDraft.id}
-                      draft={selectedDraft}
-                      targets={draftTargets}
-                      onClose={closeInspector}
-                      onConnect={(id) => connect(id, selectedDraft.id)}
-                      onDelete={() => deleteDrafts([selectedDraft.id])}
-                    />
-                  ) : selectedGate?.kind === "gate" && action === undefined ? (
-                    <GatePanel
-                      key={selectedGate.gate.id}
-                      gate={selectedGate.gate}
-                      onClose={closeInspector}
-                      onDissolve={() => dissolveChild(selectedGate.gate.id)}
-                      onOpen={() => enter(selectedGate.gate.id)}
-                      onRename={(name) =>
-                        updateLayout((current) =>
-                          renameChild(current, selectedGate.gate.id, name),
-                        )
+                    <Palette
+                      compact={panels.compactPalette}
+                      entries={entries}
+                      scope={
+                        selectedIds.length > 1
+                          ? `${selectedIds.length} nodes`
+                          : selectedData === undefined
+                            ? (activeChild?.name ?? "canvas")
+                            : SCOPE_NAMES[selectedData.kind]
                       }
-                    />
-                  ) : subject === undefined ? null : (
-                    <Inspector
-                      key={`${selected ?? ""}:${action?.kind ?? ""}`}
-                      network={network}
-                      state={canvas.data}
-                      subject={subject}
-                      onClose={closeInspector}
-                      onDone={() => {
-                        // Only the form the link opened settles it; another form may be open by now.
-                        if (
-                          pendingLink !== undefined &&
-                          pendingLink.action === action
-                        ) {
-                          const link = pendingLink.id;
-
-                          updateLayout((current) => settleLink(current, link));
-                        }
-                        setPendingLink(undefined);
-                        setAction(undefined);
+                      structure={{
+                        blockedBy: cannotGroup(selectedIds, level),
+                        onCreate: () => group(selectedIds),
                       }}
+                      onPick={pick}
                     />
+                  </div>
+                ) : null}
+                <div
+                  className="flex min-w-0 flex-1 flex-col items-center gap-2 *:pointer-events-auto *:max-w-full"
+                  data-canvas-panel="status"
+                >
+                  {activeChild === undefined ? null : (
+                    <motion.div
+                      key={activeChild.id}
+                      animate={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                      <Surface
+                        className="flex items-center gap-2 rounded-2xl border border-accent/40 bg-surface/70 p-1 backdrop-blur-xl"
+                        data-testid="child-canvas-bar"
+                        variant="default"
+                      >
+                        <Button
+                          isIconOnly
+                          aria-label="Back to the parent canvas"
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => setLevel(ROOT)}
+                        >
+                          <ArrowLeftIcon aria-hidden size={16} />
+                        </Button>
+                        <Breadcrumbs
+                          onAction={(key) => {
+                            if (key === ROOT) setLevel(ROOT);
+                          }}
+                        >
+                          <Breadcrumbs.Item id={ROOT}>Canvas</Breadcrumbs.Item>
+                          <Breadcrumbs.Item id={activeChild.id}>
+                            {activeChild.name}
+                          </Breadcrumbs.Item>
+                        </Breadcrumbs>
+                        <Chip size="sm" variant="secondary">
+                          child canvas
+                        </Chip>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => dissolveChild(activeChild.id)}
+                        >
+                          <ArchiveUpIcon aria-hidden size={14} />
+                          Dissolve
+                        </Button>
+                      </Surface>
+                    </motion.div>
                   )}
-                  {sandbox ? (
-                    <GuidedDemo
-                      buyer={buyerAndLpDemo(canvas.data)}
-                      compact={
-                        subject !== undefined || selectedGate !== undefined
-                      }
-                      seller={sellerDemo(canvas.data)}
-                      onFocus={open}
-                    />
+                  <SandboxClock />
+                  <LiveBar persistence={persistence} />
+                  {wallet === undefined ? (
+                    <Message title="Connect a wallet">
+                      Your wallet&apos;s Zal account · Sandbox runs the full
+                      demo
+                    </Message>
+                  ) : network === undefined ? (
+                    <Message title="Live network unavailable">
+                      {liveNetwork.status === "unavailable"
+                        ? liveNetwork.reason
+                        : ""}{" "}
+                      Sandbox runs without it.
+                    </Message>
+                  ) : canvas.isPending ? (
+                    <Card className="flex flex-row items-center gap-2 p-3">
+                      <Spinner size="sm" />
+                      <span className="text-sm">
+                        {sandbox
+                          ? "Starting the sandbox chain…"
+                          : "Reading your canvas…"}
+                      </span>
+                    </Card>
+                  ) : canvas.isError ? (
+                    <Message title="Could not read the canvas">
+                      {canvas.error.message}
+                    </Message>
                   ) : null}
                 </div>
-              </Panel>
-            ) : null}
-            <Panel
-              className="pointer-events-none flex w-full flex-col items-center gap-2 px-16 *:pointer-events-auto"
-              position="bottom-center"
-            >
-              <ToolBar
-                minimap={minimap}
-                mode={mode}
-                onFit={fit}
-                onMinimapChange={setMinimap}
-                onModeChange={setMode}
-              />
-              {ready ? (
-                <Timeline sandbox={sandbox} state={canvas.data} />
-              ) : null}
+                {ready && graph !== undefined ? (
+                  // Only the Inspector body shrinks; when even that is not enough the column scrolls. The padding
+                  // keeps the Inbox glow inside the scroll box.
+                  <div
+                    className={`pointer-events-none -m-3 flex max-h-full min-h-0 shrink-0 flex-col gap-3 overflow-y-auto p-3 *:pointer-events-auto ${
+                      panels.wideColumn ? "w-86" : "w-78"
+                    }`}
+                    data-canvas-panel="column"
+                  >
+                    <Inbox graph={graph} onOpen={open} />
+                    {selectedDraft !== undefined && action === undefined ? (
+                      <DraftPanel
+                        key={selectedDraft.id}
+                        draft={selectedDraft}
+                        targets={draftTargets}
+                        onClose={closeInspector}
+                        onConnect={(id) => connect(id, selectedDraft.id)}
+                        onDelete={() => deleteDrafts([selectedDraft.id])}
+                      />
+                    ) : selectedGate?.kind === "gate" &&
+                      action === undefined ? (
+                      <GatePanel
+                        key={selectedGate.gate.id}
+                        gate={selectedGate.gate}
+                        onClose={closeInspector}
+                        onDissolve={() => dissolveChild(selectedGate.gate.id)}
+                        onOpen={() => enter(selectedGate.gate.id)}
+                        onRename={(name) =>
+                          updateLayout((current) =>
+                            renameChild(current, selectedGate.gate.id, name),
+                          )
+                        }
+                      />
+                    ) : subject === undefined ? null : (
+                      <Inspector
+                        key={`${selected ?? ""}:${action?.kind ?? ""}`}
+                        network={network}
+                        state={canvas.data}
+                        subject={subject}
+                        onClose={closeInspector}
+                        onDone={() => {
+                          // Only the form the link opened settles it; another form may be open by now.
+                          if (
+                            pendingLink !== undefined &&
+                            pendingLink.action === action
+                          ) {
+                            const link = pendingLink.id;
+
+                            updateLayout((current) =>
+                              settleLink(current, link),
+                            );
+                          }
+                          setPendingLink(undefined);
+                          setAction(undefined);
+                        }}
+                      />
+                    )}
+                    {sandbox ? (
+                      <GuidedDemo
+                        buyer={buyerAndLpDemo(canvas.data)}
+                        compact={
+                          subject !== undefined || selectedGate !== undefined
+                        }
+                        seller={sellerDemo(canvas.data)}
+                        onFocus={open}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-end gap-3">
+                {showMinimap ? (
+                  <div
+                    className={`pointer-events-auto relative shrink-0 ${
+                      panels.minimap === "large" ? "h-36 w-48" : "h-24 w-32"
+                    }`}
+                    data-canvas-panel="minimap"
+                  >
+                    {/* MiniMap draws a 200 × 150 SVG; it is scaled to this box, which keeps its 4:3 shape. */}
+                    <MiniMap
+                      pannable
+                      zoomable
+                      ariaLabel="Minimap"
+                      bgColor="transparent"
+                      className="m-0! size-full overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-xl *:size-full"
+                      maskColor="color-mix(in oklab, var(--background) 55%, transparent)"
+                      nodeBorderRadius={8}
+                      nodeColor={(node) =>
+                        node.type === "gate"
+                          ? "var(--accent)"
+                          : node.type === "port"
+                            ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                            : "color-mix(in oklab, var(--foreground) 45%, transparent)"
+                      }
+                      nodeStrokeWidth={0}
+                      position="bottom-left"
+                    />
+                  </div>
+                ) : null}
+                <div
+                  className="flex min-w-0 flex-1 flex-col items-center gap-2 *:pointer-events-auto"
+                  data-canvas-panel="tools"
+                >
+                  <ToolBar
+                    minimap={minimap}
+                    minimapFits={panels.minimap !== "hidden"}
+                    mode={mode}
+                    onFit={fit}
+                    onMinimapChange={setMinimap}
+                    onModeChange={setMode}
+                  />
+                  {ready ? (
+                    <Timeline sandbox={sandbox} state={canvas.data} />
+                  ) : null}
+                </div>
+              </div>
             </Panel>
-            {minimap && ready ? (
-              <MiniMap
-                pannable
-                zoomable
-                ariaLabel="Minimap"
-                bgColor="transparent"
-                className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur-xl"
-                maskColor="color-mix(in oklab, var(--background) 55%, transparent)"
-                nodeBorderRadius={8}
-                nodeColor={(node) =>
-                  node.type === "gate"
-                    ? "var(--accent)"
-                    : node.type === "port"
-                      ? "color-mix(in oklab, var(--accent) 45%, transparent)"
-                      : "color-mix(in oklab, var(--foreground) 45%, transparent)"
-                }
-                nodeStrokeWidth={0}
-                position="bottom-left"
-              />
-            ) : null}
           </ReactFlow>
         </ConnectRules>
         <NodeMenu

@@ -72,7 +72,7 @@ function ui(page) {
     node,
     button: (name) => page.getByRole("button", { name, exact: false }),
     pick: (component) => page.locator(`[data-component=${component}] button`),
-    inspector: () => page.locator(".react-flow__panel.top.right"),
+    inspector: () => page.locator('[data-canvas-panel="column"]'),
     deselect: () => page.locator(".react-flow__pane").click({ position: { x: 700, y: 140 } }),
   };
 }

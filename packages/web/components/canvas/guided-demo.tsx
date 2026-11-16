@@ -112,7 +112,7 @@ export function GuidedDemo({
     seller.next === undefined && buyer.next !== undefined ? buyer : seller;
 
   return (
-    <Card className="w-80 gap-2 border border-border/60 bg-surface/65 p-3 backdrop-blur-xl">
+    <Card className="w-full gap-2 border border-border/60 bg-surface/65 p-3 backdrop-blur-xl">
       <Card.Header className="flex flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Card.Title className="text-sm">Guided demo</Card.Title>

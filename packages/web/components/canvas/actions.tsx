@@ -894,7 +894,7 @@ export function SplitForm({
           })
         }
       >
-        Save
+        Save Split
       </Button>
     </div>
   );

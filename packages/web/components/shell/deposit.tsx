@@ -110,7 +110,12 @@ function Gas({
   );
 }
 
-export function DepositButton() {
+export function DepositButton({
+  compact = false,
+}: {
+  /** The collapsed sidebar: the icon only. */
+  readonly compact?: boolean;
+}) {
   const { network, canvas, wallet } = useCanvasView();
   const mint = useMintTestUsdc({
     network,
@@ -133,11 +138,20 @@ export function DepositButton() {
 
   return (
     <Popover>
-      <Button className="justify-start" size="sm" variant="ghost">
+      <Button
+        aria-label="Deposit"
+        className="justify-start"
+        isIconOnly={compact}
+        size="sm"
+        variant="ghost"
+      >
         <WalletMoneyIcon aria-hidden size={16} />
-        Deposit
+        {compact ? null : "Deposit"}
       </Button>
-      <Popover.Content className="w-72">
+      <Popover.Content
+        className="w-72"
+        placement={compact ? "right bottom" : undefined}
+      >
         <Popover.Dialog>
           <Popover.Heading>Deposit</Popover.Heading>
           <div className="mt-2 flex flex-col gap-2">
