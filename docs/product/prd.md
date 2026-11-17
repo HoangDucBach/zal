@@ -100,7 +100,7 @@ Palette components as in `packages/web/lib/canvas/palette.ts` (`CATALOGUE`), plu
 | Deposit popover | Balances, Get gas, Mint 1,000 testnet zUSDC | G1 | live |
 | Canvas switcher | My canvas, canvases added by others | C5 | live |
 | Guided demo, sandbox clock | Two tracks from chain state; +1 day, +30 days, Reset | S1 | sandbox only |
-| Account withdraw | Gated `withdraw(to, amount)` | n/a | contract only, no UI |
+| Account withdraw | Account card: to, amount; gated `withdraw(to, amount)` | n/a | live |
 
 ## 5. User stories
 
