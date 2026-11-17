@@ -2,93 +2,115 @@
 
 **Manage every flow of your team's money on one canvas.**
 
-Zal is an on-chain payment canvas on its own Avalanche L1. Every party gets the same canvas and draws where money goes with nodes and edges. A seller issues invoices, a buyer approves and pays them in one transaction through both parties' rules, and a funding pool advances 80% to the seller as soon as the buyer approves.
+On-chain payment canvas on an Avalanche L1. Invoices, approvals, splits, schedules and advances, drawn as nodes and edges.
 
-Testnet only: zUSDC has no real value and Vault yield is simulated.
+Testnet token: zUSDC, gas ZAX.
 
 | | |
 |---|---|
 | App | https://app.100-63-191-30.sslip.io |
-| Sandbox (no wallet needed) | https://app.100-63-191-30.sslip.io/app/canvas?sandbox=1 |
+| Sandbox | https://app.100-63-191-30.sslip.io/app/canvas?sandbox=1 |
 | Explorer | https://app.100-63-191-30.sslip.io/app/explorer |
-| Chain | Zalax L1 on Fuji, chain id `102026`, gas token ZAX. RPC in [l1-hosting.md](docs/runbooks/l1-hosting.md) |
+| API | https://api.100-63-191-30.sslip.io/v1 |
 
-## What it does
+## Network
 
-| Feature | What you get |
+| | |
 |---|---|
-| Canvas | One view of every money flow. Each party is the same `CanvasAccount` contract |
-| Relationships | Add a counterparty by address or invite link. Buyer and Seller are roles on the link, not on the account |
-| Invoices | Issued as NFTs. The buyer approves against a Budget, escrows, then pays |
-| Approval policy | M of N signatures above a single-signature limit per 24 h |
-| Split | Every incoming payment divides itself into up to 8 legs: Hold, Transfer, Vault |
-| One-transaction payment | Buyer, then the Funding pool if advanced, then the seller's Split, in one transaction |
-| Advance | 80% of face value as soon as the invoice is approved, from a Funding pool fed by liquidity providers |
-| Schedules | Pay an invoice or transfer money at set times. A keeper runs them |
-| Inbox, Timeline, Overview | What needs you, what happened, and where the money is |
+| Name | Zalax Payroll Chain (Avalanche L1 on Fuji) |
+| Chain ID | `102026` |
+| Gas token | ZAX |
+| RPC | `https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc` |
+| WebSocket | same path, ending in `/ws` |
+| Blockchain ID | `L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC` |
+| Subnet ID | `pCbR7R4jGiJTBKkrMCLsALnNyJqYARb4GhknNGgU6f2bE8MyM` |
+| Validator | `NodeID-EdNQxmA2ZQw8aCibA4V5onkEpPgvESWBE` |
 
-Full feature list, user stories and glossary: [docs/product/product-doc.md](docs/product/product-doc.md).
+## Deployment
 
-## How it works
+Deployed 15 Nov 2026, block 24. Source: [deployments/l1.json](packages/contracts/deployments/l1.json).
+
+| Contract | Address |
+|---|---|
+| ZalFactory | `0xb6fB0bAE55C3B10A52AbFB12a954F9AD7ce10013` |
+| CanvasAccount (implementation) | `0xb67FF575307699dDACd58F581b894C9C316b1EF6` |
+| RelationshipRegistry | `0x5FE372365723AAA13F59a790fB09CFC17914a191` |
+| ZalInvoice | `0xf95A169Fd0A5190F3661FFd8bcdE45f229f4D972` |
+| ZalFundingPool | `0xdfaE31B5d0B46595220788A81821f669f63CF11c` |
+| ZalVault | `0x7fF89d37623f70987485deec28ACC7a38bd73F78` |
+| ZUSDC | `0x443B9429EA87faAE61c3cCb6b10477D6993E1c30` |
+| Owner | `0x9F7c870D0347989c2aB8c3a3263467874936208f` |
+| Schedule keeper (gas only) | `0x5050931129c6dd089ba550354B5746a9b86Dd2f7` |
+| Gas faucet | `0xc303d559a991fa0f0d6af475a57df7299dd6bedb` |
+
+| Parameter | Value |
+|---|---|
+| `advanceRateBps` | 8000 (80%) |
+| `annualFeeBps` | 1521 (15.21%/yr) |
+| `vaultSimulatedApyBps` | 0 |
+| Compiler | Solidity 0.8.25, `cancun` |
+
+Deploy: `ZAL_NETWORK=l1 forge script script/Deploy.s.sol --rpc-url <RPC> --broadcast`. Full steps: [l1-hosting.md](docs/runbooks/l1-hosting.md).
+
+## Features
+
+| Feature | |
+|---|---|
+| Canvas | One canvas per party, same contract for all |
+| Relationships | Add counterparty by address or invite link |
+| Invoices | NFT. Approve against a Budget, escrow, pay |
+| Approval policy | M of N above a 24 h limit |
+| Split | Auto-split income: Hold, Transfer, Vault |
+| One-transaction payment | Buyer → pool → seller's Split, one tx |
+| Advance | 80% on approval, from the Funding pool |
+| Schedules | Timed or recurring payments, run by a keeper |
+| Inbox, Timeline, Overview | To-do, history, money summary |
+
+Details: [product-doc.md](docs/product/product-doc.md).
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    W["Web (Next.js)"] -- "sign and send tx" --> L1["Zalax L1: Zal contracts"]
-    L1 -- "events" --> I["Indexer (Ponder) + /v1 API"]
-    I -- "REST + SSE" --> W
-    K["Keeper"] -- "runSchedule" --> L1
-    I -- "due schedules" --> K
+    W["Web"] -- "tx" --> L1["Zal contracts (L1)"]
+    L1 -- "events" --> I["Indexer + API"]
+    I -- "REST, SSE" --> W
+    I -- "due schedules" --> K["Keeper"]
+    K -- "runSchedule" --> L1
 ```
 
-- **Contracts** hold every rule and every balance. The UI derives each node's state from the chain, never from client state.
-- **Indexer** turns contract events into a read API and pushes changes over SSE, so both canvases update within seconds.
-- **Keeper** runs due schedules. It pays gas only and holds no authority over funds.
-- **Sandbox** runs the same contract bytecode in the browser, with bots as counterparties and a movable clock.
+## Stack
 
-## Tech stack
-
-| Layer | Stack |
+| | |
 |---|---|
 | Contracts | Solidity 0.8.25, Foundry, OpenZeppelin 5 |
-| Chain | Avalanche L1 (Subnet-EVM) on Fuji |
-| Web | Next.js 16, React 19, HeroUI v3, xyflow, wagmi, viem, TanStack Query, tevm (sandbox) |
-| Indexer | Ponder, Hono, PostgreSQL 17, SSE |
+| Web | Next.js 16, HeroUI v3, xyflow, wagmi, viem, tevm |
+| Indexer | Ponder, Hono, PostgreSQL 17 |
 | Keeper | Node.js, viem |
-| Ops | pnpm workspaces, Docker Compose, Caddy |
+| Ops | pnpm, Docker Compose, Caddy |
 
-## Run it locally
-
-Needs Docker with Compose v2, Node 24 and pnpm.
+## Run locally
 
 ```bash
 git clone --recurse-submodules <repo-url> zal && cd zal
 docker compose up -d --build --wait
 ```
 
-Open http://localhost:3100. The stack runs Postgres, anvil (chain 31337), the contract deploy, the indexer, the keeper and the web app. To use a wallet, add a network with RPC `http://localhost:8545` and chain id `31337`, then mint zUSDC from **Deposit**. Details and ports: [local-stack.md](docs/runbooks/local-stack.md).
+Web http://localhost:3100 · RPC `http://localhost:8545` · chain `31337`. More: [local-stack.md](docs/runbooks/local-stack.md).
 
-Without Docker, try the Sandbox: `pnpm install && pnpm --filter @zal/web dev`, then open `/app/canvas?sandbox=1`.
+Sandbox only: `pnpm install && pnpm --filter @zal/web dev`.
 
 ## Repository
 
-| Path | What | Common commands |
-|---|---|---|
-| [packages/contracts](packages/contracts) | Smart contracts and tests | `pnpm --filter @zal/contracts build`, `test` |
-| [packages/web](packages/web) | Landing, canvas app, explorer, sandbox | `pnpm --filter @zal/web dev`, `test`, `lint`, `typecheck` |
-| [packages/indexer](packages/indexer) | Ponder indexer and `/v1` API | `pnpm --filter @zal/indexer test` |
-| [packages/keeper](packages/keeper) | Schedule runner | `pnpm --filter @zal/keeper test` |
-| [deploy/l1](deploy/l1) | Production compose, Caddy, redeploy script | `deploy/l1/redeploy.sh` |
-| [docs](docs) | Product, architecture, runbooks | n/a |
-
-After any contract ABI change, run `forge build`, then `pnpm --filter @zal/web gen:contracts`.
-
-## Documentation
-
-| Read | For |
+| Path | |
 |---|---|
-| [One-pager](docs/product/one-pager.md) | Zal in two minutes |
-| [Product document](docs/product/product-doc.md) | Positioning, personas, features, glossary |
-| [PRD](docs/product/prd.md) | User stories and acceptance criteria |
-| [Architecture](docs/architecture/README.md) | Contracts, requirements, system design |
-| [Runbooks](docs/runbooks) | Running the local stack and the L1 host |
-| [AGENTS.md](AGENTS.md) | Rules for contributors and coding agents |
+| [packages/contracts](packages/contracts) | Contracts, tests |
+| [packages/web](packages/web) | App, explorer, sandbox |
+| [packages/indexer](packages/indexer) | Indexer, `/v1` API |
+| [packages/keeper](packages/keeper) | Schedule runner |
+| [deploy/l1](deploy/l1) | Production stack, `redeploy.sh` |
+| [docs](docs) | Product, architecture, runbooks |
+
+## Docs
+
+[One-pager](docs/product/one-pager.md) · [Product doc](docs/product/product-doc.md) · [PRD](docs/product/prd.md) · [Architecture](docs/architecture/README.md) · [Runbooks](docs/runbooks) · [AGENTS.md](AGENTS.md)
