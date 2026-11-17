@@ -122,7 +122,7 @@ try {
     await deselect();
     await pick("endpoint").click();
     await inspector().getByText("Public: buyers see your Split").click();
-    await node("split").getByText("endpoint public").waitFor();
+    await page.getByText("Split visibility saved").first().waitFor();
     await deselect();
     await page.dragAndDrop("[data-component=counterparty]", ".react-flow__node-account");
     await button("Use demo club").click();

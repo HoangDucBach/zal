@@ -82,9 +82,9 @@ export function sellerDemo(state: CanvasState): DemoTrack {
 
   return track([
     {
-      title: "Build the receiving flow, publish the endpoint",
+      title: "Build the receiving flow, make the Split public",
       done: state.account.route.length > 0 && state.account.endpointPublic,
-      hint: "Account → Split: Vault 10%, Hold 90%, endpoint public",
+      hint: "Account → Split: Vault 10%, Hold 90%, Split public",
       focus: nodeId.split,
     },
     {

@@ -106,7 +106,7 @@ interface FormProps {
 export const ACTION_TITLES: Record<CanvasAction["kind"], string> = {
   createAccount: "New canvas",
   proposeRelationship: "New counterparty",
-  publishEndpoint: "Payee endpoint",
+  publishEndpoint: "Split visibility",
   issueInvoice: "New invoice",
   addBudget: "New budget",
   approveInvoice: "Approval",
@@ -450,7 +450,7 @@ export function EndpointForm({
 }: Omit<FormProps, "onDone"> & { readonly onDone?: () => void }) {
   const setPublic = useSetEndpointPublic({
     network,
-    options: feedback("Endpoint visibility saved", onDone),
+    options: feedback("Split visibility saved", onDone),
   });
 
   return (
@@ -1174,7 +1174,7 @@ export function ActionForm({
       return (
         <>
           <SplitForm {...props} vaultLeg={action.vaultLeg} />
-          <Section title="Payee endpoint">
+          <Section title="Split visibility">
             <EndpointForm network={props.network} state={props.state} />
           </Section>
         </>

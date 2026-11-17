@@ -64,7 +64,7 @@ export type Availability =
 export const CATALOGUE = [
   { component: "account", group: "Root", title: "Account" },
   { component: "counterparty", group: "Relationship", title: "Counterparty" },
-  { component: "endpoint", group: "Relationship", title: "Payee endpoint" },
+  { component: "endpoint", group: "Relationship", title: "Split visibility" },
   { component: "invoice", group: "Document", title: "Invoice" },
   { component: "budget", group: "Spend control", title: "Budget" },
   { component: "approval", group: "Spend control", title: "Approval" },
@@ -244,7 +244,7 @@ function attach(
     case "endpoint":
       return onCanvas(target, "split")
         ? ready({ kind: "publishEndpoint" })
-        : blocked("Payee endpoint attaches to the Account or Split");
+        : blocked("Split visibility attaches to the Account or Split");
     case "split":
       return onCanvas(target, "split")
         ? ready({ kind: "setRoute" })
@@ -428,7 +428,7 @@ export function describeAction(action: CanvasAction): string {
     case "proposeRelationship":
       return "Propose a relationship";
     case "publishEndpoint":
-      return "Set payee endpoint visibility";
+      return "Set Split visibility";
     case "issueInvoice":
       return `Issue invoice on relationship #${action.relationshipId}`;
     case "addBudget":

@@ -127,7 +127,7 @@ These five functions are `onlySelf`. Members reach them only through `submit` an
 - A leg that would revert must not block settlement. A vault deposit that reverts, returns no or short data, or runs out of gas falls back to Hold and emits `LegFailed`. Call the vault with a low-level call and check the return data length before decoding. A Transfer leg that fails also falls back to Hold. A Transfer leg to the zero address is rejected in `setRoute`.
 - `receivePayment` is not `nonReentrant`. It is reachable only from `ZalInvoice` and `ZalFundingPool`, which hold their own guards, and an account must be able to receive inside its own gated call (the seller settling its own escrowed invoice, ZR-ACC-10). A vault called by a leg is not a member, so it cannot reach any account action.
 
-### Payee Endpoint visibility
+### Split visibility (`endpointPublic`)
 `endpointPublic` is an off-chain display flag, not on-chain privacy. Any chain reader sees the route. The PRD's private mode hides the route in the Zal UI only (open question 3).
 
 ### Scheduled payments

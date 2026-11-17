@@ -5,7 +5,7 @@ Do not fill a TBD yourself. Propose a value, mark it proposed, and ask.
 ## Product (from the PRD)
 1. Can a buyer create an invoice (a purchase order) for the seller to approve, or only the seller? v1 contracts: seller only.
 2. Recourse or non-recourse when an invoice is not escrowed? v1 contracts: the pool advances only against escrowed invoices or buyers the owner enrolled with a credit limit. An unpaid funded invoice stays open in the pool. Who sets the limits, and how, is open.
-3. Is the Payee Endpoint public or private by default? On-chain the route is always readable, so "private" hides it in the Zal UI only. Real privacy (for example a commitment plus a route revealed at pay time) breaks one-transaction settlement and is not planned.
+3. Is Split visibility public or private by default? On-chain the route is always readable, so "private" hides it in the Zal UI only. Real privacy (for example a commitment plus a route revealed at pay time) breaks one-transaction settlement and is not planned.
 4. How long does a ghost proposal live before it expires? `Relationship.expiresAt` exists. Default TTL is TBD.
 5. Resolved on 15 Nov 2026, as the coordinator's default, so the owner can still change it. A wallet opens any canvas where `roleOf(wallet)` is not None.
    - You pick the canvas in the sidebar switcher, and the URL carries it as `?account=`.

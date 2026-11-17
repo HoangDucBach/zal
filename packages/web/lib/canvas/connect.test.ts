@@ -122,7 +122,7 @@ describe("canConnect: every valid pair opens its action", () => {
       "setPolicy",
     ],
     [
-      "Account -> draft Payee endpoint",
+      "Account -> draft Split visibility",
       node(nodeId.account),
       draft("endpoint"),
       "publishEndpoint",

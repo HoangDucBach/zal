@@ -60,7 +60,7 @@ Source: `packages/web/lib/canvas/roles.ts`. A wallet may belong to several canva
 |---|---|
 | Draft, ghost, solid | Node states. Draft: on your canvas only, not on-chain. Ghost: on-chain, awaiting the other side. Solid: committed on-chain |
 | Split | Your receive route: up to 8 legs (Hold, Transfer, Vault) summing to 100%. Remainder to the last leg; a failing leg falls back to Hold |
-| Payee endpoint | Public or private flag on your Split. Hides the route in the Zal UI only; on-chain it stays readable |
+| Split visibility | Public or private flag on your Split. Hides the route in the Zal UI only; on-chain it stays readable |
 | Gated op | Spend that may need confirmations: approve, escrow, pay, withdraw, create schedule |
 | Allowance | Single-signature spend per rolling 24 h for the whole account; above it, M of N applies |
 | Escrow | Buyer locks face value in the invoice contract; anyone may settle once due |
@@ -78,7 +78,7 @@ Palette components as in `packages/web/lib/canvas/palette.ts` (`CATALOGUE`), plu
 |---|---|---|---|---|---|
 | Root | Account | nothing | Creates your canvas | C1 | live |
 | Relationship | Counterparty | Account | Propose by address, or invite by link | R1, R2, R4 | live |
-| Relationship | Payee endpoint | Account, Split | Set visibility public or private | R3 | live |
+| Relationship | Split visibility | Account, Split | Set visibility public or private | R3 | live |
 | Document | Invoice | Active counterparty you sell to | Issue an Invoice NFT: face value, due in days | I1 | live |
 | Spend control | Budget | Account; issued invoice you pay | Add a budget; approve an invoice against it | B1, I2 | live |
 | Spend control | Approval | Account (2+ members) | Threshold and 24 h allowance | P3 | live |
@@ -122,7 +122,7 @@ Priority: P0 demo-critical, P1 should have, P2 if time allows.
 |---|---|---|---|---|
 | R1 | As a user, I add a counterparty by canvas address or invite link and choose my role | Ghost counterparty on both canvases within seconds. One `Proposed` or `Active` relationship per pair. Proposals never expire in v1 UI (TTL TBD) | ZR-REL-01, ZR-REL-03, AT-02, AT-04 | P0 |
 | R2 | As the proposed party, I accept or reject on the ghost node | Only the non-proposer decides. Accept: solid on both. Reject: faded. Proposer may cancel while proposed | ZR-REL-02, AT-03 | P0 |
-| R3 | As a seller, I set my payee endpoint public or private | Flag stored on the account; shown on my Split node. Private hides the route in the Zal UI only (open question 3) | ZR-ACC-07 | P0 |
+| R3 | As a seller, I set my Split visibility public or private | Flag stored on the account; set from the Split. Private hides the route in the Zal UI only (open question 3) | ZR-ACC-07 | P0 |
 | R4 | As an Admin, I invite someone with no canvas by link | Admin signs an invite (valid 7 days). Invitee opens `/app/invite/:id`, creates a canvas, accepts; relationship `Active` in one tx. Replay, expiry and own-invite are refused. Live mode only | ZR-REL-03, AT-04 | P1 |
 
 ### 5.3 Invoices

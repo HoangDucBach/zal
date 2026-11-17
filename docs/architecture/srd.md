@@ -1425,7 +1425,7 @@ PRD story codes are from the [PRD features table](../product/prd.md#4-features) 
 | C3 ghost vs solid | n/a | web `lib/canvas/graph.test.ts`, `presentation.test.ts` |
 | R1 add counterparty | ZR-REL-01, ZR-REL-03, ZR-SYS-02 | AT-02, AT-04 | `RelationshipRegistry.t.sol`; indexer `test/security.test.ts` (invites) |
 | R2 accept or reject | ZR-REL-02 | AT-03 | `RelationshipRegistry.t.sol` |
-| R3 payee endpoint | `setEndpointPublic` (no ZR), OQ 3 | n/a | no contract unit test; exercised by web `lib/sandbox/engine/demo-flow.test.ts` and indexer `test/stack/demo.ts` |
+| R3 Split visibility | `setEndpointPublic` (no ZR), OQ 3 | n/a | no contract unit test; exercised by web `lib/sandbox/engine/demo-flow.test.ts` and indexer `test/stack/demo.ts` |
 | I1 issue invoice | ZR-INV-01, ZR-INV-05 | AT-05 | `ZalInvoice.t.sol` |
 | I2 approve with budget | ZR-INV-02, ZR-ACC-06 | AT-06 | `CanvasAccount.t.sol` |
 | I3 escrow | ZR-INV-03, ZR-PAY-03, ZR-ACC-10 | AT-07, AT-11, AT-19, INV-07 | `CanvasAccount.t.sol`, `ZalInvoice.t.sol`, `Zal.invariant.t.sol` |
@@ -1450,7 +1450,7 @@ TBDs live in [open-questions.md](open-questions.md). Do not fill them here.
 |---|---|---|
 | Buyer-created invoices (purchase orders) | open | OQ 1 |
 | Recourse; who sets obligor limits and how | open | OQ 2 |
-| Payee endpoint default visibility | open | OQ 3 |
+| Split visibility default | open | OQ 3 |
 | Relationship proposal TTL | TBD | OQ 4 |
 | `annualFeeBps` | TBD; `1521` in deploy configs is marked TBD-demo | OQ 6, [l1.toml](../../packages/contracts/script/config/l1.toml) |
 | Advance through Split or Hold | v1 Hold | OQ 7 |

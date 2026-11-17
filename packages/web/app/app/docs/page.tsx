@@ -83,7 +83,7 @@ export default function DocsPage() {
             <>
               Select nothing and add a {b("Split")} from the palette: 10% to the
               Vault (simulated yield), 90% held. Save it, then switch the{" "}
-              {b("Payee endpoint")} to public.
+              {b("Split visibility")} to public.
             </>,
             <>
               Add a {b("Counterparty")}: use the demo club and choose{" "}

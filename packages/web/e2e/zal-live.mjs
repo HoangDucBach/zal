@@ -173,7 +173,7 @@ try {
   });
   await dShot("canvas-created");
 
-  await step("demo 1: designer builds the Split and publishes the endpoint", async () => {
+  await step("demo 1: designer builds the Split and makes it public", async () => {
     await D.pick("split").click();
     await D.inspector().getByText("Save Split").waitFor();
     await D.button("Save Split").click();
@@ -181,9 +181,9 @@ try {
     await D.deselect();
     await D.pick("endpoint").click();
     await D.inspector().getByText("Public: buyers see your Split").click();
-    await D.node("split").getByText("endpoint public").waitFor({ timeout: 20_000 });
+    await designer.page.getByText("Split visibility saved").first().waitFor({ timeout: 20_000 });
   });
-  await dShot("split-endpoint");
+  await dShot("split-visibility");
 
   await step("club funds its canvas from the Deposit faucet", async () => {
     await C.button("Deposit").click();

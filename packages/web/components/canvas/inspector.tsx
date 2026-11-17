@@ -467,7 +467,7 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
       return allows(state.account.myRole, "admin") ? (
         <>
           <SplitForm network={network} state={state} />
-          <Section title="Payee endpoint">
+          <Section title="Split visibility">
             <EndpointForm network={network} state={state} />
           </Section>
         </>
@@ -496,7 +496,7 @@ function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
             />
           ))}
           <Row
-            label="Payee endpoint"
+            label="Split visibility"
             value={state.account.endpointPublic ? "public" : "private"}
           />
           <Note>Admins change the Split</Note>

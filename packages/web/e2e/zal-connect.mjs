@@ -143,7 +143,7 @@ try {
   await dropAt("endpoint", await pane(-200, 240));
   await connect(node("split"), node("draft").first());
   await inspector().getByText("Public: buyers see your Split").click();
-  await node("split").getByText("endpoint public").waitFor();
+  await page.getByText("Split visibility saved").first().waitFor();
   if ((await node("draft").count()) > 0) {
     await node("draft").first().click({ button: "right" });
     await page.getByRole("menuitem", { name: /Delete draft/ }).click();
