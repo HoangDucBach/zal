@@ -167,7 +167,7 @@ describe("deployment config", () => {
   });
 });
 
-describe("requiredNow (ADR 0016, ZR-ACC-11)", () => {
+describe("requiredNow (ZR-ACC-11)", () => {
   const acc = {
     address: "0x00000000000000000000000000000000000000a1" as const,
     threshold: 2,

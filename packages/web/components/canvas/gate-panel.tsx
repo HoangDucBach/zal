@@ -1,6 +1,6 @@
 "use client";
 
-// The Inspector for a gate (ADR 0011): the child canvas's name, what crosses its boundary, and Open, Rename and
+// The Inspector for a gate: the child canvas's name, what crosses its boundary, and Open, Rename and
 // Dissolve. A child canvas is a view of this account's graph, so nothing here sends a transaction.
 
 import type { GateSummary } from "@/lib/canvas/layout";

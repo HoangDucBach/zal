@@ -1,6 +1,6 @@
 "use client";
 
-// What a schedule card needs beyond chain state (ADR 0015): a clock that keeps moving between reads, so "Run now"
+// What a schedule card needs beyond chain state: a clock that keeps moving between reads, so "Run now"
 // appears when a schedule falls due, and whether a keeper is running it.
 
 import type { ZalNetwork } from "@/config/chains";

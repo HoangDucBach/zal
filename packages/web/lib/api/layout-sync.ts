@@ -1,4 +1,4 @@
-// Live-mode layout sync (ADR 0011, ADR 0012). The server holds a base layout at a revision; the client keeps the
+// Live-mode layout sync. The server holds a base layout at a revision; the client keeps the
 // edits it has not had acknowledged, as functions, and shows them applied over the base. A save sends the result
 // with the base's revision. On 409 the client takes the newer base and replays its edits on it, which is "reload
 // and apply your change again" without losing the user's change. Each edit is a function of the layout it applies to

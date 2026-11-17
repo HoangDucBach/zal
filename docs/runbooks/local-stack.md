@@ -1,6 +1,6 @@
 # Local stack
 
-Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the contracts, the indexer with the `/v1` API, and the web app (ADR 0012).
+Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the contracts, the indexer with the `/v1` API, and the web app.
 
 ## Before you start
 
@@ -23,7 +23,7 @@ Run the live-mode stack on one machine: Postgres, anvil as the local Zal L1, the
    | `anvil` | Chain 31337. State persists in the `anvil` volume | `cast chain-id` answers |
    | `deploy` | Runs `Deploy.s.sol` once, then exits 0. On a rerun it sees the factory has code and skips | exited 0 |
    | `indexer` | Applies the `zal_app` migrations, then `ponder start` | `GET /ready` returns 200 |
-   | `keeper` | Sends `runSchedule` for due schedules (ADR 0015) from anvil's account 9 | `GET /health` returns 200 |
+   | `keeper` | Sends `runSchedule` for due schedules from anvil's account 9 | `GET /health` returns 200 |
    | `web` | Next.js, live network baked in at build time | `GET /` returns 200 |
 
 2. Check that every service is healthy:
@@ -75,7 +75,7 @@ If anvil runs on another host port, set `ZAL_RPC_URL`, for example `ZAL_RPC_URL=
 | `GET /v1/stream?account=` | SSE: `ready`, then `feed` events with id `<block>-<logIndex>`, and `layout` events. A `Last-Event-ID` more than 2,000 rows back gets `reset` first: refetch state. At most 10 streams per client and 1,000 in all |
 | `POST /v1/auth/nonce`, `POST /v1/auth/verify` | Sign-in with Ethereum, then a bearer token |
 | `GET`, `DELETE /v1/auth/session` | The session's wallet, or sign out |
-| `PUT /v1/accounts/:address/layout` | Approvers and admins only (ADR 0014). Always send `revision` (0 for the first save) to get 409 on a lost update |
+| `PUT /v1/accounts/:address/layout` | Approvers and admins only. Always send `revision` (0 for the first save) to get 409 on a lost update |
 | `GET /v1/wallets/:wallet/accounts?limit=&cursor=&acted=&q=` | Canvases the wallet is a member of, acted-on first, 50 per page (max 100). Hints only: the client verifies each on-chain |
 | `POST /v1/notifications/read` | Marks keys read for the signed-in wallet |
 | `POST /v1/invites`, `GET /v1/invites/:id` | A signed relationship invite behind a link id |
@@ -98,7 +98,7 @@ Request bodies are capped at 64 KB, and a layout at 256 KB. Every success carrie
 
 ## Scheduled payments
 
-The `keeper` service runs schedules once they are due (ADR 0015). Every 10 seconds (`KEEPER_TICK_MS`) it reads `GET /v1/schedules/due`, simulates each run at the next block's time, and sends `runSchedule` one transaction at a time. A run that would revert is skipped and retried with backoff.
+The `keeper` service runs schedules once they are due. Every 10 seconds (`KEEPER_TICK_MS`) it reads `GET /v1/schedules/due`, simulates each run at the next block's time, and sends `runSchedule` one transaction at a time. A run that would revert is skipped and retried with backoff.
 
 - `curl localhost:42070/health` shows `ok`, the keeper address, its gas balance, the last tick and counts.
 - `curl localhost:42070/status` lists recent runs and failures.

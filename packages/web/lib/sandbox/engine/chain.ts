@@ -1,4 +1,4 @@
-// The sandbox chain: tevm's in-memory EVM running the compiled Zal bytecode (ADR 0007). Every state change goes
+// The sandbox chain: tevm's in-memory EVM running the compiled Zal bytecode. Every state change goes
 // through `send` or `advanceTime`, which append to a journal with the block timestamp they used. Replaying the
 // journal rebuilds the same chain, logs included, which is how the sandbox persists across reloads.
 

@@ -19,7 +19,7 @@ import { advanceSandboxTo } from "@/lib/sandbox/session";
 
 /**
  * What happened on this canvas, in chain order, and the payments coming up. In the sandbox the clock can jump to
- * the next due date, so the demo really reaches maturity (ADR 0007). Dragging back through history (story T1) is
+ * the next due date, so the demo really reaches maturity. Dragging back through history (story T1) is
  * not built yet.
  */
 export function Timeline({

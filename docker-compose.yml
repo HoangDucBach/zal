@@ -1,4 +1,4 @@
-# The whole live-mode stack on one machine (ADR 0012, docs/runbooks/local-stack.md):
+# The whole live-mode stack on one machine (docs/runbooks/local-stack.md):
 # postgres, anvil as the local stand-in for the Zal L1, a one-shot deploy, the indexer and /v1 API, the schedule
 # keeper, and the web app.
 # Every key and password here is a local-only development value. Never reuse them on a shared network.
@@ -83,7 +83,7 @@ services:
       deploy:
         condition: service_completed_successfully
 
-  # Sends runSchedule for due schedules (ADR 0015). It pays gas only and holds no authority over funds.
+  # Sends runSchedule for due schedules. It pays gas only and holds no authority over funds.
   keeper:
     build:
       context: .

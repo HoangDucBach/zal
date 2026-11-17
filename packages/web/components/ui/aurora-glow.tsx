@@ -105,7 +105,7 @@ function hueFade(index: number, count: number, peak: number): number[] {
 
 /**
  * A dark card background with bright, soft lights in the theme's primary colour that chase each other around its edge,
- * bending at the corners and cross-fading between hues (ADR 0017), with film grain on top. Put it in a `relative isolate overflow-hidden` box
+ * bending at the corners and cross-fading between hues, with film grain on top. Put it in a `relative isolate overflow-hidden` box
  * inside a `dark` theme scope, so the text on it is light. Still under reduced motion.
  */
 export function AuroraGlow({

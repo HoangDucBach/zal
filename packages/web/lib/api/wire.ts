@@ -1,4 +1,4 @@
-// The /v1 wire form (ADR 0012) parsed back into the web's own types. The API sends bigints as decimal strings,
+// The /v1 wire form parsed back into the web's own types. The API sends bigints as decimal strings,
 // addresses lowercase and a missing value as `null`. Addresses come back checksummed, the form RPC reads give,
 // so the rest of the app compares them the same way in both sources.
 
@@ -191,7 +191,7 @@ export const canvasStateSchema: z.ZodType<CanvasState, unknown> = z.object({
         confirmedByMe: z.boolean(),
       }),
     ),
-    /** An API from before ADR 0015 sends none. */
+    /** An API from before on-chain schedules sends none. */
     schedules: z.array(schedule).default([]),
     vaultShares: big,
     vaultAssets: big,

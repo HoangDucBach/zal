@@ -540,7 +540,7 @@ contract ZalHandler is Test {
         }
     }
 
-    /// @dev An independent model of ADR 0016: only executions below the threshold count, and a window lasts 24 h
+    /// @dev An independent model of the rolling 24 h limit: only executions below the threshold count, and a window lasts 24 h
     /// from the first such execution after the last one expired.
     function _modelWindow(CanvasAccount account, uint256 opId) private {
         uint8 threshold = account.threshold();

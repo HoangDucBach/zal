@@ -6,7 +6,7 @@
 // - Each demo partner the visitor creates behaves like one of them: a buyer like the club (one signer), a seller
 //   like the print shop.
 // - Every bot counterparty accepts a relationship the visitor proposes to it.
-// - The keeper runs every due schedule on every canvas (ADR 0015). `runSchedule` is permissionless and pays only
+// - The keeper runs every due schedule on every canvas. `runSchedule` is permissionless and pays only
 //   what the account approved, so the keeper holds no rights over anyone's account.
 //
 // `runBots` reconciles from chain state instead of reacting to single events, so a tick that was interrupted (a
@@ -203,7 +203,7 @@ interface InvoiceView {
 }
 
 export interface BotOptions {
-  /** Pay this invoice now, before its due date (ADR 0004 allows early payment). */
+  /** Pay this invoice now, before its due date; early payment is allowed. */
   readonly payNow?: bigint;
 }
 

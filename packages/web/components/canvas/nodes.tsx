@@ -1,9 +1,9 @@
 "use client";
 
-// One xyflow node type per PRD catalogue component, plus the gate of a child canvas, its ports (ADR 0011) and drafts.
+// One xyflow node type per PRD catalogue component, plus the gate of a child canvas, its ports and drafts.
 // Each is a HeroUI Card with a structured head (icon tile, muted kind label, title, one status chip) and one row per
-// fact (ADR 0017). Solid nodes use the `default` variant; ghost and ended nodes the `transparent` one with a dashed
-// outline (ADR 0003); drafts, not on-chain at all, the `secondary` one with an accent dashed outline. While a
+// fact. Solid nodes use the `default` variant; ghost and ended nodes the `transparent` one with a dashed
+// outline; drafts, not on-chain at all, the `secondary` one with an accent dashed outline. While a
 // connection is dragged, every node shows whether it would accept it: valid ones ring in success, the rest dim with
 // a not-allowed cursor.
 
@@ -278,8 +278,8 @@ function Header({
 }
 
 /**
- * A node card (ADR 0017): header, then one row per fact. Solid nodes use the `default` variant; ghost and ended
- * nodes the `transparent` one with a dashed outline (ADR 0003).
+ * A node card: header, then one row per fact. Solid nodes use the `default` variant; ghost and ended
+ * nodes the `transparent` one with a dashed outline.
  */
 function Frame({
   id,
@@ -822,7 +822,7 @@ const PORT_ICON = {
   link: <LinkIcon {...ICON} />,
 } as const;
 
-/** What a gate port means, in one line: its tooltip (ADR 0011). */
+/** What a gate port means, in one line: its tooltip. */
 function portHint(data: PortData): string {
   switch (data.port) {
     case "link":

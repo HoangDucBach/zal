@@ -2,7 +2,7 @@
 
 // The left palette (story C2): components grouped as in the PRD catalogue, filtered by lib/canvas/palette.ts to
 // what fits the selection. Drag one anywhere on the canvas to place a draft, or onto a node to connect it there;
-// click one to add it next to the selection. The Structure group (ADR 0011) groups the selected nodes into a
+// click one to add it next to the selection. The Structure group groups the selected nodes into a
 // child canvas.
 
 import type { PaletteComponent, PaletteEntry } from "@/lib/canvas/palette";

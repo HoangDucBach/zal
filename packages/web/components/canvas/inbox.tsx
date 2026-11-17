@@ -1,6 +1,6 @@
 "use client";
 
-// The Inbox (PRD "Proposal inbox", ADR 0011): ghost nodes waiting for you on any canvas level, and the notification
+// The Inbox (PRD "Proposal inbox"): ghost nodes waiting for you on any canvas level, and the notification
 // feed. It carries the accent, and glows softly when something new arrives until you look at it.
 
 import type { CanvasGraph, CanvasNodeData } from "@/lib/canvas/graph";

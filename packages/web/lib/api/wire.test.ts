@@ -169,7 +169,7 @@ describe("canvas wire form", () => {
     expect(parsed.canvas.invoices[0]?.advance).toBeUndefined();
   });
 
-  test("an API from before scheduled payments sends no schedules: none (ADR 0015)", () => {
+  test("an API from before scheduled payments sends no schedules: none", () => {
     const wire = toWire(live) as { account: Record<string, unknown> };
 
     delete wire.account.schedules;

@@ -24,7 +24,7 @@ export const SANDBOX_BOTS = {
   printShopAdmin: "0x0000000000000000000000000000000000005401",
   /** A second approver on the visitor's own account, so an M-of-N policy can be tried alone. */
   cosigner: "0x00000000000000000000000000000000000c0517",
-  /** Runs every due schedule (ADR 0015). Anyone may (ZR-SCH-05); this bot is "anyone". */
+  /** Runs every due schedule. Anyone may (ZR-SCH-05); this bot is "anyone". */
   keeper: "0x00000000000000000000000000000000000ee9e2",
 } as const satisfies Record<string, Address>;
 
@@ -35,7 +35,7 @@ export const SANDBOX_SEED = {
   lpDeposit: 50_000_000_000n,
   clubEventsBudget: 10_000_000_000n,
   /**
-   * Credit line the pool owner gives the demo club (ADR 0009), so an unescrowed invoice can be advanced too.
+   * Credit line the pool owner gives the demo club, so an unescrowed invoice can be advanced too.
    * A sandbox value for showing both advance paths, not a calibrated limit.
    */
   clubObligorLimit: 20_000_000_000n,

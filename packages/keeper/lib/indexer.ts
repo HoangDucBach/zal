@@ -1,4 +1,4 @@
-// Reads the keeper's work list from the indexer: GET /v1/schedules/due (ADR 0015).
+// Reads the keeper's work list from the indexer: GET /v1/schedules/due.
 
 import type { DueSchedule } from "./keeper.ts";
 

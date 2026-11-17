@@ -1,5 +1,5 @@
-// What a signing control may show: values this client read from the chain itself, never from the API (ADR 0012
-// makes the API a read model). Only the readers in this file brand a value, so a component that takes
+// What a signing control may show: values this client read from the chain itself, never from the API (the API is a
+// read model). Only the readers in this file brand a value, so a component that takes
 // `ChainVerified<T>` cannot be handed an API answer without a cast a reviewer sees.
 
 import type { ZalAddresses } from "@/config/chains";

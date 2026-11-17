@@ -2,7 +2,7 @@
 
 // Live mode's quiet status on the canvas: the one-line sign-in prompt when an edit is waiting to be saved, why a
 // layout edit was not saved or not applied, and "live updates paused" while the API stream is down and the page
-// polls the chain instead (ADR 0012).
+// polls the chain instead.
 
 import type { LayoutPersistence } from "@/hooks/use-canvas-layout";
 

@@ -1,4 +1,4 @@
-// The notification feed, derived on the server from the same CanvasState the web builds (ADR 0012). The kinds,
+// The notification feed, derived on the server from the same CanvasState the web builds. The kinds,
 // titles, details and node ids match packages/web/lib/canvas/notifications.ts; test/web-mirror.test.ts fails if
 // the web's kinds drift from these. Read state is stored per wallet in zal_app.notification_reads.
 

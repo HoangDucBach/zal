@@ -1,7 +1,7 @@
 "use client";
 
 // Notifications as a system (PRD principle 5): live on every app page. A new one raises a toast and makes the
-// canvas Inbox glow until it is seen. Live mode reads the feed and the wallet's read state from the API (ADR 0012);
+// canvas Inbox glow until it is seen. Live mode reads the feed and the wallet's read state from the API;
 // the sandbox derives the feed from the events the canvas already reads. Read state is always kept per chain and
 // wallet in browser storage too, so reading works signed out; once signed in, it is also sent to the API.
 

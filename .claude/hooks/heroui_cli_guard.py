@@ -32,7 +32,7 @@ LOOKUP_CMD = re.compile(r"\bheroui(?:-cli(?:@[\w.-]+)?)?\s+(?:doc|info)\s+([A-Za
 PM_INSTALL = re.compile(r"(?:^|[;&|\n(])\s*(?:\w+=\S*\s+)*(?:pnpm|npm|yarn|bun)\b[^;&|\n]*\b(?:add|install|i|up|update|upgrade)\b[^;&|\n]*@heroui/")
 THEME_CSS = WEB_DIR + "styles/globals.css"
 CLASS_LITERAL = re.compile(r"className=\{?\s*[\"'`]([^\"'`]*)[\"'`]")
-# Subtle gradients are allowed (ADR 0006, amended): linear or radial, with colour stops taken only from the
+# Subtle gradients are allowed: linear or radial, with colour stops taken only from the
 # HeroUI theme tokens, so a theme change still recolours them. Raw palette colours and arbitrary values are not.
 THEME_TOKEN = r"(?:accent|background|foreground|surface(?:-secondary|-tertiary)?|default|muted|success|warning|danger|border|separator|overlay|transparent)"
 DECORATIVE = re.compile(

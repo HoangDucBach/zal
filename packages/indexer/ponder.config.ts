@@ -27,7 +27,7 @@ export default createConfig({
   },
   contracts: {
     ZalFactory: { chain: "zal", abi: zalFactoryAbi, address: addresses.factory, startBlock },
-    // Every canvas is a clone the factory announces with AccountCreated (ADR 0002).
+    // Every canvas is a clone the factory announces with AccountCreated.
     CanvasAccount: {
       chain: "zal",
       abi: canvasAccountAbi,

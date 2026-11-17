@@ -19,7 +19,7 @@ pnpm --filter @zal/web gen:contracts  # after `forge build` or a redeploy in pac
 
 The app runs on one of two networks.
 
-- **Sandbox.** Connect any wallet, then turn on the Sandbox switch in the sidebar footer (or follow a "Try sandbox" link, `?sandbox=1`). The compiled contracts from `packages/contracts/out` run in an in-browser EVM (tevm, ADR 0007). The sandbox uses the connected address without signing prompts. It seeds your account with 10,000 zUSDC (testnet) and a sandbox co-signer as its second approver, puts 5,000 zUSDC in your wallet for the LP role, and adds three counterparties: a demo club that buys from you (two signers, an Events budget, enrolled with the pool), a demo print shop that sells to you (it has already proposed, and issues one invoice at a time once you accept), and an LP. A keeper settles the escrowed invoices you schedule, at their due date. Advance the clock from the canvas (+1 day, +30 days) or jump to a due date from the Timeline. Reset starts over. State is saved in the browser as a journal of transactions plus the keeper's schedule, and replayed on load. Every seeded amount is a sandbox value.
+- **Sandbox.** Connect any wallet, then turn on the Sandbox switch in the sidebar footer (or follow a "Try sandbox" link, `?sandbox=1`). The compiled contracts from `packages/contracts/out` run in an in-browser EVM (tevm). The sandbox uses the connected address without signing prompts. It seeds your account with 10,000 zUSDC (testnet) and a sandbox co-signer as its second approver, puts 5,000 zUSDC in your wallet for the LP role, and adds three counterparties: a demo club that buys from you (two signers, an Events budget, enrolled with the pool), a demo print shop that sells to you (it has already proposed, and issues one invoice at a time once you accept), and an LP. A keeper settles the escrowed invoices you schedule, at their due date. Advance the clock from the canvas (+1 day, +30 days) or jump to a due date from the Timeline. Reset starts over. State is saved in the browser as a journal of transactions plus the keeper's schedule, and replayed on load. Every seeded amount is a sandbox value.
 - **Live.** The Zal L1. It is off until these variables are set and `packages/contracts/deployments/<name>.json` has a deployment for that chain id (then run `gen:contracts`):
 
 | Variable | Meaning |
@@ -29,19 +29,19 @@ The app runs on one of two networks.
 | `NEXT_PUBLIC_ZAL_CHAIN_NAME` | Display name, default `Zal L1` |
 | `NEXT_PUBLIC_ZAL_NATIVE_SYMBOL` | Gas token symbol, default `ZAL` |
 | `NEXT_PUBLIC_ZAL_EXPLORER_URL` | Optional block explorer |
-| `NEXT_PUBLIC_ZAL_API_URL` | The indexer's `/v1` API (ADR 0012), for example `http://localhost:42069`. Without it, live mode reads the chain directly and keeps layout and read state in the browser |
+| `NEXT_PUBLIC_ZAL_API_URL` | The indexer's `/v1` API, for example `http://localhost:42069`. Without it, live mode reads the chain directly and keeps layout and read state in the browser |
 
 A local anvil deployment (`deployments/local.json`, chain 31337) works the same way. The docker stack bakes all of these into the web image; see [docs/runbooks/local-stack.md](../../docs/runbooks/local-stack.md).
 
 ### Live mode with the API
 
 - **Reads.** The canvas, activity and pool come from `GET /v1/accounts/:address/canvas`, and the Inbox from `GET /v1/accounts/:address/notifications`. Responses are zod-parsed into the same types the chain reads give (`lib/api/wire.ts`). If the API is down or answers 5xx, the canvas falls back to reading the chain.
-- **Real time.** One `EventSource` on `GET /v1/stream?account=` per page (`hooks/use-live-updates.ts`). A `feed` event refetches the chain's reads, a `layout` event refetches the canvas snapshot, and `reset` refetches everything. While the stream is down for more than 4 seconds, the page polls the chain instead (ADR 0008) and the canvas shows "Live updates paused".
+- **Real time.** One `EventSource` on `GET /v1/stream?account=` per page (`hooks/use-live-updates.ts`). A `feed` event refetches the chain's reads, a `layout` event refetches the canvas snapshot, and `reset` refetches everything. While the stream is down for more than 4 seconds, the page polls the chain instead and the canvas shows "Live updates paused".
 - **Sign-in.** Reads work signed out. The first layout edit shows a one-line prompt; signing it (EIP-4361, domain and URI are the page's origin) gets a bearer token, kept in memory and `sessionStorage` until the tab closes or the wallet disconnects. The API accepts sign-in only from an origin in its `ZAL_WEB_ORIGIN` allow-list (default `http://localhost:3100,http://localhost:3001`).
 - **Layout.** Positions, child canvases and drafts save to `PUT /v1/accounts/:address/layout` with the revision they started from. On 409 the client reloads the layout and replays its unsaved edits on it (`lib/api/layout-sync.ts`). Chain-derived positions never trigger a save or a sign-in by themselves.
 - **Read state.** Kept in the browser as before, and also sent to `POST /v1/notifications/read` while signed in, so other browsers see it.
 - **Invite links (PRD R1).** In the Counterparty form, "Copy invite link" has the Admin sign the EIP-712 invite, stores it with `POST /v1/invites`, and copies `/app/invite/<id>`. That page shows the proposer as a ghost, creates the invitee's canvas if needed, and redeems with `acceptInvite`.
-- **Deposit (ADR 0013).** The profile toolbar's Deposit item shows the canvas and wallet balances on the L1. On chain 31337 it also mints 1,000 testnet zUSDC.
+- **Deposit.** The profile toolbar's Deposit item shows the canvas and wallet balances on the L1. On chain 31337 it also mints 1,000 testnet zUSDC.
 
 ## End-to-end proofs
 

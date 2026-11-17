@@ -206,7 +206,7 @@ export function toActivity(feed: readonly FeedRow[]): ActivityItem[] {
   });
 }
 
-/** Mirrors `CanvasAccount.SPEND_WINDOW` (ADR 0016). */
+/** Mirrors `CanvasAccount.SPEND_WINDOW`. */
 const SPEND_WINDOW_SECONDS = 86_400n;
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 // The invite link's landing page (PRD R1, ZR-REL-03). It reads the signed invite from the API and shows the
-// proposer as a ghost counterparty: an unredeemed invite is off-chain only (ADR 0003). The invitee creates a canvas
+// proposer as a ghost counterparty: an unredeemed invite is off-chain only. The invitee creates a canvas
 // if needed, then redeems the invite with `acceptInvite`, which creates the relationship already Active.
 
 import { Alert, Button, Card, Chip, Spinner } from "@heroui/react";

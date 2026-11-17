@@ -8,12 +8,12 @@ const schema = z.object({
   l1Name: z.string().min(1).default("Zal L1"),
   l1NativeSymbol: z.string().min(1).default("ZAL"),
   l1Explorer: z.url().optional(),
-  /** The indexer's /v1 API (ADR 0012). Without it, live mode reads the chain directly. */
+  /** The indexer's /v1 API. Without it, live mode reads the chain directly. */
   apiUrl: z
     .url()
     .transform((url) => url.replace(/\/+$/, ""))
     .optional(),
-  /** The schedule keeper (ADR 0015). Only its GET /health is read; without it, schedules show "run manually". */
+  /** The schedule keeper. Only its GET /health is read; without it, schedules show "run manually". */
   keeperUrl: z
     .url()
     .transform((url) => url.replace(/\/+$/, ""))

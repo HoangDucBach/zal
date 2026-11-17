@@ -9,7 +9,7 @@ import {ZalInvoice} from "../src/ZalInvoice.sol";
 import {ReentrantVault} from "./support/Mocks.sol";
 import {ZalTestBase} from "./support/ZalTestBase.sol";
 
-/// @dev Scheduled payments (ADR 0015). The club `C` needs two confirmations to create a schedule; `payee` is a
+/// @dev Scheduled payments. The club `C` needs two confirmations to create a schedule; `payee` is a
 /// plain address that receives Transfer runs.
 contract CanvasAccountScheduleTest is ZalTestBase {
     uint128 internal constant AMOUNT = 100e6;

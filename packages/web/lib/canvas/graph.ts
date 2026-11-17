@@ -116,7 +116,7 @@ export type CanvasNodeData =
       readonly invoice: Invoice;
     }
   | {
-      /** A payment the account approved ahead of time (ADR 0015); ghost while its op waits for signatures. */
+      /** A payment the account approved ahead of time; ghost while its op waits for signatures. */
       readonly kind: "schedule";
       readonly commitment: Commitment;
       readonly schedule: ScheduleView;
@@ -154,7 +154,7 @@ export interface CanvasEdgeSpec {
   readonly label?: string;
   /** Ghost edges are dashed and moving (xyflow `animated`). */
   readonly ghost: boolean;
-  /** `money`: funds move from source to target. `link`: a relationship or reference that moves none (ADR 0011). */
+  /** `money`: funds move from source to target. `link`: a relationship or reference that moves none. */
   readonly flow: EdgeFlow;
 }
 

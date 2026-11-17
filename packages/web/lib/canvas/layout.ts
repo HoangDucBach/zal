@@ -1,5 +1,5 @@
-// The canvas layout (ADR 0011): where each node is drawn and which child canvas holds it. Presentation only, kept
-// per chain and account in browser storage; losing it loses positions and grouping, never money (ADR 0003).
+// The canvas layout: where each node is drawn and which child canvas holds it. Presentation only, kept
+// per chain and account in browser storage; losing it loses positions and grouping, never money.
 // Pure, so every rule (depth, the Account staying on the root, gate ports, placement without overlap) is tested
 // without a browser.
 
@@ -526,7 +526,7 @@ export function addLink(
 }
 
 /**
- * The link's transaction confirmed: the chain draws the connection now (ADR 0003), so the link and its draft end
+ * The link's transaction confirmed: the chain draws the connection now, so the link and its draft end
  * go. The node it `lands` as takes the draft's place and canvas.
  */
 export function settleLink(layout: CanvasLayout, linkId: string): CanvasLayout {
@@ -578,7 +578,7 @@ export function suggestChildName(
 
 // ---- Gates and gate ports -------------------------------------------------------------------------------------
 
-/** How an edge crosses a child canvas's boundary (ADR 0011). */
+/** How an edge crosses a child canvas's boundary. */
 export type GatePort = "inflow" | "outflow" | "link";
 export const GATE_PORTS: readonly GatePort[] = ["inflow", "outflow", "link"];
 

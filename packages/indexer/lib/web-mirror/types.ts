@@ -28,7 +28,7 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
 export const LEG_KINDS = ["hold", "transfer", "vault"] as const;
 export type LegKind = (typeof LEG_KINDS)[number];
 
-/** A party's role in one relationship. Never a property of an account (ADR 0002). */
+/** A party's role in one relationship. Never a property of an account. */
 export type PartyRole = "buyer" | "seller";
 
 export interface Relationship {
@@ -63,7 +63,7 @@ export interface Invoice {
   readonly owner: Address | undefined;
   /** Set while the funding pool holds the NFT. */
   readonly advance: Advance | undefined;
-  /** The pool's credit line for this invoice's buyer (ADR 0009). */
+  /** The pool's credit line for this invoice's buyer. */
   readonly buyerCredit: BuyerCredit;
 }
 
@@ -121,7 +121,7 @@ export interface Leg {
 
 export type ScheduleKind = "transfer" | "payInvoice";
 
-/** A payment the account approved ahead of time (ADR 0015). Anyone may run it once `nextAt` has passed. */
+/** A payment the account approved ahead of time. Anyone may run it once `nextAt` has passed. */
 export interface Schedule {
   readonly id: bigint;
   readonly kind: ScheduleKind;

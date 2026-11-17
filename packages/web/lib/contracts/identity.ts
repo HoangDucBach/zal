@@ -1,4 +1,4 @@
-// Who the visitor is, taken from the wallet and the chain, never from the API (ADR 0012 makes the API a read
+// Who the visitor is, taken from the wallet and the chain, never from the API (the API is a read
 // model). Every transaction target, recipient and signer comes from here, so a wrong or tampered API answer can
 // change what the canvas shows but not where a transaction goes.
 

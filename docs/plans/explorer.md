@@ -10,7 +10,7 @@ A block explorer inside the web app for the Zal L1 (chain 102026). The Avalanche
 | Data source | Ponder `blocks` source (interval 1) in `packages/indexer`, in the same database and SSE pipeline. For each block: `eth_getBlockByNumber(full)` and `eth_getBlockReceipts` (both supported by the node) |
 | Internal txs | Out of MVP. `debug_*` is off on the node |
 | Native balance | The web reads it from the RPC. Every other field comes from the API |
-| Trust | The API is a read model (ADR 0012). The explorer only displays, so it takes no ChainVerified step except for the native balance |
+| Trust | The API is a read model. The explorer only displays, so it takes no ChainVerified step except for the native balance |
 | Look | HeroUI defaults, the app shell, Recharts. Data first: tables, key-value lists and chips. Labels only, no prose |
 
 ## Architecture

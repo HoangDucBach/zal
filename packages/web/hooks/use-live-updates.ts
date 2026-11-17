@@ -1,7 +1,7 @@
 "use client";
 
-// Real time in live mode (ADR 0012): one EventSource on GET /v1/stream for the visitor's account. Each event
-// invalidates the reads it makes stale. While the stream is down, chain polling (ADR 0008) takes over, and the
+// Real time in live mode: one EventSource on GET /v1/stream for the visitor's account. Each event
+// invalidates the reads it makes stale. While the stream is down, chain polling takes over, and the
 // status says so. The sandbox keeps watching its in-browser chain.
 
 import type { Address } from "viem";

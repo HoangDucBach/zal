@@ -1,6 +1,6 @@
 "use client";
 
-// What the Account node holds itself (ADR 0017): role, policy, members, add approver and the faucet live on the card,
+// What the Account node holds itself: role, policy, members, add approver and the faucet live on the card,
 // not in the Inspector.
 
 import type { ZalNetwork } from "@/config/chains";

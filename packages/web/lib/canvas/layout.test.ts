@@ -153,7 +153,7 @@ describe("layout: positions and placement", () => {
   });
 });
 
-describe("layout: child canvases (ADR 0011)", () => {
+describe("layout: child canvases", () => {
   const graph = graphOf(sellerWithInvoice);
   const base = reconcile(EMPTY_LAYOUT, graph, ROOT);
   const picked = [nodeId.counterparty(1n), nodeId.invoice(7n), nodeId.account];
@@ -514,7 +514,7 @@ describe("layout storage", () => {
   });
 });
 
-describe("drafts (presentation only, ADR 0003)", () => {
+describe("drafts (presentation only)", () => {
   const s = state({ relationships: [rel({ status: "active" })] });
   const graph = graphOf(s);
   const base = reconcile(EMPTY_LAYOUT, graph, ROOT);

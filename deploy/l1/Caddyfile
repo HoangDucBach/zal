@@ -32,7 +32,7 @@ api.100-63-191-30.sslip.io {
 	}
 }
 
-# The schedule keeper (ADR 0015): only its read-only health and status pass, for the web's keeper indicator.
+# The schedule keeper: only its read-only health and status pass, for the web's keeper indicator.
 keeper.100-63-191-30.sslip.io {
 	@read {
 		method GET

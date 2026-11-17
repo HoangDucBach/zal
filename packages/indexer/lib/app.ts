@@ -1,4 +1,4 @@
-// The /v1 REST surface (ADR 0012). Built from injected reads, so the routes and the auth rules run in tests
+// The /v1 REST surface. Built from injected reads, so the routes and the auth rules run in tests
 // without Ponder or a chain. src/api/index.ts wires in Ponder's database and RPC client.
 
 import type { Context, MiddlewareHandler } from "hono";
@@ -338,7 +338,7 @@ export function createApp(deps: ApiDeps): Hono<Env> {
     return c.json(toWire({ asOf, pool, lp }) as Record<string, unknown>);
   });
 
-  // The keeper's work list (ADR 0015). Running a schedule is permissionless, so this reveals nothing the chain
+  // The keeper's work list. Running a schedule is permissionless, so this reveals nothing the chain
   // does not, and needs no session.
   app.get("/v1/schedules/due", async (c) => {
     const query = parseInput(dueSchedulesQuery, c.req.query());

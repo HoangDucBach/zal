@@ -102,7 +102,7 @@ cast send <faucet address> --value 100ether \
 Then recreate the indexer (`docker compose -f deploy/l1/docker-compose.yml --env-file deploy/l1/.env up -d indexer`). Top it up the same way when `faucetBalanceWei` in `GET /v1/faucet` runs low. The key never leaves `deploy/l1/.env`, and the API never logs or returns it. Without the key, `POST /v1/faucet` answers 503.
 
 ## Keeper
-Scheduled payments live in each `CanvasAccount` (ADR 0015). `runSchedule(id)` is permissionless, so the keeper only triggers runs that are due. Every `KEEPER_TICK_MS` (10 s by default) it reads `GET /v1/schedules/due` from the indexer on the compose network, simulates each run at the next block's time, and sends `runSchedule` from its own wallet, one transaction at a time. A run that would revert, for example on an empty balance, is skipped and retried with exponential backoff (15 s doubling to 10 min). The wallet pays gas only. It holds no authority over funds, and the chain's `nextAt` refuses a second run, so a keeper outage makes payments late but never lost or doubled.
+Scheduled payments live in each `CanvasAccount`. `runSchedule(id)` is permissionless, so the keeper only triggers runs that are due. Every `KEEPER_TICK_MS` (10 s by default) it reads `GET /v1/schedules/due` from the indexer on the compose network, simulates each run at the next block's time, and sends `runSchedule` from its own wallet, one transaction at a time. A run that would revert, for example on an empty balance, is skipped and retried with exponential backoff (15 s doubling to 10 min). The wallet pays gas only. It holds no authority over funds, and the chain's `nextAt` refuses a second run, so a keeper outage makes payments late but never lost or doubled.
 
 Set it up once, on the host:
 

@@ -1,5 +1,5 @@
 // Whether the funding pool would advance against an invoice now, and if not, why. Mirrors the checks in
-// ZalFundingPool.advance (ZR-FND-01..03, ADR 0009) so the Inspector can explain a disabled button before a revert.
+// ZalFundingPool.advance (ZR-FND-01..03) so the Inspector can explain a disabled button before a revert.
 
 import type { Invoice, PoolState } from "./types";
 

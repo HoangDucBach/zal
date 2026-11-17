@@ -1,4 +1,4 @@
-// Off-chain presentation state (ADR 0012), in the `zal_app` schema. Ponder never touches it, so these are the
+// Off-chain presentation state, in the `zal_app` schema. Ponder never touches it, so these are the
 // only tables that need a backup. Addresses are stored lowercase.
 
 import {
@@ -16,7 +16,7 @@ import {
 
 export const zalApp = pgSchema("zal_app");
 
-/** Canvas layout per chain and account (ADR 0011): the web's stored layout JSON, version 1. */
+/** Canvas layout per chain and account: the web's stored layout JSON, version 1. */
 export const layouts = zalApp.table(
   "layouts",
   {

@@ -1,9 +1,9 @@
 "use client";
 
-// The canvas edge (ADR 0017). Unselected, it is xyflow's default bezier edge (dashed and moving while ghost). Selected,
+// The canvas edge. Unselected, it is xyflow's default bezier edge (dashed and moving while ghost). Selected,
 // it is a solid accent line with a brighter segment running along it from source to target, so the eye can follow
 // one flow through the graph. Under reduced motion the line stays a static accent highlight. A selected ghost edge
-// keeps a fainter line, so ghost and solid stay apart (ADR 0003).
+// keeps a fainter line, so ghost and solid stay apart.
 
 import type { Edge, EdgeProps, EdgeTypes } from "@xyflow/react";
 

@@ -1,4 +1,4 @@
-// Scheduled payments on-chain (ADR 0015): a recurring transfer every minute for 3 runs and a pay-at schedule on an
+// Scheduled payments on-chain: a recurring transfer every minute for 3 runs and a pay-at schedule on an
 // approved invoice; +1 day, and the sandbox keeper has run all of them.
 // Usage: BASE=<web url> node e2e/zal-schedule.mjs [outDir]
 import { BASE, OUT, launch, stubWallet } from "./lib.mjs";

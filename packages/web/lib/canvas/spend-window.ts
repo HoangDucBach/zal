@@ -1,4 +1,4 @@
-// The single-signature allowance of an account (ZR-ACC-11, ADR 0016). `approvalLimit` caps what one signature
+// The single-signature allowance of an account (ZR-ACC-11). `approvalLimit` caps what one signature
 // may spend per rolling 24 h across the whole account; an op that would go over it needs `threshold` signatures.
 
 import type { AccountState } from "./types";

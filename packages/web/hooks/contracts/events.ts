@@ -1,6 +1,6 @@
 "use client";
 
-// Real time (PRD principle 5, ADR 0008): one watcher per Zal contract. Each log invalidates exactly the queries
+// Real time (PRD principle 5): one watcher per Zal contract. Each log invalidates exactly the queries
 // it makes stale, so both canvases of a relationship redraw within one polling interval.
 
 import type { Abi, Address } from "viem";

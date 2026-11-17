@@ -46,7 +46,7 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
     uint64 public constant MIN_SCHEDULE_DELAY = 60;
     uint32 public constant MIN_SCHEDULE_INTERVAL = 60;
     uint32 public constant MAX_SCHEDULE_RUNS = 1000;
-    /// @dev ZR-ACC-11, ADR 0016.
+    /// @dev ZR-ACC-11.
     uint64 public constant SPEND_WINDOW = 1 days;
 
     IZalFactory public immutable factory;
@@ -512,7 +512,7 @@ contract CanvasAccount is ICanvasAccount, ReentrancyGuardTransient {
         if (confirmations < requiredConfirmations(op.amount)) return;
 
         op.executed = true;
-        // ADR 0016: an op that collected the full threshold spends nothing from the window. A one-of-one
+        // An op that collected the full threshold spends nothing from the window. A one-of-one
         // account still records its spend, but its window never blocks.
         uint8 threshold_ = threshold;
         if (confirmations < threshold_ || threshold_ == 1) _chargeWindow(opId, op.amount);

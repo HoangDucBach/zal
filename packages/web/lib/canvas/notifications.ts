@@ -1,5 +1,5 @@
 // The notification feed: the events in a canvas's activity that are news for this account, each pointing at the
-// node it is about. Derived from chain events (ADR 0003), so it needs no storage beyond what has been read.
+// node it is about. Derived from chain events, so it needs no storage beyond what has been read.
 
 import type { CanvasNodeData } from "./graph";
 import type { ActivityItem, CanvasState } from "./types";

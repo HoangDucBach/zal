@@ -30,11 +30,11 @@ flowchart LR
 
 ### Rules every feature follows
 
-1. **One canvas for everyone.** Every party is the same `CanvasAccount` (ADR 0002). There is no buyer or seller mode; the palette offers what fits the selection.
+1. **One canvas for everyone.** Every party is the same `CanvasAccount`. There is no buyer or seller mode; the palette offers what fits the selection.
 2. **Roles belong to relationships.** Buyer and seller label an edge between two canvases, never an account. A club is a seller to its sponsor and a buyer from its designer with the same canvas.
 3. **Nothing lands on another canvas without consent.** One side proposes, the other accepts.
-4. **Chain state decides what the UI shows.** Whether a node is draft, proposed or committed comes from the chain, never from client state (ADR 0003).
-5. **The NFT holder gets paid.** Payment goes to `ownerOf(invoiceId)`: the seller, or the pool once funded (ADR 0005).
+4. **Chain state decides what the UI shows.** Whether a node is draft, proposed or committed comes from the chain, never from client state.
+5. **The NFT holder gets paid.** Payment goes to `ownerOf(invoiceId)`: the seller, or the pool once funded.
 6. **Every action happens on the canvas.** Forms open from nodes, edges and panels. Overview, Docs and Landing only read and navigate. Exceptions: the invite page and the Deposit popover.
 
 ### Two kinds of role
@@ -44,12 +44,12 @@ flowchart LR
 | Seller (payee) | Incoming money splits itself; cash before the due date |
 | Buyer (payer, obligor) | Budgets, signatures above a limit, scheduled payments |
 | Liquidity provider (any wallet, no canvas) | Deposit zUSDC into the pool, earn fees, withdraw idle cash |
-| Pool owner | Sets rates; enrols buyers with a credit limit (ADR 0009) |
+| Pool owner | Sets rates; enrols buyers with a credit limit |
 
 | Member role (per canvas) | Can do | Check |
 |---|---|---|
 | Admin | Everything: relationships, invoices, Split, budgets, members, policy, vault, advance | `onlyAdmin` |
-| Approver | Submit, confirm, revoke gated ops; cancel a schedule; edit layout (ADR 0014) | `onlyApprover` |
+| Approver | Submit, confirm, revoke gated ops; cancel a schedule; edit layout | `onlyApprover` |
 | Viewer | Read only | none |
 
 Source: `packages/web/lib/canvas/roles.ts`. A wallet may belong to several canvases (open question 5).
@@ -62,13 +62,13 @@ Source: `packages/web/lib/canvas/roles.ts`. A wallet may belong to several canva
 | Split | Your receive route: up to 8 legs (Hold, Transfer, Vault) summing to 100%. Remainder to the last leg; a failing leg falls back to Hold |
 | Payee endpoint | Public or private flag on your Split. Hides the route in the Zal UI only; on-chain it stays readable |
 | Gated op | Spend that may need confirmations: approve, escrow, pay, withdraw, create schedule |
-| Allowance | Single-signature spend per rolling 24 h for the whole account; above it, M of N applies (ADR 0016) |
+| Allowance | Single-signature spend per rolling 24 h for the whole account; above it, M of N applies |
 | Escrow | Buyer locks face value in the invoice contract; anyone may settle once due |
 | Advance, fee, reserve | Advance = face × 80%, paid now. Fee fixed at advance time from `annualFeeBps` and days to due. Reserve = face − advance − fee, paid to the seller's Split at settlement |
 | Obligor limit | Credit line the pool owner gives a buyer canvas; caps its open advance principal |
 | Keeper | Anyone who runs a due schedule. Zal runs one that holds gas only |
-| Child canvas (gate) | Layout-only group of nodes (ADR 0011) |
-| Sandbox | In-browser chain on the real bytecode, with bots and a movable clock (ADR 0007) |
+| Child canvas (gate) | Layout-only group of nodes |
+| Sandbox | In-browser chain on the real bytecode, with bots and a movable clock |
 
 ## 4. Features
 
@@ -112,8 +112,8 @@ Priority: P0 demo-critical, P1 should have, P2 if time allows.
 |---|---|---|---|---|
 | C1 | As a new user, I connect my wallet and see my canvas with the Account in the centre | No account-type step. A new wallet sees a ghost Account with a Create button; after one tx it is solid with its zUSDC balance | ZR-ACC-01, ZR-ACC-02 | P0 |
 | C2 | As a user, I add components and connect edges to build a flow | Selected node: palette shows what fits. Nothing selected: every component an Admin may place is offered as a draft. Dragging a link shows invalid targets disabled; a refused drop states the reason. A connection opens the action's form | ZR-ACC-03 | P0 |
-| C3 | As a user, I tell committed from uncommitted at a glance | Draft, ghost and solid look different for every component; state comes from chain, never client (ADR 0003) | ZR-SYS-02 | P0 |
-| C4 | As a user with a large canvas, I group nodes into a child canvas | Select non-Account nodes → Move to child canvas. Gate shows name, node count, money in and out, waiting items. Depth 1. Dissolve returns nodes. Nothing on-chain changes (ADR 0011) | n/a | P1 |
+| C3 | As a user, I tell committed from uncommitted at a glance | Draft, ghost and solid look different for every component; state comes from chain, never client | ZR-SYS-02 | P0 |
+| C4 | As a user with a large canvas, I group nodes into a child canvas | Select non-Account nodes → Move to child canvas. Gate shows name, node count, money in and out, waiting items. Depth 1. Dissolve returns nodes. Nothing on-chain changes | n/a | P1 |
 | C5 | As a member of several canvases, I switch between them | Switcher lists my canvas and canvases added by others; each entry checked on-chain (`roleOf`) before shown; URL carries `?account=` (open question 5) | ZR-ACC-01 | P1 |
 
 ### 5.2 Relationships
@@ -149,7 +149,7 @@ Priority: P0 demo-critical, P1 should have, P2 if time allows.
 | Code | Story | Acceptance criteria | Refs | Pri |
 |---|---|---|---|---|
 | B1 | As a buyer, I add a budget with a limit per 30 days | Needs a relationship where I buy. Period rolls; used resets. Schedules are not charged against budgets in v1 | ZR-ACC-06, AT-06 | P1 |
-| Y1 | As an Admin, I park idle money in the Vault | Deposit and redeem. Yield simulated, stated once in the shell and Docs (ADR 0017); rate TBD | ZR-VLT-01 | P2 |
+| Y1 | As an Admin, I park idle money in the Vault | Deposit and redeem. Yield simulated, stated once in the shell and Docs; rate TBD | ZR-VLT-01 | P2 |
 | M1 | As an Admin, I add an approver to my canvas | Adds Approver role. Approval node appears at 2+ members. Viewer and Admin assignment and removal: contract only, no UI | ZR-ACC-02, ZR-ACC-05 | P1 |
 
 ### 5.6 Funding
@@ -172,7 +172,7 @@ Priority: P0 demo-critical, P1 should have, P2 if time allows.
 
 | Code | Story | Acceptance criteria | Refs | Pri |
 |---|---|---|---|---|
-| S1 | As a visitor, I run the whole demo alone | One switch (or `/app/canvas?sandbox=1`). Canvas created and funded; bots act as club, print shop, co-signer, keeper, LP. Guided demo tracks seller steps 1–8 and buyer+LP steps. Clock advances; Reset starts over. Every sandbox value is labelled sandbox | ADR 0007, AT-01..AT-27 on the same bytecode | P0 |
+| S1 | As a visitor, I run the whole demo alone | One switch (or `/app/canvas?sandbox=1`). Canvas created and funded; bots act as club, print shop, co-signer, keeper, LP. Guided demo tracks seller steps 1–8 and buyer+LP steps. Clock advances; Reset starts over. Every sandbox value is labelled sandbox | AT-01..AT-27 on the same bytecode | P0 |
 | G1 | As a new live user, I get gas and testnet zUSDC without help | Deposit shows gas; "Get gas" drips 0.05 ZAX while below 0.01 ZAX (one per wallet, five per IP per 24 h). Mint 1,000 testnet zUSDC to wallet or canvas | n/a | P0 |
 
 ## 6. The demo, end to end
@@ -204,7 +204,7 @@ sequenceDiagram
 | Fee | ≈ 50 (50.005480 at `annualFeeBps` 1521 with exactly 30 days left) | ZR-FND-02 |
 | Reserve | 5,000 − 4,000 − fee | ZR-FND-04 |
 
-The live L1 cannot warp time, so step 7 pays early. The fee was fixed at advance, so amounts do not change (ADR 0004). The sandbox can reach the due date.
+The live L1 cannot warp time, so step 7 pays early. The fee was fixed at advance, so amounts do not change. The sandbox can reach the due date.
 
 ## 7. Screens and UI rules
 
@@ -219,10 +219,10 @@ The live L1 cannot warp time, so step 7 pays early. The fee was fixed at advance
 - Copy is terse and formula-first: "2 of 3 above 1,000 per 24 h", "Reserve at payment".
 - A refused action states its rule: "Only the seller issues invoices".
 - Money is the highlighted value in every row; zUSDC with 6 decimals.
-- One "testnet" badge in the shell; Docs say zUSDC is testnet and vault yield simulated. No such labels per amount (ADR 0017). Sandbox values labelled sandbox.
-- Both canvases update within seconds, no reload (ADR 0008, 0012).
+- One "testnet" badge in the shell; Docs say zUSDC is testnet and vault yield simulated. No such labels per amount. Sandbox values labelled sandbox.
+- Both canvases update within seconds, no reload.
 - Everything on-chain is public. "Private" and per-party views are UI rules, not privacy. A counterparty shows as one node; its internal flow is not drawn.
-- HeroUI v3 and xyflow defaults, one icon set (ADR 0006). Desktop only.
+- HeroUI v3 and xyflow defaults, one icon set. Desktop only.
 
 ## 8. Scope
 
@@ -233,9 +233,9 @@ The live L1 cannot warp time, so step 7 pays early. The fee was fixed at advance
 | Invoice NFTs: issue, approve, reject, cancel, escrow, pay | Buyer-created invoices or purchase orders (open question 1) |
 | Split with Hold, Transfer, Vault legs | Real privacy of routes |
 | Budgets, M of N with 24 h allowance, schedules and keeper | Budget charging by schedules |
-| Funding pool: escrow and obligor-limit paths, LP deposit and withdraw | Credit scoring, recourse, overdue, disputes, fee accrual (K-1), write-downs (K-2), invoice resale (ADR 0005) |
+| Funding pool: escrow and obligor-limit paths, LP deposit and withdraw | Credit scoring, recourse, overdue, disputes, fee accrual (K-1), write-downs (K-2), invoice resale |
 | Inbox, Timeline (list), Overview, realtime via SSE | Timeline drag through history |
-| Sandbox, gas faucet, testnet mint | Real money, KYC, fiat, bridged USDC (ADR 0013), mainnet, mobile |
+| Sandbox, gas faucet, testnet mint | Real money, KYC, fiat, bridged USDC, mainnet, mobile |
 
 Deployed parameters (`packages/contracts/deployments/l1.json`): `advanceRateBps` 8000, `annualFeeBps` 1521, `vaultSimulatedApyBps` 0. TxAllowList off: anyone can transact. Endpoints: [l1-hosting.md](../runbooks/l1-hosting.md).
 

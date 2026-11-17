@@ -39,7 +39,7 @@ PRD story codes (C1, R1, I1, …) are in [../product/prd.md](../product/prd.md).
 | ZR-FND-06 | Pool and vault shares shall use a virtual offset of 6 decimals | n/a |
 | ZR-FND-07 | An advance shall require the invoice to be fully escrowed, or its buyer to be enrolled by the pool owner with open advance principal plus the new principal at or under its limit | F1 |
 | ZR-ACC-10 | An account shall receive a settlement that its own gated operation triggered | P1, I3 |
-| ZR-ACC-11 | Single-confirmation spending shall be capped by `approvalLimit` per rolling 24 h across the whole account; an op that would exceed it shall need `threshold` confirmations (ADR 0016) | P3 |
+| ZR-ACC-11 | Single-confirmation spending shall be capped by `approvalLimit` per rolling 24 h across the whole account; an op that would exceed it shall need `threshold` confirmations | P3 |
 | ZR-SCH-01 | `createSchedule` shall be a gated operation whose policy amount is the total it may pay | P4 |
 | ZR-SCH-02 | A schedule shall start at least 60 s after creation, and a recurring schedule shall have an interval of at least 60 s and 1 to 1000 runs | P4 |
 | ZR-SCH-03 | A PayInvoice schedule shall run once, for an Approved invoice this account buys; a Transfer schedule shall pay a fixed nonzero recipient other than the account | P4 |
@@ -47,7 +47,7 @@ PRD story codes (C1, R1, I1, …) are in [../product/prd.md](../product/prd.md).
 | ZR-SCH-05 | Anyone shall run a schedule once its time has come, and it shall pay exactly the approved amount to the approved target | P4 |
 | ZR-SCH-06 | A schedule shall run at most once per due time, and at most its run count in total | P4 |
 | ZR-SCH-07 | A failed run shall revert without consuming a run | P4 |
-| ZR-VLT-01 | `ZalVault` yield shall be simulated, and the app shall state once (shell badge and Docs) that it is simulated (ADR 0017) | P2 |
+| ZR-VLT-01 | `ZalVault` yield shall be simulated, and the app shall state once (shell badge and Docs) that it is simulated | P2 |
 
 ## Invariants
 
@@ -62,7 +62,7 @@ Each has a Foundry invariant test or a stateful fuzz handler.
 - INV-07 `ZalInvoice.totalEscrowed == Σ escrowed` over invoices that are not `Paid`, and `USDC.balanceOf(ZalInvoice) >= totalEscrowed`. (Changed from `balance == Σ escrowed`: anyone can send USDC to the contract, so exact balance equality cannot hold.)
 - INV-08 A gated op executes at most once.
 - INV-09 An Invoice NFT is held by its seller or by the pool, or burned.
-- INV-12 On an account with threshold above 1, the amounts of ops executed with fewer than `threshold` confirmations since `windowStart` sum to at most the `approvalLimit` in force when each executed (ADR 0016).
+- INV-12 On an account with threshold above 1, the amounts of ops executed with fewer than `threshold` confirmations since `windowStart` sum to at most the `approvalLimit` in force when each executed.
 - INV-11 For every schedule, runs executed + `remaining` equals the runs it was created with, and `nextAt` = start + runs executed × interval.
 - INV-10 For every enrolled buyer, `obligorOutstanding[buyer] == Σ principal` of its open advances that used the credit limit, and it never exceeds the limit at the moment an advance is made.
 

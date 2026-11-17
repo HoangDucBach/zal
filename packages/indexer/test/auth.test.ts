@@ -1,4 +1,4 @@
-// The write trust boundary (ADR 0012): sign-in with a one-time nonce, then only members write a layout, and a
+// The write trust boundary: sign-in with a one-time nonce, then only members write a layout, and a
 // wallet owns its notification read state.
 
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";

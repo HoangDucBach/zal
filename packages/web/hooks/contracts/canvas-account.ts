@@ -305,7 +305,7 @@ export function useAccountPolicy({
 }
 
 /**
- * `spendWindow()` of one account, read from the chain whatever the canvas source (ADR 0012: the API is a read model,
+ * `spendWindow()` of one account, read from the chain whatever the canvas source (the API is a read model,
  * and this decides how many signatures an op needs). Shares the account's key, so its events refresh it.
  */
 export function useSpendWindow({

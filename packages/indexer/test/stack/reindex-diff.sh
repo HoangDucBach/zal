@@ -1,5 +1,5 @@
 #!/bin/sh
-# Proves every on-chain table is rebuilt from events (ADR 0012): indexes the running stack's chain from block 0
+# Proves every on-chain table is rebuilt from events: indexes the running stack's chain from block 0
 # into a scratch schema, waits until it reaches the live indexer's checkpoint, then diffs every table row by row.
 # Run from the repository root with the stack up. Exits 1 on any difference.
 set -eu

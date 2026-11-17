@@ -1,6 +1,6 @@
 "use client";
 
-// The pieces every node card is built from (ADR 0017): a key–value row, a copyable address, and the approval policy
+// The pieces every node card is built from: a key–value row, a copyable address, and the approval policy
 // in words. Facts get a row each instead of one line joined with "·".
 
 import type { AccountState } from "@/lib/canvas/types";

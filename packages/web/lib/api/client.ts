@@ -1,4 +1,4 @@
-// The typed client of the indexer's /v1 API (ADR 0012). Every response is zod-parsed at this boundary, and every
+// The typed client of the indexer's /v1 API. Every response is zod-parsed at this boundary, and every
 // failure becomes an ApiError, so callers see the web's own types and one error type.
 
 import type { CanvasLayout } from "@/lib/canvas/layout";

@@ -461,7 +461,7 @@ const NODE_TITLES: Record<CanvasNodeData["kind"], string> = {
 function NodeDetails({ network, state, data }: Ctx & { data: CanvasNodeData }) {
   switch (data.kind) {
     case "account":
-      // The Account card holds its own details (ADR 0017); the canvas opens no Inspector for it.
+      // The Account card holds its own details; the canvas opens no Inspector for it.
       return null;
     case "split":
       return allows(state.account.myRole, "admin") ? (

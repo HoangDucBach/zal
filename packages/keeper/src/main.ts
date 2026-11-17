@@ -1,4 +1,4 @@
-// The keeper's composition root (ADR 0015): config, chain, indexer client, the tick loop and the HTTP server.
+// The keeper's composition root: config, chain, indexer client, the tick loop and the HTTP server.
 
 import { serve } from "@hono/node-server";
 

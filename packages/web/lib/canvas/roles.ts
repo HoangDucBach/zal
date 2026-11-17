@@ -1,4 +1,4 @@
-// What a member role may do on a canvas (PRD "member roles", ADR 0002). The chain enforces the same split with
+// What a member role may do on a canvas (PRD "member roles"). The chain enforces the same split with
 // `onlyAdmin` and `onlyApprover` on CanvasAccount; this table lets the canvas hide what the chain would refuse, and
 // lets a write stop before the wallet prompt.
 

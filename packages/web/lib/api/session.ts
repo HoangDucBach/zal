@@ -1,4 +1,4 @@
-// The API session (ADR 0012): sign-in with Ethereum, then a bearer token. The token lives in memory and in
+// The API session: sign-in with Ethereum, then a bearer token. The token lives in memory and in
 // sessionStorage, so a reload in the same tab keeps it and closing the tab ends it. Only off-chain writes need it
 // (layout, read state); every read works signed out, so sign-in is asked for only on the first write.
 

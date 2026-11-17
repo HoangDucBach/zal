@@ -8,19 +8,19 @@ Solidity 0.8.25, `evm_version = cancun` (the same pair Zalax runs on Subnet-EVM)
 
 | Contract | Kind | Owns |
 |---|---|---|
-| `ZUSDC` (zUSDC) | ERC-20, 6 decimals | Testnet dollars. The app shows one testnet badge (ADR 0017) |
+| `ZUSDC` (zUSDC) | ERC-20, 6 decimals | Testnet dollars. The app shows one testnet badge |
 | `ZalFactory` | Ownable | Deploys `CanvasAccount` clones (ERC-1167). Answers `isAccount`. Holds the protocol wiring (USDC, registry, invoices, pool, allowed vaults) |
 | `CanvasAccount` | Clone, initializer | One per canvas. Holds USDC. Members and roles, approval policy, budgets, the receive route (Split), and every action the canvas takes |
 | `RelationshipRegistry` | Plain | Buyer and seller relationships between two accounts: propose, accept, reject, cancel, invite links |
 | `ZalInvoice` | ERC-721 | Invoice NFTs, the invoice state machine, escrow balances, and settlement |
 | `ZalFundingPool` | ERC-4626 over USDC | LP deposits, advances against approved invoices, repayment split |
-| `ZalVault` | ERC-4626 over USDC | Simulated yield for idle cash. Stated once in the shell and Docs (ADR 0017) |
+| `ZalVault` | ERC-4626 over USDC | Simulated yield for idle cash. Stated once in the shell and Docs |
 
 Parties are always `CanvasAccount` addresses, never EOAs. A person's wallet (EOA) is a member of one or more accounts. `ZalFactory.isAccount(a)` gates every party argument.
 
 ## Why one account contract per canvas
 
-PRD principle 2 says every user gets the same canvas, and principle 3 says roles belong to relationships. One contract type for every canvas gives both: a student club and a freelancer deploy the same `CanvasAccount`, and nothing on-chain records "buyer" or "seller" against an account. Role lives only on a `Relationship` (ADR 0002).
+PRD principle 2 says every user gets the same canvas, and principle 3 says roles belong to relationships. One contract type for every canvas gives both: a student club and a freelancer deploy the same `CanvasAccount`, and nothing on-chain records "buyer" or "seller" against an account. Role lives only on a `Relationship`.
 
 ## Data shapes
 
@@ -71,7 +71,7 @@ struct Advance {         // in ZalFundingPool
     uint128 principal;
     uint128 fee;
     uint64  fundedAt;
-    bool    onCredit;  // true when the advance used the buyer's obligor limit (ADR 0009)
+    bool    onCredit;  // true when the advance used the buyer's obligor limit
 }
 ```
 
@@ -79,7 +79,7 @@ struct Advance {         // in ZalFundingPool
 
 ## Ghost and solid on-chain
 
-The canvas draws ghost for "not yet committed" and solid for "signed and recorded on-chain" (PRD principle 6, ADR 0003).
+The canvas draws ghost for "not yet committed" and solid for "signed and recorded on-chain" (PRD principle 6).
 
 | Canvas object | Ghost when | Solid when |
 |---|---|---|
@@ -97,7 +97,7 @@ Created by `ZalFactory.createAccount(admin, salt)` as an ERC-1167 clone, so the 
 ### Members and approval policy
 - `setMember(address, MemberRole)` (Admin). The last Admin cannot be removed (ZR-ACC-02).
 - `setPolicy(uint8 threshold, uint128 approvalLimit)` (Admin). `threshold >= 1` and `threshold <= approver count` (Admins count as approvers).
-- A gated operation needs `threshold` confirmations when `spentInWindow + amount > approvalLimit`, and one confirmation otherwise (ZR-ACC-11, ADR 0016). `approvalLimit` is a single-signature allowance per rolling 24 h, shared by the whole account. The check runs when the op would execute, so an op priced at one confirmation at submit can need `threshold` once the window has filled. A personal canvas with one Admin and threshold 1 behaves like a plain wallet.
+- A gated operation needs `threshold` confirmations when `spentInWindow + amount > approvalLimit`, and one confirmation otherwise (ZR-ACC-11). `approvalLimit` is a single-signature allowance per rolling 24 h, shared by the whole account. The check runs when the op would execute, so an op priced at one confirmation at submit can need `threshold` once the window has filled. A personal canvas with one Admin and threshold 1 behaves like a plain wallet.
 - The window is `windowStart` and `windowSpent`. An op that executes with fewer than `threshold` confirmations adds its amount to the window and emits `SpendWindowCharged(opId, amount, windowSpent, windowStart)`; an op that collected the full threshold adds nothing. A window with nothing in it, or older than 24 h (`now >= windowStart + 24 h`), restarts at `now`. With threshold 1 every op is recorded, saturating at `type(uint128).max`, and never blocks. `spendWindow()` returns `(start, spent, remaining)`, with `spent` 0 once expired and `remaining` floored at 0. Policy changes keep the window.
 
 ### Gated operations
@@ -130,7 +130,7 @@ These five functions are `onlySelf`. Members reach them only through `submit` an
 ### Payee Endpoint visibility
 `endpointPublic` is an off-chain display flag, not on-chain privacy. Any chain reader sees the route. The PRD's private mode hides the route in the Zal UI only (open question 3).
 
-### Scheduled payments (ADR 0015)
+### Scheduled payments
 ```solidity
 enum ScheduleKind { Transfer, PayInvoice }
 struct Schedule {
@@ -182,7 +182,7 @@ State machine. Every transition not in this table reverts.
 `approve` is named `approveInvoice` in the external ABI so it does not collide with ERC-721 `approve(address,uint256)`. Use `issueInvoice`, `approveInvoice`, `rejectInvoice`, `cancelInvoice`, `escrowInvoice`, and `payInvoice` on `ZalInvoice` too.
 
 ### Transfer restriction (ZR-INV-04)
-An Invoice NFT moves only from its seller to `ZalFundingPool`, while `Approved`, and only when the pool itself pulls it inside `advance`. Every other transfer reverts, including a seller pushing the NFT to the pool without an advance, which would leave an unpayable invoice. Approval is the buyer's agreement to pay whoever holds the NFT, which is what reverse factoring needs (ADR 0005). A general secondary market is out of scope.
+An Invoice NFT moves only from its seller to `ZalFundingPool`, while `Approved`, and only when the pool itself pulls it inside `advance`. Every other transfer reverts, including a seller pushing the NFT to the pool without an advance, which would leave an unpayable invoice. Approval is the buyer's agreement to pay whoever holds the NFT, which is what reverse factoring needs. A general secondary market is out of scope.
 
 ### Settlement: `payInvoice(id)` in one transaction
 1. Funds come from escrow when `escrowed == faceValue`. Otherwise the buyer account approves exactly `faceValue` to `ZalInvoice` inside its own `payInvoice`, and `ZalInvoice` pulls it from the buyer straight to the recipient, so the allowance ends at 0. `escrowInvoice` works the same way. Payment resets `escrowed` to 0, and `totalEscrowed` tracks open escrow (INV-07).
@@ -201,7 +201,7 @@ Overdue invoices, disputes, and recourse are out of scope (open question 2).
 ## ZalFundingPool (ERC-4626 "Zal Funding Pool LP", symbol "zFP")
 
 - Owner parameters: `advanceRateBps` (PRD fixes it at 8000) and `annualFeeBps`. The fee rate is TBD. Demo calibration in open question 6.
-- `setObligorLimit(buyer, limit)` (owner) enrols a buyer account the pool has underwritten, with a cap on its open advance principal. `obligorOutstanding[buyer]` tracks that principal (ADR 0009).
+- `setObligorLimit(buyer, limit)` (owner) enrols a buyer account the pool has underwritten, with a cap on its open advance principal. `obligorOutstanding[buyer]` tracks that principal.
 - `advance(invoiceId)`. The caller must be `invoice.seller` and the current owner. The invoice must be `Approved`, `dueDate > now`, and not yet funded. The invoice must also be fully escrowed (`escrowed == faceValue`), or its buyer must be enrolled with `obligorOutstanding[buyer] + principal <= obligorLimit[buyer]` (ZR-FND-07). A buyer approval alone is free, so without this rule one actor could pair two accounts and drain the pool. The pool pulls the NFT with `transferFrom` (the seller account approved the pool first). It then computes:
   - `principal = face * advanceRateBps / 10_000`, rounded down.
   - `fee = ceil(principal * annualFeeBps * (dueDate - now) / (10_000 * 365 days))`, rounded up, because rounding favours the pool.
@@ -264,4 +264,4 @@ The spec left these open. The code and tests follow them.
 - **Mocks.** `ZUSDC` (zUSDC) has an open `mint`. `ZalVault` has no on-chain rate. The keeper reads `simulated_apy_bps` from config, and it stays TBD (open question 8).
 
 ## Out of scope for v1 contracts
-Stream (P2): it needs a flow-rate token and is not built. Schedules are in v1, on-chain (ADR 0015, superseding ADR 0010). Also out of scope: ending relationships, disputes, overdue handling, credit scoring, protocol fees, multi-asset, and upgradeability.
+Stream (P2): it needs a flow-rate token and is not built. Schedules are in v1, on-chain. Also out of scope: ending relationships, disputes, overdue handling, credit scoring, protocol fees, multi-asset, and upgradeability.

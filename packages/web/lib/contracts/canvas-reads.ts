@@ -1,6 +1,6 @@
 // Reads one canvas from the chain. Accounts, relationships and invoices are not enumerable on-chain, so the ids
 // come from events (ZR-SYS-02) and the current state from views. Ghost and solid are derived from this state
-// later, never stored (ADR 0003).
+// later, never stored.
 
 import type { ZalAddresses } from "@/config/chains";
 
@@ -322,7 +322,7 @@ async function readAccount(
 
 const SCHEDULE_KINDS = ["transfer", "payInvoice"] as const;
 
-/** Schedule ids run 1..scheduleCount and are never deleted, so the count enumerates them (ADR 0015). */
+/** Schedule ids run 1..scheduleCount and are never deleted, so the count enumerates them. */
 async function readSchedules(
   client: PublicClient,
   account: Address,

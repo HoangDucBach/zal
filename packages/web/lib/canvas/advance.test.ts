@@ -32,7 +32,7 @@ const invoice = (over: Partial<Invoice> = {}): Invoice => ({
   ...over,
 });
 
-describe("the pool advances against escrow or an enrolled buyer (ADR 0009)", () => {
+describe("the pool advances against escrow or an enrolled buyer", () => {
   test("an escrowed invoice qualifies without credit", () => {
     expect(advanceEligibility(invoice({ escrowed: face }), pool, 0)).toEqual({
       ok: true,

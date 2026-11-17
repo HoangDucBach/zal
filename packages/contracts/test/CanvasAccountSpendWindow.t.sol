@@ -6,7 +6,7 @@ import {CanvasAccount} from "../src/CanvasAccount.sol";
 import {ScheduleKind} from "../src/lib/ZalTypes.sol";
 import {ZalTestBase} from "./support/ZalTestBase.sol";
 
-/// @dev ZR-ACC-11, ADR 0016. The club `C` is 2 of 3 above `LIMIT` per rolling 24 h.
+/// @dev ZR-ACC-11. The club `C` is 2 of 3 above `LIMIT` per rolling 24 h.
 contract CanvasAccountSpendWindowTest is ZalTestBase {
     uint128 internal constant LIMIT = 1_000e6;
 
@@ -226,7 +226,7 @@ contract CanvasAccountSpendWindowTest is ZalTestBase {
         assertEq(spent, max);
     }
 
-    /// @dev Random withdrawals by c1, each sometimes confirmed by c2, with random gaps. A model of ADR 0016
+    /// @dev Random withdrawals by c1, each sometimes confirmed by c2, with random gaps. A model of the rolling window
     /// predicts every outcome, and single-signature spend never exceeds the limit inside one window.
     function testFuzz_windowCapsSingleSignatureSpend(uint256[12] calldata amounts, uint256[12] calldata gaps) public {
         uint64 start;

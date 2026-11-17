@@ -197,7 +197,7 @@ export async function canvasOf(
 }
 
 /**
- * A canvas that buys from the visitor: USDC, an Events budget, and a credit line with the pool (ADR 0009). With a
+ * A canvas that buys from the visitor: USDC, an Events budget, and a credit line with the pool. With a
  * `treasurer`, spending needs both signers, as at the demo club.
  */
 async function seedBuyer(

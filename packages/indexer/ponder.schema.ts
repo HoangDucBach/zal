@@ -1,5 +1,5 @@
 // The on-chain read model. Every row is rebuilt from events when the indexer replays from the start block
-// (ADR 0012). Addresses are lowercase hex, amounts and ids are bigints, times are Unix seconds.
+//. Addresses are lowercase hex, amounts and ids are bigints, times are Unix seconds.
 
 import { index, onchainTable, primaryKey } from "ponder";
 
@@ -11,7 +11,7 @@ export const account = onchainTable("account", (t) => ({
   approvalLimit: t.bigint().notNull(),
   policyNonce: t.bigint().notNull(),
   endpointPublic: t.boolean().notNull(),
-  /** The 24 h single-confirmation window from the last `SpendWindowCharged` (ADR 0016); 0 before any charge. */
+  /** The 24 h single-confirmation window from the last `SpendWindowCharged`; 0 before any charge. */
   windowStart: t.bigint().notNull(),
   windowSpent: t.bigint().notNull(),
   /** The Split, in route order: `[{ kind, target, bps }]` with kind 0 Hold, 1 Transfer, 2 Vault. */
@@ -144,7 +144,7 @@ export const advance = onchainTable("advance", (t) => ({
 }));
 
 /**
- * A payment an account approved ahead of time (ADR 0015). `nextAt` and `remaining` follow ScheduleRan the way
+ * A payment an account approved ahead of time. `nextAt` and `remaining` follow ScheduleRan the way
  * `runSchedule` advances them, so the row matches `getSchedule` without a read.
  */
 export const schedule = onchainTable(
@@ -170,7 +170,7 @@ export const schedule = onchainTable(
   }),
 );
 
-/** The pool's credit line per buyer account (ADR 0009). */
+/** The pool's credit line per buyer account. */
 export const obligor = onchainTable("obligor", (t) => ({
   buyer: t.hex().primaryKey(),
   limit: t.bigint().notNull(),

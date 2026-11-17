@@ -1,4 +1,4 @@
-// Scheduled payments as the canvas shows them (ADR 0015): the schedules an account stores, plus the ones a pending
+// Scheduled payments as the canvas shows them: the schedules an account stores, plus the ones a pending
 // `createSchedule` op would store once it has its signatures. Pure, so the timing rules the chain enforces
 // (ZR-SCH-02) are checked here before a wallet prompt, and tested without a browser.
 

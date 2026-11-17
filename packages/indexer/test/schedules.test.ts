@@ -1,4 +1,4 @@
-// Scheduled payments (ADR 0015): the canvas wire, the activity feed, and the keeper's due list.
+// Scheduled payments: the canvas wire, the activity feed, and the keeper's due list.
 
 import type { DueScheduleRow } from "../lib/app.ts";
 import type { CanvasRows, FeedRow } from "../lib/canvas.ts";

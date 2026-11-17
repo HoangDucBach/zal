@@ -30,8 +30,6 @@ Use the contract, package or service the change lives in. Omit the scope when a 
 
 ## Zal specifics
 
-- Design decisions: add the ADR in the same commit as the change, `docs(adr): …`, or reference it
-  in the body.
 - Cite requirement or test IDs in the body or footer, e.g. `Refs: ZR-PAY-01, AT-09`.
 - Changes to invariants or acceptance tests need their own commit with the reason in the body.
 

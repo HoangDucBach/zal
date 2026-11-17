@@ -38,7 +38,7 @@ export type CanvasAction =
       readonly budgetId: bigint;
     }
   | { readonly kind: "setPolicy" }
-  /** Pay one approved invoice at a set time (ADR 0015). */
+  /** Pay one approved invoice at a set time. */
   | { readonly kind: "schedulePayment"; readonly invoiceId: bigint }
   /** Pay a fixed amount once or every interval; `recipient` is prefilled from a counterparty. */
   | { readonly kind: "scheduleTransfer"; readonly recipient?: Address }
@@ -327,7 +327,7 @@ function attach(
 
 // ---- Connections ----------------------------------------------------------------------------------------------
 
-/** One end of a connection: a node the chain draws, or a draft placed from the palette (off-chain, ADR 0003). */
+/** One end of a connection: a node the chain draws, or a draft placed from the palette (off-chain). */
 export type ConnectEnd =
   | { readonly kind: "node"; readonly data: CanvasNodeData }
   | { readonly kind: "draft"; readonly component: PaletteComponent };

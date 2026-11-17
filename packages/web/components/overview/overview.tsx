@@ -523,7 +523,7 @@ function CreditCard({ state }: { readonly state: CanvasState }) {
       {lines.length === 0 ? (
         <Empty>
           No enrolled buyers on your invoices. Without a credit line the pool
-          advances only against escrow (ADR 0009).
+          advances only against escrow.
         </Empty>
       ) : (
         lines.map((line) => {

@@ -1,4 +1,4 @@
-// GET /v1/stream (ADR 0012): what each Server-Sent Event means for the cached reads. Pure, so the mapping is
+// GET /v1/stream: what each Server-Sent Event means for the cached reads. Pure, so the mapping is
 // tested without a browser; hooks/use-live-updates.ts owns the EventSource.
 
 import type { QueryKey } from "@tanstack/react-query";
@@ -109,5 +109,5 @@ export function keysForStreamEvent(
   }
 }
 
-/** How live updates reach this page: the API stream, or the chain polling fallback while it is down (ADR 0008). */
+/** How live updates reach this page: the API stream, or the chain polling fallback while it is down. */
 export type LiveStatus = "off" | "connecting" | "streaming" | "polling";

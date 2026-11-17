@@ -200,7 +200,7 @@ export function poolUse(state: CanvasState): PoolUse {
   };
 }
 
-/** Buyers on this account's invoices that the pool has given a credit line (ADR 0009), with what they use. */
+/** Buyers on this account's invoices that the pool has given a credit line, with what they use. */
 export function obligorCredit(state: CanvasState): readonly {
   readonly buyer: Address;
   readonly limit: bigint;

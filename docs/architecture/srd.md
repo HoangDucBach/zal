@@ -2,7 +2,7 @@
 
 Status: living document, verified against the code on 15 Nov 2026. Product intent (users, stories, journeys, scope) is in the [PRD](../product/prd.md). This document covers the system: components, interfaces, state, data, deployment and verification. Where this file and the code disagree, the code wins and the gap goes to [§14](#14-open-items).
 
-Sources of truth, in order: code, [contracts.md](contracts.md), [requirements.md](requirements.md), [ADRs](decisions/), [runbooks](../runbooks/).
+Sources of truth, in order: code, [contracts.md](contracts.md), [requirements.md](requirements.md), [runbooks](../runbooks/).
 
 ## Contents
 1. [Scope and context](#1-scope-and-context)
@@ -26,7 +26,7 @@ Sources of truth, in order: code, [contracts.md](contracts.md), [requirements.md
 
 Zal is an on-chain payment canvas on an Avalanche L1 (Zalax L1, chain id 102026, gas token ZAX). Every canvas is the same `CanvasAccount` contract. Two accounts form a buyer and seller relationship. The seller issues Invoice NFTs, and the buyer approves, escrows and pays them in one transaction that runs through the seller's Split. A funding pool advances money against approved invoices (reverse factoring). Money is testnet zUSDC. The off-chain services (indexer and API, keeper, web) hold no authority over funds; they read, present and trigger.
 
-In scope: 7 contracts in [`packages/contracts`](../../packages/contracts), the indexer and `/v1` API, the schedule keeper, the web app with its in-browser sandbox, the local and L1 docker stacks. Out of scope: bridging (ADR 0013), Stream payments, disputes, overdue handling, credit scoring, upgradeability ([contracts.md](contracts.md#out-of-scope-for-v1-contracts)).
+In scope: 7 contracts in [`packages/contracts`](../../packages/contracts), the indexer and `/v1` API, the schedule keeper, the web app with its in-browser sandbox, the local and L1 docker stacks. Out of scope: bridging, Stream payments, disputes, overdue handling, credit scoring, upgradeability ([contracts.md](contracts.md#out-of-scope-for-v1-contracts)).
 
 ### System context
 
@@ -136,7 +136,7 @@ flowchart LR
     V -- "transferFrom" --> U
 ```
 
-Wiring (ADR 0002, [contracts.md](contracts.md#implementation-decisions-14-nov-2026)): the factory deploys the `CanvasAccount` implementation in its constructor; registry and invoices take the factory; the pool takes invoices; `wire(usdc, registry, invoices, pool)` closes the cycle once and checks each address (`WiringMismatch`). Accounts copy the wiring at `initialize`.
+Wiring ([contracts.md](contracts.md#implementation-decisions-14-nov-2026)): the factory deploys the `CanvasAccount` implementation in its constructor; registry and invoices take the factory; the pool takes invoices; `wire(usdc, registry, invoices, pool)` closes the cycle once and checks each address (`WiringMismatch`). Accounts copy the wiring at `initialize`.
 
 ---
 
@@ -399,7 +399,7 @@ stateDiagram-v2
     end note
 ```
 
-### 5.6 Rolling 24 h spend window (ADR 0016, ZR-ACC-11, INV-12)
+### 5.6 Rolling 24 h spend window (ZR-ACC-11, INV-12)
 
 ```mermaid
 stateDiagram-v2
@@ -415,7 +415,7 @@ stateDiagram-v2
     end note
 ```
 
-### 5.7 Canvas node commitment (ADR 0003 and amendment, ADR 0011)
+### 5.7 Canvas node commitment
 
 ```mermaid
 stateDiagram-v2
@@ -768,7 +768,7 @@ sequenceDiagram
     end
 ```
 
-### 6.13 Sandbox transport switch (ADR 0007)
+### 6.13 Sandbox transport switch
 
 ```mermaid
 sequenceDiagram
@@ -972,7 +972,7 @@ Not drawn (no relations): `token_balance (token, holder)`, `pool_allowance (owne
 
 ### 7.3 Off-chain store (`zal_app`, Drizzle)
 
-The only data that needs backup (ADR 0012). Schema: [lib/app-db/schema.ts](../../packages/indexer/lib/app-db/schema.ts), migrations [drizzle/](../../packages/indexer/drizzle).
+The only data that needs backup. Schema: [lib/app-db/schema.ts](../../packages/indexer/lib/app-db/schema.ts), migrations [drizzle/](../../packages/indexer/drizzle).
 
 ```mermaid
 erDiagram
@@ -1029,17 +1029,17 @@ Constraints: `invites` unique `(chain_id, proposer, nonce)`; indexes `sessions(w
 
 ### 7.4 Off-chain-only data and why
 
-Rule: anything that moves or commits money is on-chain; only presentation is off-chain (ADR 0003, ADR 0012).
+Rule: anything that moves or commits money is on-chain; only presentation is off-chain.
 
 | Data | Where | Why off-chain | Loss impact |
 |---|---|---|---|
-| Node positions, child canvases, drafts, draft links | `zal_app.layouts` (live), localStorage `zal.canvas-layout.v1:<chainId>:<account>` (sandbox) | Presentation; ADR 0011 | Positions and grouping only |
+| Node positions, child canvases, drafts, draft links | `zal_app.layouts` (live), localStorage `zal.canvas-layout.v1:<chainId>:<account>` (sandbox) | Presentation | Positions and grouping only |
 | Display names, labels | web | Presentation | Cosmetic |
 | `endpointPublic` effect | flag on-chain, effect UI-only | Route is readable on-chain anyway (OQ 3) | n/a |
 | Unredeemed invite links | `zal_app.invites` | EIP-712 signature valid off-chain until redeemed | Link lost; signer can issue a new nonce |
 | Notification read state | `zal_app.notification_reads`, browser storage when signed out | Per-wallet UI state | Items show unread |
 | Sessions, nonces, faucet claims | `zal_app` | Auth and abuse control | Re-sign-in |
-| Sandbox chain | localStorage journal `zal.sandbox.journal.v2`, mode `zal.sandbox.mode.v1` | Sandbox runs in the browser (ADR 0007) | Reset reseeds |
+| Sandbox chain | localStorage journal `zal.sandbox.journal.v2`, mode `zal.sandbox.mode.v1` | Sandbox runs in the browser | Reset reseeds |
 
 ---
 
@@ -1064,7 +1064,7 @@ Base: `api.<host>` (L1) or `http://localhost:42069` (local). Implemented in [lib
 | POST | `/v1/auth/verify` | none | Verify SIWE, open session | 201 `token`, `wallet`, `expiresAt` |
 | GET | `/v1/auth/session` | bearer | Who am I | `wallet` |
 | DELETE | `/v1/auth/session` | bearer | Sign out | 204 |
-| PUT | `/v1/accounts/:address/layout` | bearer + Approver/Admin at chain head (ADR 0014) | Save layout; `revision` for optimistic concurrency | `layout { revision, updatedAt, updatedBy }`; 409 on stale; NOTIFY `layout` |
+| PUT | `/v1/accounts/:address/layout` | bearer + Approver/Admin at chain head | Save layout; `revision` for optimistic concurrency | `layout { revision, updatedAt, updatedBy }`; 409 on stale; NOTIFY `layout` |
 | POST | `/v1/notifications/read` | bearer | Mark 1..500 keys read; keeps newest 5,000 per wallet | `read` |
 | POST | `/v1/invites` | none, signature checked | Store an EIP-712 invite after chain-equivalent checks | 201 `invite`, `Location` |
 | GET | `/v1/invites/:id` | none | Fetch an invite by link id | `invite { …, expired }` |
@@ -1135,19 +1135,19 @@ Rate limiters are in-memory, fixed window, one process (a second replica would n
 | Schedules | ZR-SCH-01..07 | `CanvasAccount.createSchedule`, `cancelSchedule`, `runSchedule` |
 | Vault | ZR-VLT-01 | `ZalVault`, web labels |
 
-Off-chain functional requirements (no ZR id yet; source ADR):
+Off-chain functional requirements (no ZR id yet):
 
-| Requirement | Source | Enforced in |
-|---|---|---|
-| Ghost and solid derive from chain state only | ADR 0003 | web `lib/canvas/graph.ts`, indexer `lib/canvas.ts` |
-| Layout writes need Approver or Admin at chain head | ADR 0014 | `lib/app.ts` PUT layout, `layout-access.ts` (mirrored) |
-| Off-chain writes need a SIWE session bound to `ZAL_WEB_ORIGIN` and the chain | ADR 0012 | `lib/siwe.ts`, `lib/app.ts` |
-| Live mode streams updates and falls back to chain polling | ADR 0008, ADR 0012 | `hooks/use-live-updates.ts` |
-| A live write resolves only after the API indexed its block | ADR 0012 | `lib/contracts/write.ts`, `lib/api/client.ts waitForIndexed` |
-| Transaction targets and signing data come from the chain, never the API | ADR 0002 note, ADR 0012 | `lib/contracts/identity.ts`, `chain-verified.ts`, [test/sign-from-chain.test.ts](../../packages/web/test/sign-from-chain.test.ts) |
-| Child canvases are depth 1, Account node stays on root | ADR 0011 | `lib/canvas/layout.ts` |
-| Sandbox runs the same bytecode, own chain id 7357001 | ADR 0007 | `lib/sandbox/` |
-| Keeper triggers due schedules only, holds no fund authority | ADR 0015 | `packages/keeper` |
+| Requirement | Enforced in |
+|---|---|
+| Ghost and solid derive from chain state only | web `lib/canvas/graph.ts`, indexer `lib/canvas.ts` |
+| Layout writes need Approver or Admin at chain head | `lib/app.ts` PUT layout, `layout-access.ts` (mirrored) |
+| Off-chain writes need a SIWE session bound to `ZAL_WEB_ORIGIN` and the chain | `lib/siwe.ts`, `lib/app.ts` |
+| Live mode streams updates and falls back to chain polling | `hooks/use-live-updates.ts` |
+| A live write resolves only after the API indexed its block | `lib/contracts/write.ts`, `lib/api/client.ts waitForIndexed` |
+| Transaction targets and signing data come from the chain, never the API | `lib/contracts/identity.ts`, `chain-verified.ts`, [test/sign-from-chain.test.ts](../../packages/web/test/sign-from-chain.test.ts) |
+| Child canvases are depth 1, Account node stays on root | `lib/canvas/layout.ts` |
+| Sandbox runs the same bytecode, own chain id 7357001 | `lib/sandbox/` |
+| Keeper triggers due schedules only, holds no fund authority | `packages/keeper` |
 
 ### 9.2 Invariants → tests
 
@@ -1182,15 +1182,15 @@ Only figures that exist in code, config or docs. Anything not listed (latency SL
 | Rounding | Principal floor, fee ceil, leg remainder to last leg | rule 5, ZR-FND-02 | `quote`, `receivePayment` |
 | Freshness | Indexer polling 500 ms local, 1,000 ms L1; web wagmi polling 1 s | | compose files, `config/wagmi.ts` |
 | Real time | SSE heartbeat 15 s; write timeout 10 s; web falls back to chain polling after 4 s without the stream | | `src/api/stream.ts`, `hooks/use-live-updates.ts` |
-| Consistency | API is a read model at `asOf`; writes wait for the indexed block; signing reads the chain | ADR 0012 | `lib/contracts/write.ts` |
-| Reindex | Every on-chain table is rebuilt from events; new indexing code reindexes into a new schema | ADR 0012 | `test:reindex` |
-| Schedule timing | Start ≥ now + 60 s; interval ≥ 60 s; keeper tick 10 s default; backoff 15 s doubling to 600 s | ZR-SCH-02, ADR 0015 | `CanvasAccount`, `lib/config.ts` |
+| Consistency | API is a read model at `asOf`; writes wait for the indexed block; signing reads the chain | n/a | `lib/contracts/write.ts` |
+| Reindex | Every on-chain table is rebuilt from events; new indexing code reindexes into a new schema | n/a | `test:reindex` |
+| Schedule timing | Start ≥ now + 60 s; interval ≥ 60 s; keeper tick 10 s default; backoff 15 s doubling to 600 s | ZR-SCH-02 | `CanvasAccount`, `lib/config.ts` |
 | Keeper liveness | `/health` 503 when no tick finished in 3 ticks + 60 s | | `lib/http.ts` |
 | Availability | Containers `restart: unless-stopped` with health checks; single host, single replica | | [deploy/l1/docker-compose.yml](../../deploy/l1/docker-compose.yml) |
-| Sessions | Bearer 3,600 s default (60..86,400), nonce 600 s, SIWE clock skew 60 s | ADR 0012 | `src/api/config.ts`, `lib/siwe.ts` |
-| Sandbox bundle | One lazy chunk, 1.37 MB (351 KB gzipped), not in the live manifest | ADR 0007 | measured 14 Nov 2026 |
+| Sessions | Bearer 3,600 s default (60..86,400), nonce 600 s, SIWE clock skew 60 s | n/a | `src/api/config.ts`, `lib/siwe.ts` |
+| Sandbox bundle | One lazy chunk, 1.37 MB (351 KB gzipped), not in the live manifest | n/a | measured 14 Nov 2026 |
 | Observability | Keeper JSON log line per run (`ran`) and failure (`run_failed`); `/status` keeps last 100 of each; Ponder `/metrics`, `/status` | | keeper, Ponder |
-| Supply chain | Exact dependency pins; base images pinned by tag and digest; containers run non-root | ADR 0012 | `package.json`, Dockerfiles |
+| Supply chain | Exact dependency pins; base images pinned by tag and digest; containers run non-root | n/a | `package.json`, Dockerfiles |
 
 ---
 
@@ -1234,9 +1234,9 @@ The API is an untrusted read model for anything that moves money. The client bui
 | Direct call to `receivePayment` credits fake funds | Caller must be `ZalInvoice` or `ZalFundingPool` | `CanvasAccount.receivePayment` (AT-16, ZR-ACC-08) |
 | Account used as arbitrary-call wallet | Gated selectors allow-listed with exact lengths; target is always self | `_gatedAmount` (ZR-ACC-03) |
 | Removed approver's confirmation still counts | `policyNonce` invalidates pending ops | `_liveOp` (AT-13, ZR-ACC-05) |
-| Splitting a spend into many small ops | Rolling 24 h allowance across the account | `_chargeWindow` (ADR 0016, AT-26, AT-27, INV-12) |
-| Self-dealing pair drains the pool | Advance needs escrow or enrolled obligor limit | `advance` (ADR 0009, AT-17, AT-18) |
-| Receivable assigned to a third party | NFT moves only seller → pool, pulled by pool, while `Approved` | `ZalInvoice._update` (ADR 0005, AT-12, INV-09) |
+| Splitting a spend into many small ops | Rolling 24 h allowance across the account | `_chargeWindow` (AT-26, AT-27, INV-12) |
+| Self-dealing pair drains the pool | Advance needs escrow or enrolled obligor limit | `advance` (AT-17, AT-18) |
+| Receivable assigned to a third party | NFT moves only seller → pool, pulled by pool, while `Approved` | `ZalInvoice._update` (AT-12, INV-09) |
 | Malicious vault or transfer leg blocks settlement | Low-level call, return-length check, fallback to Hold, `LegFailed` | `_tryVaultDeposit`, `trySafeTransfer` (AT-15, AT-20) |
 | Reentrancy | Transient guards on every USDC-moving entry; `receivePayment` caller-restricted, route snapshotted | OZ `ReentrancyGuardTransient`; `SettlementRegression.t.sol` |
 | First-depositor share inflation | 6-decimal virtual offset | `_decimalsOffset` (ZR-FND-06) |
@@ -1246,14 +1246,14 @@ The API is an untrusted read model for anything that moves money. The client bui
 | Keeper misuse | `runSchedule` pays only stored amount and target, once per due time | ZR-SCH-05/06, INV-11 |
 | Tampered API answer redirects a tx | Targets and op data from chain reads only | `TrustedIdentity`, `ChainVerified` |
 | SIWE replay or phishing origin | Exact origin allow-list, domain = URI host, chain id, issuedAt age, atomic nonce claim | `lib/siwe.ts`, `lib/app.ts` |
-| CSRF | Bearer tokens only, no cookies; CORS `*` grants nothing | ADR 0012 |
-| Viewer wipes shared layout | Approver or Admin at chain head; revision check | ADR 0014 |
+| CSRF | Bearer tokens only, no cookies; CORS `*` grants nothing | n/a |
+| Viewer wipes shared layout | Approver or Admin at chain head; revision check | n/a |
 | Oversized or non-jsonb-safe layout | Body limit, zod bounds, NUL and lone-surrogate rejection | `lib/layout.ts` |
 | Stream slot exhaustion | Global and per-client caps, write timeout, HEAD handled | `src/api/stream.ts`, `test/stream.test.ts` |
 | Faucet drain | Balance threshold, per-wallet and per-IP 24 h limits under an advisory lock, serial sends | `lib/faucet.ts` |
 | Secret leakage | Keys only in host `.env`; config parsers never echo key values; tokens stored as sha256 | `src/api/config.ts`, keeper `lib/config.ts`, `lib/siwe.ts` |
 | Node admin API exposure | Caddy passes only the chain `/rpc` and `/ws`; 9650 closed to the internet; `debug` namespaces off | [Caddyfile](../../deploy/l1/Caddyfile), [l1-hosting.md](../runbooks/l1-hosting.md) |
-| Testnet token mistaken for money | One testnet badge in the shell; Docs explain zUSDC and simulated yield | rule 8, ZR-VLT-01, ADR 0017 |
+| Testnet token mistaken for money | One testnet badge in the shell; Docs explain zUSDC and simulated yield | rule 8, ZR-VLT-01 |
 
 Admins are fully trusted: one Admin can change members, policy and route alone (NatSpec on `CanvasAccount`). The threshold protects the five gated spending operations only.
 
@@ -1363,7 +1363,7 @@ Current addresses: [deployments/l1.json](../../packages/contracts/deployments/l1
 
 Secrets live only in the host's `deploy/l1/.env`, never in git.
 
-### 11.4 Deploy pipeline (rule 12, ADR 0007)
+### 11.4 Deploy pipeline (rule 12)
 
 ```mermaid
 flowchart LR
@@ -1408,7 +1408,7 @@ Not run for this document (need the docker stack, a browser or minutes of CPU):
 | E2E sandbox | `pnpm --filter @zal/web e2e:sandbox` | Headless browser, injected wallet, sandbox demo |
 | E2E live | `pnpm --filter @zal/web e2e:live` | Same against the live network; drivers in [e2e/](../../packages/web/e2e) |
 | Static | `pnpm -r lint typecheck`, `pnpm --filter @zal/contracts fmt` | Lint, types, formatting |
-| UI rules | `.claude/scripts/test_heroui_guard.sh` | ADR 0006 hook |
+| UI rules | `.claude/scripts/test_heroui_guard.sh` | HeroUI guard hook |
 
 Test inventory by contract file: `CanvasAccount.t.sol` 39, `CanvasAccountSchedule.t.sol` 28, `ZalFundingPool.t.sol` 27, `ZalInvoice.t.sol` 20, `RelationshipRegistry.t.sol` 16, `CanvasAccountSpendWindow.t.sol` 14, `ZalFactory.t.sol` 10, `ZalVault.t.sol` 5, `SettlementRegression.t.sol` 2, `ZUSDC.t.sol` 2, `Zal.invariant.t.sol` 13 invariants.
 
@@ -1421,8 +1421,8 @@ PRD story codes are from the [PRD features table](../product/prd.md#4-features) 
 | PRD story | Requirements | Acceptance / invariants | Tests |
 |---|---|---|---|
 | C1 canvas on connect | ZR-ACC-01, ZR-ACC-02 | n/a | `ZalFactory.t.sol` (`test_createAccountIsPredictableAndRegistered`, `test_initializeRunsOnceAndOnlyFromFactory`), `CanvasAccount.t.sol` |
-| C2 build a flow | ADR 0003 amendment, ADR 0011 | n/a | web `lib/canvas/connect.test.ts`, `palette.test.ts`, `layout.test.ts` |
-| C3 ghost vs solid | ADR 0003 | n/a | web `lib/canvas/graph.test.ts`, `presentation.test.ts` |
+| C2 build a flow | n/a | n/a | web `lib/canvas/connect.test.ts`, `palette.test.ts`, `layout.test.ts` |
+| C3 ghost vs solid | n/a | web `lib/canvas/graph.test.ts`, `presentation.test.ts` |
 | R1 add counterparty | ZR-REL-01, ZR-REL-03, ZR-SYS-02 | AT-02, AT-04 | `RelationshipRegistry.t.sol`; indexer `test/security.test.ts` (invites) |
 | R2 accept or reject | ZR-REL-02 | AT-03 | `RelationshipRegistry.t.sol` |
 | R3 payee endpoint | `setEndpointPublic` (no ZR), OQ 3 | n/a | no contract unit test; exercised by web `lib/sandbox/engine/demo-flow.test.ts` and indexer `test/stack/demo.ts` |
@@ -1435,7 +1435,7 @@ PRD story codes are from the [PRD features table](../product/prd.md#4-features) 
 | P4 schedule | ZR-SCH-01..07 | AT-21..AT-25, AT-27, INV-11 | `CanvasAccountSchedule.t.sol`; indexer `test/schedules.test.ts`; keeper `test/keeper.test.ts`; web `lib/canvas/schedules.test.ts` |
 | F1 advance | ZR-INV-04, ZR-FND-01..03, ZR-FND-07 | AT-08, AT-12, AT-17, AT-18, INV-01, INV-05, INV-09, INV-10 | `ZalFundingPool.t.sol`, `ZalInvoice.t.sol`; web `lib/canvas/advance.test.ts` |
 | LP role (no story code) | ZR-FND-05, ZR-FND-06 | AT-14, INV-01 | `ZalFundingPool.t.sol`, `ZalVault.t.sol` |
-| S1 sandbox | ADR 0007 | AT-09 on real bytecode | web `lib/sandbox/engine/demo-flow.test.ts`, `keeper-clock.test.ts`, `e2e/sandbox.mjs` |
+| S1 sandbox | AT-09 on real bytecode | web `lib/sandbox/engine/demo-flow.test.ts`, `keeper-clock.test.ts`, `e2e/sandbox.mjs` |
 | Factory wiring (no story) | ZR-SYS-01 | n/a | `ZalFactory.t.sol` (`test_wireRunsOnce`, `test_wireOnlyOwner`) |
 
 AT → test function: AT-01 `test_AT01_routeSplitsTenPercentToTax`; AT-02..04 in `RelationshipRegistry.t.sol`; AT-05, AT-10..12 in `ZalInvoice.t.sol`; AT-06, AT-07, AT-13, AT-15, AT-16, AT-19, AT-20 in `CanvasAccount.t.sol`; AT-08, AT-09, AT-14, AT-17, AT-18 in `ZalFundingPool.t.sol`; AT-21..25 in `CanvasAccountSchedule.t.sol`; AT-26, AT-27 in `CanvasAccountSpendWindow.t.sol`. Every test name carries its `ATnn` prefix.
@@ -1449,7 +1449,7 @@ TBDs live in [open-questions.md](open-questions.md). Do not fill them here.
 | Item | Status | Ref |
 |---|---|---|
 | Buyer-created invoices (purchase orders) | open | OQ 1 |
-| Recourse; who sets obligor limits and how | open | OQ 2, ADR 0009 |
+| Recourse; who sets obligor limits and how | open | OQ 2 |
 | Payee endpoint default visibility | open | OQ 3 |
 | Relationship proposal TTL | TBD | OQ 4 |
 | `annualFeeBps` | TBD; `1521` in deploy configs is marked TBD-demo | OQ 6, [l1.toml](../../packages/contracts/script/config/l1.toml) |
@@ -1461,7 +1461,7 @@ TBDs live in [open-questions.md](open-questions.md). Do not fill them here.
 | Performance and availability targets (latency, uptime, RPO/RTO, backup schedule for `zal_app`) | not defined anywhere | this SRD |
 | Port 22 open to everyone on the L1 host | runbook says restrict it | [l1-hosting.md](../runbooks/l1-hosting.md#what-is-public) |
 | Ponder `/metrics` and `/status` reachable through `api.*` | Caddy forwards every path to the indexer | [Caddyfile](../../deploy/l1/Caddyfile) |
-| Indexer `op.required` is read once at `OpSubmitted`; after ADR 0016 the real requirement can rise before execution. The client reads ops from the chain for signing, so only display is affected | gap | [ponder.schema.ts](../../packages/indexer/ponder.schema.ts), §7.2 |
+| Indexer `op.required` is read once at `OpSubmitted`; with the rolling 24 h limit the real requirement can rise before execution. The client reads ops from the chain for signing, so only display is affected | gap | [ponder.schema.ts](../../packages/indexer/ponder.schema.ts), §7.2 |
 | `SpendWindowCharged` is not indexed; the web reads `spendWindow()` from the chain | gap vs ZR-SYS-02 intent | `src/account.ts` |
-| ADR 0012 known follow-ups: nonce and session cleanup is opportunistic, per-IPv6 /64 rate-limit keys, every pool event wakes every stream | open | ADR 0012 |
+| Indexer and API follow-ups: nonce and session cleanup is opportunistic, per-IPv6 /64 rate-limit keys, every pool event wakes every stream | open | n/a |
 | Doc drift: [contracts.md](contracts.md) still lists Schedule as out of scope, lists four gated selectors (code has five), omits `SpendWindowCharged` and the schedule events from "Events", and shows `Advanced` without `onCredit` in the pool section | doc fix needed | contracts.md |

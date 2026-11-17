@@ -16,7 +16,7 @@ import {Advance, Invoice, InvoiceStatus} from "./lib/ZalTypes.sol";
 
 /// @dev LP deposits, advances against buyer-approved invoices, and the repayment split (reverse factoring).
 /// A buyer approval costs nothing, so the pool lends only against escrowed cash or a buyer its owner has
-/// underwritten (ZR-FND-07, ADR 0009).
+/// underwritten (ZR-FND-07).
 /// Fees are recognised on repayment, not accrued (known issue K-1). An unpaid funded invoice stays in
 /// `outstanding` with no write-down (known issue K-2).
 contract ZalFundingPool is IZalFundingPool, ERC4626, Ownable, ReentrancyGuardTransient {

@@ -1,4 +1,4 @@
-// PRD demo steps 1 to 7 against the real Zal bytecode in the sandbox EVM (ADR 0007, AT-09).
+// PRD demo steps 1 to 7 against the real Zal bytecode in the sandbox EVM (AT-09).
 
 import {
   createPublicClient,
@@ -363,7 +363,7 @@ describe("sandbox runs the PRD demo on the real bytecode", () => {
     expect(advance.fee).toBeLessThan(usdc(51));
   });
 
-  test("ADR 0009: an unescrowed invoice advances only on the enrolled club's credit line", async () => {
+  test("an unescrowed invoice advances only on the enrolled club's credit line", async () => {
     const due = BigInt(chain.now() + 30 * DAY);
 
     await write(chain, USER, account, canvasAccountAbi, "issueInvoice", [

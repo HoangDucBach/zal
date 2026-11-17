@@ -1,6 +1,6 @@
 "use client";
 
-// The Deposit entry (ADR 0013): bridging is onboarding, not payment, so it is a light item in the profile toolbar,
+// The Deposit entry: bridging is onboarding, not payment, so it is a light item in the profile toolbar,
 // not a canvas node. It shows what the canvas holds on the L1 and says bridged USDC comes later. On a live chain it
 // also shows the wallet's native gas, offers a gas drip from the API faucet while it is low, and offers the zUSDC
 // mint (open mint, testnet only).

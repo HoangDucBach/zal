@@ -1,4 +1,4 @@
-// The keeper loop (ADR 0015): every tick, read the schedules the indexer says are due and call `runSchedule` on each,
+// The keeper loop: every tick, read the schedules the indexer says are due and call `runSchedule` on each,
 // one transaction at a time from one wallet. It holds no authority over funds: `runSchedule` pays only what the
 // account approved, and the chain's `nextAt` refuses a second run, so a duplicate or late run is harmless.
 

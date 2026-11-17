@@ -988,7 +988,7 @@ function CanvasFlow() {
   const subject: InspectorSubject | undefined =
     action !== undefined
       ? { kind: "action", action }
-      : // The Account card holds its own details (ADR 0017): selecting it opens no Inspector.
+      : // The Account card holds its own details: selecting it opens no Inspector.
         selectedData !== undefined && selectedData.kind !== "account"
         ? { kind: "node", data: selectedData }
         : undefined;

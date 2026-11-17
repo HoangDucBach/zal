@@ -1,6 +1,6 @@
 "use client";
 
-// The approval policy as the chain applies it (ZR-ACC-11, ADR 0016): m of n above a single-signature allowance
+// The approval policy as the chain applies it (ZR-ACC-11): m of n above a single-signature allowance
 // that the whole account shares per rolling 24 h. The window is read from the chain, never from the API.
 
 import type { ZalNetwork } from "@/config/chains";

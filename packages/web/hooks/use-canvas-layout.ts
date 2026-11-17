@@ -1,6 +1,6 @@
 "use client";
 
-// The canvas layout (ADR 0011): positions, child canvases and drafts. The sandbox keeps it in browser storage.
+// The canvas layout: positions, child canvases and drafts. The sandbox keeps it in browser storage.
 // Live mode keeps it on the API, per account, so it follows the account to every browser and member; edits save
 // after the first sign-in, and a stale save replays the edits on the newer layout (lib/api/layout-sync.ts).
 

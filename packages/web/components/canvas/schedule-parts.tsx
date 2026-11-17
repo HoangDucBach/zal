@@ -1,6 +1,6 @@
 "use client";
 
-// Scheduled payments on the canvas (ADR 0015): the two palette forms that submit `createSchedule` through the gated
+// Scheduled payments on the canvas: the two palette forms that submit `createSchedule` through the gated
 // flow, the Inspector's details with Run now and Cancel, and the clock and keeper status every schedule card reads.
 
 import type { ZalNetwork } from "@/config/chains";

@@ -51,7 +51,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Sends runSchedule for due schedules (ADR 0015). Its wallet pays gas only; it holds no authority over funds.
+  # Sends runSchedule for due schedules. Its wallet pays gas only; it holds no authority over funds.
   keeper:
     build:
       context: ../..

@@ -1,4 +1,4 @@
-# The local chain image (ADR 0012): anvil, plus the compiled contracts and Deploy.s.sol for the one-shot deploy job.
+# The local chain image: anvil, plus the compiled contracts and Deploy.s.sol for the one-shot deploy job.
 # Build context: the repository root.
 FROM ghcr.io/foundry-rs/foundry:v1.8.7@sha256:6fec6dc8249fb0231144b159e4ee1d86e486e3dc8eccb09a25e5e16ce494236b
 

@@ -1,4 +1,4 @@
-// The sandbox keeper in real time (ADR 0015): a schedule falls due while no block is mined, because blocks come
+// The sandbox keeper in real time: a schedule falls due while no block is mined, because blocks come
 // only with transactions. The run must be checked at the time its own block gets, not the latest block's.
 
 import { encodeFunctionData, type Address } from "viem";

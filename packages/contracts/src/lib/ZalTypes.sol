@@ -81,7 +81,7 @@ enum ScheduleKind {
     PayInvoice
 }
 
-/// @dev A payment a CanvasAccount approved ahead of time (ADR 0015). A schedule is `active` exactly while it
+/// @dev A payment a CanvasAccount approved ahead of time. A schedule is `active` exactly while it
 /// has runs left and has not been cancelled.
 struct Schedule {
     ScheduleKind kind;

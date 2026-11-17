@@ -1,4 +1,4 @@
-// The single-signature allowance (ZR-ACC-11, ADR 0016): 2 of 2 above 500 per 24 h. A 300 transfer runs on one
+// The single-signature allowance (ZR-ACC-11): 2 of 2 above 500 per 24 h. A 300 transfer runs on one
 // signature and the Approval node shows the window; a second 300 then needs both signatures.
 // Usage: BASE=<web url> node e2e/zal-approval.mjs [outDir]
 import { BASE, OUT, launch, stubWallet } from "./lib.mjs";
