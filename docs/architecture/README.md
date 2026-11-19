@@ -10,7 +10,16 @@ Zal is a payment canvas on an Avalanche L1 (Zalax L1, chain id 102026). Each can
 
 Operations: [../runbooks/local-stack.md](../runbooks/local-stack.md) (docker stack on one machine), [../runbooks/l1-hosting.md](../runbooks/l1-hosting.md) (the L1 host).
 
-## System diagram
+## Overview
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/zal-architecture.dark.png">
+  <img alt="Zal architecture: off-chain app, indexer and keeper; on-chain canvas pipeline" src="../diagrams/zal-architecture.light.png">
+</picture>
+
+Canvas pipeline: Inflow → Policy → Route → Outflow. Modules plug into any stage. A link carries one transaction from A's outflow to B's inflow. Sources: [../diagrams](../diagrams) (`.excalidraw`).
+
+## System diagram (contracts)
 ```mermaid
 flowchart LR
     subgraph Client

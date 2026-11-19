@@ -1,32 +1,42 @@
 # Zal
 
-**Draw where your money goes. Get paid before the due date.**
+**Every money flow, one canvas.**
 
-## The problem
+Programmable payments for individuals, teams and businesses.
 
-Linh designs a poster for a student club. The club's treasurer needs two committee members to sign off, then pays by bank transfer 30 days later. When the money lands, Linh moves 10% aside for tax by hand. Linh waits a month for cash that is already agreed, and nobody on either side can see where the money is.
+## Problem
 
-## What Zal does
+| | |
+|---|---|
+| Manual operations | Splits, approvals and reconciliation done by hand |
+| Fragmented tools | Bank, spreadsheet and invoice software, each apart |
+| Broken settlement | Payments between parties wait and get re-confirmed |
+| Trust dependence | Money rules live with whoever keeps the books |
 
-1. **Money routes itself.** Draw your rules once, for example 10% to tax and the rest to savings. Every payment you receive follows them.
-2. **One payment settles both sides.** The club approves the invoice under its own rules (a monthly budget, two signatures above a limit) and pays in one step. The money passes through the club's rules and Linh's routing in the same transaction.
-3. **Cash today, not in 30 days.** Once the club approves, a funding pool pays Linh 80% at once. When the club pays, the pool keeps its share plus a fee and the rest goes to Linh.
+## Solution
 
-```mermaid
-flowchart LR
-    L["Linh"] -- "invoice" --> C["Club approves"]
-    P["Funding pool"] -- "80% now" --> L
-    C -- "pays on due date" --> P
-    P -- "the rest, minus fee" --> L
-```
+1. **Design.** Draw money in and out on a canvas.
+2. **Connect.** Link counterparties, issue and approve invoices.
+3. **Execute.** One transaction runs every party's rules.
 
-## Why a blockchain
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/zal-platform.dark.png">
+  <img alt="Zal platform: four pillars" src="../diagrams/zal-platform.light.png">
+</picture>
 
-- **Both sides see the same record.** A payment either completes on both sides or not at all.
-- **An approved invoice is a token.** Whoever holds it gets paid, so a funder is repaid without anyone chasing it.
+| Pillar | |
+|---|---|
+| Programmable Flows | Design any money flow |
+| Composable Finance | Combine any financial tool |
+| Counterparty Network | Connect every counterparty, one transaction |
+| On-chain Enforcement | Contracts enforce the rules |
+
+## Why Avalanche
+
+Own L1 · EVM · fast finality · interchain USDC (planned).
 
 ## Try it
 
-Zal runs on its own Avalanche L1 with testnet dollars only, no real money. The sandbox runs the whole story in your browser with bots playing the club and the funder.
+Testnet only. The sandbox runs in the browser, no wallet needed.
 
-App: https://app.100-63-191-30.sslip.io · Product details: [prd.md](prd.md)
+App: https://app.100-63-191-30.sslip.io · Features: [product-doc.md](product-doc.md) · Spec: [prd.md](prd.md)

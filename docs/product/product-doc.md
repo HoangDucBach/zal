@@ -12,7 +12,9 @@ Sources: [prd.md](prd.md) and [one-pager.md](one-pager.md). Every term follows t
 
 ## 1. Product Headline & Tagline
 
-**Headline:** Manage every flow of your team's money on one canvas.
+**Category:** Programmable payments.
+
+**Headline:** Every money flow, one canvas.
 
 **Subheadline:** Approve, pay and split invoices in one transaction. Get 80% of the value as soon as the buyer approves.
 
@@ -25,17 +27,24 @@ Sources: [prd.md](prd.md) and [one-pager.md](one-pager.md). Every term follows t
 **Why the main headline:**
 - Zal is a new category, so readers are problem-aware but not solution-aware (Eugene Schwartz).
 - The headline must say what the product is before it states the benefit.
-- It carries one idea: manage money flows on one canvas.
+- It carries one idea: every money flow on one canvas.
 - The subheadline carries two measurable benefits: one transaction, 80% on approval.
 - Option C suits seller-facing channels. It states the narrowest, most concrete benefit.
 
 ## 2. Positioning Statement
 
-> For clubs, small teams and their suppliers who need to run shared money by rules,
-> Zal is an on-chain payment canvas
-> that approves, pays, splits and advances invoices in one flow.
+> For individuals, teams and businesses who run money by rules,
+> Zal is a programmable payments platform
+> that designs, connects and settles every money flow on one canvas.
 > Unlike spreadsheets and bank transfers, Zal enforces the rules in contracts
 > and settles both sides of every payment in one transaction.
+
+| Pillar | |
+|---|---|
+| Programmable Flows | Design any money flow |
+| Composable Finance | Combine any financial tool |
+| Counterparty Network | Connect every counterparty, one transaction |
+| On-chain Enforcement | Contracts enforce the rules |
 
 | Component (April Dunford) | Content |
 |---|---|
@@ -58,7 +67,16 @@ Action: create a canvas and add the first counterparty. Result: the club spends 
 
 ## 4. Problem & Users
 
-**Problem Statement:** Small teams run shared money through a treasurer, a spreadsheet and bank transfers. Spending rules are not enforced, income is split by hand, and sellers wait for the due date to get cash.
+**Problem Statement:**
+
+| Problem | |
+|---|---|
+| Manual operations | Splits, approvals and reconciliation done by hand |
+| Fragmented tools | Bank, spreadsheet and invoice software, each apart |
+| Broken settlement | Payments between parties wait and get re-confirmed |
+| Trust dependence | Money rules live with whoever keeps the books |
+
+First segment: clubs, small teams and their suppliers (open question 1).
 
 ### Personas
 
@@ -83,7 +101,12 @@ Action: create a canvas and add the first counterparty. Result: the club spends 
 
 ## 5. Feature List
 
-Hierarchy: Theme "Programmable money for small teams" > 4 Epics > Features > User Stories.
+Hierarchy: Theme "Programmable payments" > 4 Epics > Features > User Stories.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/zal-features.dark.png">
+  <img alt="Zal features and how money moves between them" src="../diagrams/zal-features.light.png">
+</picture>
 Priority uses MoSCoW (Must, Should, Could, Won't). MVP (Minimum Viable Product) is the v1 now live on testnet.
 
 | ID | Epic | Feature | One-line description | Problem solved | Benefit (FAB) | Priority | Phase |
@@ -269,3 +292,4 @@ As a new user, I want gas and zUSDC, so I can try Zal without help.
 | Unified terms per the Glossary | One name per concept. "Early cash", "lending" and "loan" become "Advance" |
 | Renamed "Payee endpoint" to "Split visibility" in the docs and the UI | The old name did not say what it does |
 | Marked direct competitors, Vault yield and Stream scope as [TO ADD] | The source documents hold no data on them |
+| Widened the audience to individuals, teams and businesses; four pillars, four problems | Every canvas is the same contract; the first segment stays clubs |

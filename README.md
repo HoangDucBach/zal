@@ -1,17 +1,79 @@
 # Zal
+![alt text](image.png)
 
-**Manage every flow of your team's money on one canvas.**
+<h3 align="center">Every money flow, one canvas.</h3>
 
-On-chain payment canvas on an Avalanche L1. Invoices, approvals, splits, schedules and advances, drawn as nodes and edges.
+<p align="center">Programmable payments on an Avalanche L1. For individuals, teams and businesses.</p>
 
-Testnet token: zUSDC, gas ZAX.
-
+## Live on testnet
 | | |
 |---|---|
 | App | https://app.100-63-191-30.sslip.io |
 | Sandbox | https://app.100-63-191-30.sslip.io/app/canvas?sandbox=1 |
 | Explorer | https://app.100-63-191-30.sslip.io/app/explorer |
 | API | https://api.100-63-191-30.sslip.io/v1 |
+
+## Architecture
+
+### System
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/zal-architecture.dark.png">
+  <img alt="Zal architecture: off-chain app, indexer and keeper; on-chain canvas pipeline" src="docs/diagrams/zal-architecture.light.png">
+</picture>
+
+- Canvas: `CanvasAccount`. Inflow → Policy → Route → Outflow.
+- Modules plug into any stage.
+- Link: one transaction, A's outflow → B's inflow.
+- Off-chain: app, indexer (read only), keeper (time trigger).
+
+Detail: [docs/architecture](docs/architecture/README.md).
+
+### Platform
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/zal-platform.dark.png">
+  <img alt="Zal platform: four pillars" src="docs/diagrams/zal-platform.light.png">
+</picture>
+
+| Pillar | |
+|---|---|
+| Programmable Flows | Design any money flow |
+| Composable Finance | Combine any financial tool |
+| Counterparty Network | Connect every counterparty, one transaction |
+| On-chain Enforcement | Contracts enforce the rules |
+
+### Features
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/zal-features.dark.png">
+  <img alt="Zal features and how money moves between them" src="docs/diagrams/zal-features.light.png">
+</picture>
+
+| Feature | |
+|---|---|
+| Canvas | One per party, same contract for all |
+| Members | Solo or shared. Admin, Approver, Viewer |
+| Spend control | Budget, M of N above a 24 h allowance |
+| Counterparty | By address or invite link |
+| Invoice | NFT. Issue, approve, escrow, pay |
+| One-transaction payment | Buyer → pool → seller's Split |
+| Funding pool | 80% advance on approval |
+| Split | Hold, Transfer, Vault legs |
+| Schedule | Timed or recurring, run by a keeper |
+| Child canvas | Group nodes, one level |
+| Workspace | Inbox, Timeline, Overview, canvas switcher |
+
+Details: [product-doc.md](docs/product/product-doc.md).
+
+## Why Avalanche
+
+| | |
+|---|---|
+| Own L1 | Own chain, own fees, no shared congestion |
+| EVM | Solidity, OpenZeppelin, Foundry |
+| Fast finality | About a second, no reorgs |
+| Interchain (planned) | ICTT path for real USDC from C-Chain |
 
 ## Network
 
@@ -51,33 +113,6 @@ Deployed 15 Nov 2026, block 24. Source: [deployments/l1.json](packages/contracts
 | Compiler | Solidity 0.8.25, `cancun` |
 
 Deploy: `ZAL_NETWORK=l1 forge script script/Deploy.s.sol --rpc-url <RPC> --broadcast`. Full steps: [l1-hosting.md](docs/runbooks/l1-hosting.md).
-
-## Features
-
-| Feature | |
-|---|---|
-| Canvas | One canvas per party, same contract for all |
-| Relationships | Add counterparty by address or invite link |
-| Invoices | NFT. Approve against a Budget, escrow, pay |
-| Approval policy | M of N above a 24 h limit |
-| Split | Auto-split income: Hold, Transfer, Vault |
-| One-transaction payment | Buyer → pool → seller's Split, one tx |
-| Advance | 80% on approval, from the Funding pool |
-| Schedules | Timed or recurring payments, run by a keeper |
-| Inbox, Timeline, Overview | To-do, history, money summary |
-
-Details: [product-doc.md](docs/product/product-doc.md).
-
-## Architecture
-
-```mermaid
-flowchart LR
-    W["Web"] -- "tx" --> L1["Zal contracts (L1)"]
-    L1 -- "events" --> I["Indexer + API"]
-    I -- "REST, SSE" --> W
-    I -- "due schedules" --> K["Keeper"]
-    K -- "runSchedule" --> L1
-```
 
 ## Stack
 
