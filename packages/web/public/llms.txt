@@ -1,0 +1,181 @@
+# Zal
+
+> Programmable payments on an Avalanche L1. Every party gets the same on-chain account, drawn as a canvas of nodes and edges, where it sets the rules for money in and out. Two canvases link as buyer and seller. The seller issues an invoice as an NFT; the buyer approves and pays it in one transaction that runs through both parties' rules; a funding pool can advance 80% to the seller as soon as the buyer approves (reverse factoring). v1 is live on testnet (Avalanche L1 on Fuji, chain id 102026) with testnet zUSDC only.
+
+Headline: "Every money flow, one canvas." Category: programmable payments. Audience: individuals, teams and businesses. First segment: clubs, small teams and their suppliers.
+
+Status legend used below: **live** = deployed and usable on the testnet L1 and in the sandbox; **planned** = designed, not built; **out of scope** = deliberately excluded from v1.
+
+## Try it
+
+- App: https://app.100-63-191-30.sslip.io
+- Sandbox (no wallet, runs the real contract bytecode in the browser, with bots and a movable clock): https://app.100-63-191-30.sslip.io/app/canvas?sandbox=1
+- Explorer: https://app.100-63-191-30.sslip.io/app/explorer
+- REST API: https://api.100-63-191-30.sslip.io/v1
+- Local: `docker compose up -d --build --wait` (postgres, anvil, deploy, indexer, web), then http://localhost:3100
+
+## Problem
+
+| Problem | Today |
+|---|---|
+| Manual operations | Splits, approvals and reconciliation done by hand |
+| Fragmented tools | Bank, spreadsheet and invoice software, each apart |
+| Broken settlement | Payments between parties wait and get re-confirmed |
+| Trust dependence | Money rules live with whoever keeps the books |
+
+A seller with an agreed invoice still waits until the due date for cash.
+
+## Solution
+
+1. Design: draw money in and out on a canvas (budgets, signatures, how income splits).
+2. Connect: link counterparties, issue and approve invoices.
+3. Execute: one transaction runs every party's rules.
+
+## Platform pillars
+
+| Pillar | Meaning | Where it is in code |
+|---|---|---|
+| Programmable Flows | Design any money flow | `CanvasAccount`: budgets, M-of-N policy, Split, schedules |
+| Composable Finance | Combine any financial tool | Invoice NFT, ERC-4626 funding pool, ERC-4626 vault as plug-in legs |
+| Counterparty Network | Connect every counterparty, one transaction | `RelationshipRegistry`, invite links, one-transaction settlement |
+| On-chain Enforcement | Contracts enforce the rules | Every rule that moves or commits money is on-chain |
+
+## Design principles
+
+1. One canvas for everyone. Every party is the same `CanvasAccount` contract (ERC-1167 clone). No buyer or seller mode.
+2. Roles belong to relationships, never accounts. A club is a seller to its sponsor and a buyer from its designer with the same canvas.
+3. Nothing lands on another canvas without consent. One side proposes, the other accepts.
+4. Chain state decides what the UI shows. Draft (local only), Pending/ghost (on-chain, awaiting the other side), Committed/solid.
+5. The NFT holder gets paid. Payment goes to `ownerOf(invoiceId)`: the seller, or the pool once funded.
+6. Settlement is one transaction: buyer, then the pool if funded, then the seller's Split.
+7. Rounding favours the pool. Split remainders go to the last leg.
+8. No oracles, no upgradeability, no arbitrary calls from accounts.
+
+## Features (v1, all live unless marked)
+
+| Feature | What it does |
+|---|---|
+| Canvas | One per party; created in one transaction on wallet connect |
+| Members | Solo or shared. Admin, Approver, Viewer. A wallet can belong to several canvases (canvas switcher, checked on-chain via `roleOf`) |
+| Approval policy | M of N signatures above a single-signature allowance per rolling 24 h across the whole account; splitting a payment does not avoid it; member or policy change voids pending ops |
+| Budget | Spending limit per 30-day period; invoice approval charges it |
+| Counterparty | Propose by canvas address, or invite by EIP-712 signed link (7 days, single use) |
+| Invoice | ERC-721. Issue, approve, reject, cancel, escrow, pay |
+| Escrow | Buyer locks exactly face value; anyone may settle once due |
+| One-transaction payment | Buyer → funding pool (if advanced) → seller's Split, atomically |
+| Split | Up to 8 legs (Hold, Transfer, Vault) summing to 100%; a failing leg falls back to Hold and emits `LegFailed` instead of reverting settlement |
+| Split visibility | Public or private in the Zal UI (on-chain data stays public) |
+| Schedule | Pay an approved invoice at a set time, or a fixed transfer once or recurring (1–1,000 runs); run by a permissionless keeper |
+| Funding pool | ERC-4626. Advance 80% of face on an approved invoice; fee fixed at advance; reserve paid to the seller's Split at payment |
+| Liquidity provision | Any wallet deposits zUSDC, earns advance fees; withdrawals capped by idle cash |
+| Vault | ERC-4626 for idle cash; yield simulated (rate TBD, deployed 0) |
+| Child canvas | Group nodes into one level of sub-canvas; presentation only |
+| Workspace | Inbox (6 notification kinds, realtime), Timeline, Overview charts, canvas switcher |
+| Sandbox | Whole demo alone in the browser on the real bytecode |
+| Onboarding | Gas faucet (0.05 ZAX, rate-limited per wallet and IP) and mint 1,000 testnet zUSDC |
+| Stream | Not in v1 (shown disabled) |
+
+## Reverse factoring, worked example (the demo)
+
+Designer D sells to club C (3 members, 2-of-3 policy). LP L funds pool P.
+
+1. D sets Split: 10% tax, 90% hold.
+2. D proposes C as buyer; C accepts. Both canvases show the relationship.
+3. D issues a 5,000 invoice due in 30 days (NFT minted to D).
+4. c1 approves it against the "Events" budget; c2 confirms; C escrows 5,000.
+5. L deposits 10,000 into P.
+6. D requests an advance: receives 4,000 now; the NFT moves to P; the payee becomes P.
+7. C pays 5,000 in one transaction: P keeps 4,000 + fee (≈ 50 at the deployed `annualFeeBps` 1521 over 30 days); the reserve goes through D's Split, 10% and 90%.
+
+Credit safety: the pool advances only against a fully escrowed invoice, or a buyer the pool owner enrolled with a credit limit. A self-dealing pair with neither is refused.
+
+## Architecture
+
+- On-chain (authority): `ZalFactory`, `CanvasAccount` (clones), `RelationshipRegistry`, `ZalInvoice` (ERC-721), `ZalFundingPool` (ERC-4626), `ZalVault` (ERC-4626, simulated), `ZUSDC`. Solidity 0.8.25, cancun, OpenZeppelin 5, Foundry.
+- Canvas pipeline, abstractly: Inflow → Policy → Route → Outflow. Modules (invoice, pool, vault, schedule) plug into stages. A relationship link carries one transaction from A's outflow to B's inflow.
+- Triggers: a party, a counterparty, or time (keeper).
+- Off-chain (presentation only): web app (Next.js 16, HeroUI v3, xyflow, wagmi, viem; tevm sandbox), indexer (Ponder + Hono `/v1` REST API, Postgres, SSE realtime, SIWE sign-in), keeper (gas-only wallet, calls `runSchedule`).
+- Only presentation lives off-chain: node positions, child canvases, display names, read state, invites. Anything that moves or commits money is on-chain.
+- The client treats the API as untrusted for money: transaction targets and signing data come from its own chain reads.
+
+## Security model (highlights)
+
+- `CanvasAccount.receivePayment` callable only by `ZalInvoice` or `ZalFundingPool` (AT-16).
+- Gated selectors allow-listed with exact calldata lengths; the account never makes arbitrary calls.
+- `policyNonce` voids pending ops when members or policy change (AT-13).
+- Rolling 24 h allowance prevents splitting a spend into small ops (AT-26, AT-27).
+- Invoice NFT moves only seller → pool while approved (AT-12); no third-party assignment.
+- Malicious vault or transfer legs cannot block settlement (AT-15, AT-20).
+- Transient reentrancy guards on every USDC-moving entry; 6-decimal virtual share offset against first-depositor inflation.
+- Admins are fully trusted on their own canvas; the threshold protects spending operations.
+
+## Verification
+
+Specification-driven: 40+ requirements (`ZR-*`), 12 invariants (`INV-*`), 27 acceptance tests (`AT-*`), traced from PRD stories to test functions (every AT test name carries its ID).
+
+| Suite | Result (15 Nov 2026) |
+|---|---|
+| Contracts: unit, acceptance, fuzz, invariants | 11 suites, 165 passed |
+| Indexer | 73 passed |
+| Keeper | 13 passed |
+| Web (canvas model, API client, sandbox demo on real bytecode) | 260 passed |
+| Mutation testing | 85 named mutants, each tagged with the INV or ZR it breaks |
+| Contract sizes | All under 24,576 B |
+
+Also: stack demo test (PRD demo on anvil through API and SSE), full reindex equality test, headless E2E for sandbox and live network.
+
+## Why Avalanche
+
+| Reason | For Zal | Status |
+|---|---|---|
+| Own Avalanche L1 | Own chain, own fees and gas token (ZAX), no shared congestion | Live on Fuji |
+| EVM | Solidity, OpenZeppelin, Foundry; same bytecode in the browser sandbox | Live |
+| Fast, final settlement | Finality in about a second, no reorgs; matters when one transaction runs several parties' rules | Live |
+| Native interchain (ICM/ICTT) | Path to real USDC from C-Chain and cross-chain finance without third-party bridges | Planned |
+
+## Network and deployment
+
+- Network: Zalax Payroll Chain, Avalanche L1 on Fuji. Chain ID `102026`. Gas token ZAX. TxAllowList disabled (open chain).
+- RPC: `https://rpc.100-63-191-30.sslip.io/ext/bc/L8z3EMtv6swD96pmVRsRLgYJR6iipDf8tSDe8vVnfqbHX7rxC/rpc`
+- Deployed 15 Nov 2026, block 24.
+
+| Contract | Address |
+|---|---|
+| ZalFactory | `0xb6fB0bAE55C3B10A52AbFB12a954F9AD7ce10013` |
+| CanvasAccount (implementation) | `0xb67FF575307699dDACd58F581b894C9C316b1EF6` |
+| RelationshipRegistry | `0x5FE372365723AAA13F59a790fB09CFC17914a191` |
+| ZalInvoice | `0xf95A169Fd0A5190F3661FFd8bcdE45f229f4D972` |
+| ZalFundingPool | `0xdfaE31B5d0B46595220788A81821f669f63CF11c` |
+| ZalVault | `0x7fF89d37623f70987485deec28ACC7a38bd73F78` |
+| ZUSDC | `0x443B9429EA87faAE61c3cCb6b10477D6993E1c30` |
+
+Parameters: `advanceRateBps` 8000 (80%), `annualFeeBps` 1521 (proposed demo value), `vaultSimulatedApyBps` 0.
+
+## Honest limits of v1
+
+- Testnet only: zUSDC has no value; vault yield is simulated.
+- On-chain data is public; "private" Split visibility is a UI rule, not privacy.
+- Pool fees are recognised at repayment, not accrued (K-1); an unpaid funded invoice is not written down (K-2).
+- Out of scope: streams, ending a relationship, buyer-created invoices, credit scoring, recourse and disputes, invoice resale, real money, KYC, fiat, mainnet, mobile.
+- Planned: per-enterprise public and private credit pools (design only), bridged USDC via ICTT.
+
+## Docs
+
+- [README](https://github.com/HoangDucBach/zal/blob/main/README.md): overview, diagrams, network, deployment
+- [One-pager](https://github.com/HoangDucBach/zal/blob/main/docs/product/one-pager.md): problem, solution, pillars
+- [Product document](https://github.com/HoangDucBach/zal/blob/main/docs/product/product-doc.md): positioning, personas, 19 features with acceptance criteria, glossary
+- [PRD](https://github.com/HoangDucBach/zal/blob/main/docs/product/prd.md): user stories, demo, scope
+- [Architecture index](https://github.com/HoangDucBach/zal/blob/main/docs/architecture/README.md)
+- [SRD](https://github.com/HoangDucBach/zal/blob/main/docs/architecture/srd.md): components, interfaces, state machines, sequences, data, API, security, deployment, traceability
+- [Contract spec](https://github.com/HoangDucBach/zal/blob/main/docs/architecture/contracts.md)
+- [Requirements, invariants, acceptance tests](https://github.com/HoangDucBach/zal/blob/main/docs/architecture/requirements.md)
+- [Open questions and known issues](https://github.com/HoangDucBach/zal/blob/main/docs/architecture/open-questions.md)
+
+## Optional
+
+- [Private pools plan](https://github.com/HoangDucBach/zal/blob/main/docs/plans/private-pools.md)
+- [Explorer plan](https://github.com/HoangDucBach/zal/blob/main/docs/plans/explorer.md)
+- [Local stack runbook](https://github.com/HoangDucBach/zal/blob/main/docs/runbooks/local-stack.md)
+- [L1 hosting runbook](https://github.com/HoangDucBach/zal/blob/main/docs/runbooks/l1-hosting.md)
+- Diagrams: [platform](https://github.com/HoangDucBach/zal/blob/main/docs/diagrams/zal-platform.light.png), [features](https://github.com/HoangDucBach/zal/blob/main/docs/diagrams/zal-features.light.png), [architecture](https://github.com/HoangDucBach/zal/blob/main/docs/diagrams/zal-architecture.light.png)
+- Source: [contracts](https://github.com/HoangDucBach/zal/tree/main/packages/contracts/src), [contract tests](https://github.com/HoangDucBach/zal/tree/main/packages/contracts/test), [web](https://github.com/HoangDucBach/zal/tree/main/packages/web), [indexer](https://github.com/HoangDucBach/zal/tree/main/packages/indexer), [keeper](https://github.com/HoangDucBach/zal/tree/main/packages/keeper)
