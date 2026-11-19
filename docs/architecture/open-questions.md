@@ -25,6 +25,9 @@ Do not fill a TBD yourself. Propose a value, mark it proposed, and ask.
 ## Sandbox values (not calibrations)
 12. The sandbox seeds the user with 10,000 zUSDC, the demo club with 20,000, the LP deposit with 50,000, and the club's obligor limit with 20,000. The demo club has 2 signers, policy 2 of 2, approval limit 0, and budget #1 "Events" of 10,000. The print shop invoices are 1,200, 800 and 450 USDC, the wallet gets 5,000 zUSDC for the LP role, and the Approval form prefills 2 signatures above 500 USDC. These exist only in the in-browser sandbox.
 
+## Planned
+13. Credit design, public and private pools: open questions P-1 to P-6 in [../plans/private-pools.md](../plans/private-pools.md).
+
 ## Known issues (accepted for v1)
 - K-1. Pool fees are recognised on repayment, not accrued. A depositor who joins just before a repayment captures part of that fee. A fix is linear fee accrual in `totalAssets`.
 - K-2. An overdue funded invoice that is never paid leaves its principal in `outstanding`, so `totalAssets` overstates the pool. No write-down exists in v1.
