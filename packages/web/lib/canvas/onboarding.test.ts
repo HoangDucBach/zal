@@ -13,7 +13,7 @@ describe("onboardingTrack", () => {
 
     expect(track.done).toBe(0);
     expect(track.next?.title).toBe("Get gas");
-    expect(track.next?.target).toBe("deposit");
+    expect(track.next?.anchor).toBe("deposit");
   });
 
   test("gas still loading does not tick Get gas", () => {

@@ -9,12 +9,13 @@ import {
   PlugIcon,
   SunIcon,
 } from "@solar-icons/react/linear";
-import { Button, Switch, toast } from "@heroui/react";
+import { Button, Link, Popover, Switch, toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import {
+  ProviderNotFoundError,
   useConfig,
   useConnect,
   useConnections,
@@ -27,6 +28,7 @@ import { RailTooltip } from "./rail-tooltip";
 import { WalletPopover } from "./wallet";
 
 import { liveNetwork } from "@/config/chains";
+import { Spotlight } from "@/components/ui/spotlight";
 import { apiSessions } from "@/lib/api/session";
 import { toAppError } from "@/lib/query/errors";
 import { queryKeys } from "@/lib/query/keys";
@@ -35,6 +37,98 @@ import { useSandboxMode } from "@/lib/sandbox/mode";
 import { enterSandbox, exitSandbox } from "@/lib/sandbox/session";
 
 const ICON = { size: 16, "aria-hidden": true } as const;
+
+/** Browser wallets that run on the Zal L1, offered when the browser has none. */
+const WALLET_DOWNLOADS = [
+  { name: "Core", href: "https://core.app/download" },
+  { name: "MetaMask", href: "https://metamask.io/download/" },
+] as const;
+
+type Connector = ReturnType<typeof useConnectors>[number];
+
+/**
+ * Whether the browser has a wallet for the injected connector: wagmi always lists that connector, with or
+ * without an extension, so connecting without one fails with "Provider not found". Undefined while checking.
+ */
+function useHasProvider(connector: Connector | undefined): boolean | undefined {
+  const [found, setFound] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (connector === undefined) return;
+    let live = true;
+    const check = () =>
+      void connector
+        .getProvider()
+        .then((provider) => live && setFound(provider !== undefined))
+        .catch(() => live && setFound(false));
+
+    check();
+    // Some extensions inject after the page loads and announce it with this event.
+    window.addEventListener("ethereum#initialized", check, { once: true });
+
+    return () => {
+      live = false;
+      window.removeEventListener("ethereum#initialized", check);
+    };
+  }, [connector]);
+
+  return connector === undefined ? false : found;
+}
+
+/** The Connect button when the browser has no wallet: it opens download links instead of failing. */
+function InstallWallet({
+  compact,
+  isOpen,
+  onOpenChange,
+}: {
+  readonly compact: boolean;
+  readonly isOpen: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const [button, setButton] = useState<HTMLButtonElement | null>(null);
+
+  return (
+    <Popover isOpen={isOpen} onOpenChange={onOpenChange}>
+      {button === null ? null : <Spotlight shown={isOpen} target={button} />}
+      <Button
+        ref={setButton}
+        aria-label="Connect wallet"
+        fullWidth={!compact}
+        isIconOnly={compact}
+        size="sm"
+        variant="primary"
+      >
+        <PlugIcon {...ICON} />
+        {compact ? null : "Connect wallet"}
+      </Button>
+      <Popover.Content
+        className="w-64"
+        placement={compact ? "right bottom" : "top"}
+      >
+        <Popover.Dialog>
+          <Popover.Heading>No wallet found</Popover.Heading>
+          <p className="mt-1 text-xs text-muted">
+            Install one, then reload this page
+          </p>
+          <div className="mt-2 flex flex-col gap-1">
+            {WALLET_DOWNLOADS.map((wallet) => (
+              <Link
+                key={wallet.name}
+                className="text-sm"
+                href={wallet.href}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Get {wallet.name}
+                <Link.Icon />
+              </Link>
+            ))}
+          </div>
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
+  );
+}
 
 /** The wallet the visitor connected, never the sandbox connector that impersonates it. */
 export function useRealWallet() {
@@ -164,28 +258,49 @@ export function ProfileToolbar({
   const connect = useConnect();
   const disconnect = useDisconnectWallet();
   const injected = connectors.find((c) => c.type === "injected");
+  const hasProvider = useHasProvider(injected);
+  // Also set when connecting fails for want of a provider, in case the check above was too early or too late.
+  const [noProvider, setNoProvider] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
 
-  const connectButton = (
-    <Button
-      aria-label="Connect wallet"
-      fullWidth={!compact}
-      isDisabled={injected === undefined}
-      isIconOnly={compact}
-      isPending={connect.isPending}
-      size="sm"
-      variant="primary"
-      onPress={() =>
-        injected !== undefined &&
-        connect.mutate(
-          { connector: injected },
-          { onError: (error) => toast.danger(toAppError(error).message) },
-        )
-      }
-    >
-      <PlugIcon {...ICON} />
-      {compact ? null : "Connect wallet"}
-    </Button>
-  );
+  const connectButton =
+    hasProvider === false || noProvider ? (
+      <InstallWallet
+        compact={compact}
+        isOpen={installOpen}
+        onOpenChange={setInstallOpen}
+      />
+    ) : (
+      <Button
+        aria-label="Connect wallet"
+        fullWidth={!compact}
+        isDisabled={injected === undefined}
+        isIconOnly={compact}
+        isPending={connect.isPending}
+        size="sm"
+        variant="primary"
+        onPress={() =>
+          injected !== undefined &&
+          connect.mutate(
+            { connector: injected },
+            {
+              onError: (error) => {
+                if (error instanceof ProviderNotFoundError) {
+                  setNoProvider(true);
+                  setInstallOpen(true);
+
+                  return;
+                }
+                toast.danger(toAppError(error).message);
+              },
+            },
+          )
+        }
+      >
+        <PlugIcon {...ICON} />
+        {compact ? null : "Connect wallet"}
+      </Button>
+    );
   const disconnectButton = (
     <RailTooltip label="Disconnect wallet" shown={compact}>
       <Button

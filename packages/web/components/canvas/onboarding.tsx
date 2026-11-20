@@ -1,139 +1,121 @@
 "use client";
 
-// First-run tour on a live chain, on the wallet's own canvas. Steps tick from chain state (lib/canvas/onboarding.ts),
-// never from clicks. A canvas step flies the canvas to its node; a Deposit step opens the Deposit popover in the
-// sidebar. The tour hides itself once every step is done, or when the wallet skips it.
+// First-run tour on a live chain, on the wallet's own canvas: one popover pointing at the control the next step
+// needs (Deposit, the Account's Create button, the palette's Counterparty), with that control lit and pinged and
+// the rest of the page dimmed. Steps tick from chain state
+// (lib/canvas/onboarding.ts), never from clicks. The tour hides itself once every step is done, or when the
+// wallet skips it.
 
 import type { Address } from "viem";
 import type { ZalNetwork } from "@/config/chains";
-import type { OnboardingStep, OnboardingTrack } from "@/lib/canvas/onboarding";
+import type {
+  OnboardingAnchor,
+  OnboardingTrack,
+} from "@/lib/canvas/onboarding";
 import type { CanvasState } from "@/lib/canvas/types";
 
-import { Button, Card, Chip, CloseButton, ProgressBar } from "@heroui/react";
-import { CheckCircleIcon, ClockCircleIcon } from "@solar-icons/react/linear";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Chip, CloseButton, Popover, ProgressBar } from "@heroui/react";
+import { useOnViewportChange } from "@xyflow/react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Spotlight } from "@/components/ui/spotlight";
 import { useNativeBalance } from "@/hooks/contracts/gas";
-import { setDepositOpen } from "@/hooks/use-deposit-open";
+import { useDepositOpen } from "@/hooks/use-deposit-open";
 import { useOnboardingSkipped } from "@/hooks/use-onboarding-skipped";
 import { onboardingTrack } from "@/lib/canvas/onboarding";
 
-const ICON = { size: 14, "aria-hidden": true } as const;
-const EASE = [0.22, 1, 0.36, 1] as const;
+const SELECTORS: Record<OnboardingAnchor, string> = {
+  deposit: '[data-tour="deposit"]',
+  "create-canvas": '[data-tour="create-canvas"]',
+  counterparty: '[data-component="counterparty"]',
+};
 
-function StepIcon({ done }: { readonly done: boolean }) {
-  const reduce = useReducedMotion();
+const PLACEMENT = {
+  deposit: "right",
+  "create-canvas": "bottom",
+  counterparty: "right",
+} as const satisfies Record<OnboardingAnchor, string>;
 
-  return (
-    <AnimatePresence initial={false} mode="wait">
-      <motion.span
-        key={done ? "done" : "open"}
-        animate={{ opacity: 1, scale: 1 }}
-        className="flex pt-0.5"
-        exit={{ opacity: 0, scale: 0.6 }}
-        initial={reduce ? false : { opacity: 0, scale: 0.6 }}
-        transition={{ duration: reduce ? 0 : 0.2, ease: EASE }}
-      >
-        {done ? (
-          <CheckCircleIcon {...ICON} className="text-success" />
-        ) : (
-          <ClockCircleIcon {...ICON} />
-        )}
-      </motion.span>
-    </AnimatePresence>
-  );
+/** How often to look for the anchor: it can mount late (a node is measured, the palette loads) or move. */
+const ANCHOR_POLL_MS = 400;
+
+const visible = (element: Element) => {
+  const box = element.getBoundingClientRect();
+
+  return box.width > 0 && box.height > 0;
+};
+
+/** The first rendered element for the anchor, or undefined while none is on the page. */
+function useAnchor(anchor: OnboardingAnchor): Element | undefined {
+  const [element, setElement] = useState<Element | undefined>(undefined);
+
+  useEffect(() => {
+    const find = () => {
+      const found = [...document.querySelectorAll(SELECTORS[anchor])].find(
+        visible,
+      );
+
+      setElement((current) => (current === found ? current : found));
+    };
+
+    find();
+    const timer = window.setInterval(find, ANCHOR_POLL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [anchor]);
+
+  return element;
 }
 
-function NextStep({
-  step,
-  onFocus,
-}: {
-  readonly step: OnboardingStep;
-  readonly onFocus: (id: string) => void;
-}) {
-  const reduce = useReducedMotion();
-  const action =
-    step.target === "deposit" ? (
-      <Button size="sm" variant="primary" onPress={() => setDepositOpen(true)}>
-        Open Deposit
-      </Button>
-    ) : step.focus === undefined ? null : (
-      <Button
-        size="sm"
-        variant="secondary"
-        onPress={() => step.focus !== undefined && onFocus(step.focus)}
-      >
-        Show me
-      </Button>
-    );
-
-  return (
-    <AnimatePresence initial={false} mode="wait">
-      <motion.div
-        key={step.title}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex flex-col gap-2 rounded-lg bg-surface-secondary p-2"
-        exit={{ opacity: 0, x: -12 }}
-        initial={reduce ? false : { opacity: 0, x: 12 }}
-        transition={{ duration: reduce ? 0 : 0.25, ease: EASE }}
-      >
-        <span className="text-xs font-semibold">{step.title}</span>
-        <span className="text-xs text-muted">{step.hint}</span>
-        {action}
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-function Tour({
+function Step({
   track,
-  onFocus,
+  anchor,
+  isOpen,
   onSkip,
 }: {
   readonly track: OnboardingTrack;
-  readonly onFocus: (id: string) => void;
+  readonly anchor: Element;
+  readonly isOpen: boolean;
   readonly onSkip: () => void;
 }) {
+  const triggerRef = useMemo(() => ({ current: anchor }), [anchor]);
   const { next } = track;
 
+  if (next === undefined) return null;
+
   return (
-    <Card className="w-full gap-2 border border-accent/40 bg-surface/65 p-3 backdrop-blur-xl">
-      <Card.Header className="flex flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Card.Title className="text-sm">Get started</Card.Title>
-          <Chip color="accent" size="sm" variant="soft">
-            {track.done}/{track.steps.length}
-          </Chip>
+    <Popover isOpen={isOpen}>
+      <Popover.Content
+        isNonModal
+        aria-label="Get started"
+        className="w-64"
+        placement={PLACEMENT[next.anchor]}
+        triggerRef={triggerRef}
+      >
+        <Popover.Arrow />
+        <div className="flex flex-col gap-2 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Chip color="accent" size="sm" variant="soft">
+                {track.done + 1}/{track.steps.length}
+              </Chip>
+              <span className="text-sm font-semibold">{next.title}</span>
+            </div>
+            <CloseButton aria-label="Skip the tour" onPress={onSkip} />
+          </div>
+          <ProgressBar
+            aria-label="Steps done"
+            maxValue={track.steps.length}
+            size="sm"
+            value={track.done}
+          >
+            <ProgressBar.Track>
+              <ProgressBar.Fill />
+            </ProgressBar.Track>
+          </ProgressBar>
         </div>
-        <CloseButton aria-label="Skip the tour" onPress={onSkip} />
-      </Card.Header>
-      <Card.Content className="flex flex-col gap-2">
-        <ProgressBar
-          aria-label="Steps done"
-          maxValue={track.steps.length}
-          size="sm"
-          value={track.done}
-        >
-          <ProgressBar.Track>
-            <ProgressBar.Fill />
-          </ProgressBar.Track>
-        </ProgressBar>
-        <ol className="flex flex-col gap-1">
-          {track.steps.map((step, index) => (
-            <li
-              key={step.title}
-              className={`flex items-start gap-2 text-xs ${step.done ? "text-muted" : ""}`}
-            >
-              <StepIcon done={step.done} />
-              <span className={step === next ? "font-semibold" : ""}>
-                {index + 1}. {step.title}
-              </span>
-            </li>
-          ))}
-        </ol>
-        {next === undefined ? null : <NextStep step={next} onFocus={onFocus} />}
-      </Card.Content>
-    </Card>
+      </Popover.Content>
+    </Popover>
   );
 }
 
@@ -142,14 +124,11 @@ export function Onboarding({
   network,
   wallet,
   state,
-  onFocus,
 }: {
   readonly network: ZalNetwork;
   readonly wallet: Address;
   readonly state: CanvasState;
-  readonly onFocus: (id: string) => void;
 }) {
-  const reduce = useReducedMotion();
   // Poll until the wallet holds gas: it can arrive from outside the app, where nothing invalidates the read.
   const gas = useNativeBalance({
     payload: { network, holder: wallet },
@@ -159,22 +138,25 @@ export function Onboarding({
     },
   });
   const [skipped, skip] = useOnboardingSkipped(wallet);
+  const [depositOpen] = useDepositOpen();
+  // A popover does not follow its anchor through a pan or zoom, so it hides while the viewport moves.
+  const [moving, setMoving] = useState(false);
+
+  useOnViewportChange({
+    onStart: () => setMoving(true),
+    onEnd: () => setMoving(false),
+  });
+
   const track = onboardingTrack(state, gas.data);
-  const shown = !skipped && track.next !== undefined;
+  const anchor = useAnchor(track.next?.anchor ?? "deposit");
+
+  if (skipped || track.next === undefined || anchor === undefined) return null;
+  const shown = !moving && !depositOpen;
 
   return (
-    <AnimatePresence>
-      {shown ? (
-        <motion.div
-          key="onboarding"
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          initial={reduce ? false : { opacity: 0, y: 8 }}
-          transition={{ duration: reduce ? 0 : 0.3, ease: EASE }}
-        >
-          <Tour track={track} onFocus={onFocus} onSkip={skip} />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <>
+      <Spotlight shown={shown} target={anchor} />
+      <Step anchor={anchor} isOpen={shown} track={track} onSkip={skip} />
+    </>
   );
 }

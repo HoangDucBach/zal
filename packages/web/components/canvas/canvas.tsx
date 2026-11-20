@@ -1313,7 +1313,6 @@ function CanvasFlow() {
                         network={network}
                         state={canvas.data}
                         wallet={wallet}
-                        onFocus={open}
                       />
                     ) : null}
                     {sandbox ? (

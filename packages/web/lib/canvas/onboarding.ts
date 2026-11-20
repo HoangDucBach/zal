@@ -4,20 +4,13 @@
 
 import type { CanvasState } from "./types";
 
-import { nodeId } from "./graph";
-
-/** Where a step's action lives outside the canvas. */
-export type OnboardingTarget = "deposit";
+/** The control a step points at: the Deposit entry, the Account's Create button, the palette's Counterparty. */
+export type OnboardingAnchor = "deposit" | "create-canvas" | "counterparty";
 
 export interface OnboardingStep {
   readonly title: string;
   readonly done: boolean;
-  /** What to do for this step, shown while it is the next one. */
-  readonly hint: string;
-  /** The node the step is about; the canvas flies there. */
-  readonly focus?: string;
-  /** The shell control the step needs, opened instead of flying the canvas. */
-  readonly target?: OnboardingTarget;
+  readonly anchor: OnboardingAnchor;
 }
 
 export interface OnboardingTrack {
@@ -50,26 +43,22 @@ export function onboardingTrack(
     {
       title: "Get gas",
       done: hasGas,
-      hint: "Deposit → Get gas · pays for every transaction",
-      target: "deposit",
+      anchor: "deposit",
     },
     {
       title: "Create your canvas",
       done: hasCanvas,
-      hint: "Account → Create canvas · one transaction",
-      focus: nodeId.account,
+      anchor: "create-canvas",
     },
     {
       title: "Mint zUSDC",
       done: hasUsdc,
-      hint: "Deposit → Mint 1,000 zUSDC",
-      target: "deposit",
+      anchor: "deposit",
     },
     {
       title: "Add your first counterparty",
       done: hasCounterparty,
-      hint: "Account → Counterparty · by address or invite link",
-      focus: nodeId.account,
+      anchor: "counterparty",
     },
   ];
 

@@ -144,6 +144,7 @@ export function DepositButton({
       <Button
         aria-label="Deposit"
         className="justify-start"
+        data-tour="deposit"
         isIconOnly={compact}
         size="sm"
         variant="ghost"

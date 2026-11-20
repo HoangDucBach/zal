@@ -386,7 +386,12 @@ function AccountNode({ id, data, selected }: Props<"account">) {
                 network={network}
               />
             ) : (
-              <Button className="nodrag" size="sm" onPress={create}>
+              <Button
+                className="nodrag"
+                data-tour="create-canvas"
+                size="sm"
+                onPress={create}
+              >
                 Create canvas
               </Button>
             )}
