@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { panelLayout } from "./panel-layout";
+import { fitPadding, panelLayout } from "./panel-layout";
 
 describe("panelLayout", () => {
   test("lays out wide before the canvas is measured", () => {
@@ -35,5 +35,27 @@ describe("panelLayout", () => {
 
   test("a short but wide canvas keeps the small minimap", () => {
     expect(panelLayout(1600, 800).minimap).toBe("small");
+  });
+});
+
+describe("fitPadding", () => {
+  test("a large canvas keeps the panels' full footprint", () => {
+    expect(fitPadding(1680, 1080, false)).toEqual({
+      top: 60,
+      right: 350,
+      bottom: 170,
+      left: 250,
+    });
+  });
+
+  test("a narrow canvas leaves the nodes at least half its width", () => {
+    const padding = fitPadding(700, 900, false);
+
+    expect(padding.left + padding.right).toBe(350);
+    expect(padding.right).toBeGreaterThan(padding.left);
+  });
+
+  test("a child canvas makes room for the breadcrumb bar", () => {
+    expect(fitPadding(1680, 1080, true).top).toBe(110);
   });
 });

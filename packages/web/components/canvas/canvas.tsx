@@ -109,7 +109,7 @@ import {
   type ViewNodeData,
 } from "@/lib/canvas/layout";
 import { canWriteLayout } from "@/lib/canvas/layout-access";
-import { panelLayout } from "@/lib/canvas/panel-layout";
+import { fitPadding, panelLayout } from "@/lib/canvas/panel-layout";
 import {
   CATALOGUE,
   canConnect,
@@ -120,16 +120,6 @@ import {
 } from "@/lib/canvas/palette";
 
 type FlowNode = Node<ViewNodeData>;
-
-/** Room for the floating panels: the palette, the right column, and the tool bar with the Timeline. */
-const FIT_PADDING = {
-  top: "60px",
-  right: "350px",
-  bottom: "170px",
-  left: "250px",
-} as const;
-/** Inside a child canvas the breadcrumb bar sits above the clock. */
-const FIT_PADDING_CHILD = { ...FIT_PADDING, top: "110px" } as const;
 
 const SCOPE_NAMES: Record<CanvasNodeData["kind"], string> = {
   account: "Account",
@@ -303,7 +293,17 @@ function CanvasFlow() {
   >(undefined);
   const focused = useRef<string | undefined>(undefined);
   const pendingFly = useRef<string | undefined>(undefined);
-  const padding = level === ROOT ? FIT_PADDING : FIT_PADDING_CHILD;
+  // Room for the floating panels, scaled down on a narrow canvas so a fit never zooms the nodes to dust.
+  const padding = useMemo(() => {
+    const px = fitPadding(area.width, area.height, level !== ROOT);
+
+    return {
+      top: `${px.top}px`,
+      right: `${px.right}px`,
+      bottom: `${px.bottom}px`,
+      left: `${px.left}px`,
+    } as const;
+  }, [area.width, area.height, level]);
 
   useEffect(() => {
     if (graph !== undefined)
