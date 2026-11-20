@@ -50,6 +50,7 @@ import { DraftPanel } from "./draft-panel";
 import { type FlowEdge, edgeTypes } from "./edges";
 import { GatePanel } from "./gate-panel";
 import { GuidedDemo } from "./guided-demo";
+import { Onboarding } from "./onboarding";
 import { Inbox } from "./inbox";
 import { Inspector, type InspectorSubject } from "./inspector";
 import { LiveBar } from "./live-bar";
@@ -1305,6 +1306,16 @@ function CanvasFlow() {
                         }}
                       />
                     )}
+                    {!sandbox &&
+                    wallet !== undefined &&
+                    selectedCanvas === undefined ? (
+                      <Onboarding
+                        network={network}
+                        state={canvas.data}
+                        wallet={wallet}
+                        onFocus={open}
+                      />
+                    ) : null}
                     {sandbox ? (
                       <GuidedDemo
                         buyer={buyerAndLpDemo(canvas.data)}

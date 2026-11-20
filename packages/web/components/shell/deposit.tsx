@@ -21,6 +21,7 @@ import {
 } from "@/hooks/contracts/gas";
 import { useMintTestUsdc } from "@/hooks/contracts/usdc";
 import { useCanvasView } from "@/hooks/use-canvas-view";
+import { useDepositOpen } from "@/hooks/use-deposit-open";
 
 const FAUCET_AMOUNT = 1_000_000_000n;
 
@@ -121,6 +122,8 @@ export function DepositButton({
     network,
     options: feedback("Minted 1,000 zUSDC"),
   });
+  // Controlled, so the onboarding tour on the canvas can open it.
+  const [open, setOpen] = useDepositOpen();
   const state = canvas.data;
 
   if (network === undefined || state === undefined) return null;
@@ -137,7 +140,7 @@ export function DepositButton({
   );
 
   return (
-    <Popover>
+    <Popover isOpen={open} onOpenChange={setOpen}>
       <Button
         aria-label="Deposit"
         className="justify-start"
